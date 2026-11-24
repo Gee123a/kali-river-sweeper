@@ -31,6 +31,8 @@ namespace KaliRiverSweeper.Core
         public int totalScooped;
         public int recycledKg;
         public int flushedKg;
+        public int medicalWasteSecured;
+        public int infectionIncidents;
 
         [Header("River & Flood State")]
         [Range(0f, 1f)] public float waterClarity = 0.12f;
@@ -98,6 +100,28 @@ namespace KaliRiverSweeper.Core
             waterClarity = Mathf.Clamp01(waterClarity + 0.015f * amount);
             NotifyState();
             return true;
+        }
+
+        // Trade-off 1: Easy PET Plastic Recycling vs Critical Medical Biohazard Disposal
+        public bool SecureMedicalWaste(bool usingSnakeGrabber)
+        {
+            if (usingSnakeGrabber)
+            {
+                medicalWasteSecured++;
+                rupiah += 15000; // Hazard pay bounty from Puskesmas
+                communityTrust = Mathf.Min(100, communityTrust + 12);
+                waterClarity = Mathf.Clamp01(waterClarity + 0.05f);
+                NotifyState();
+                return true;
+            }
+            else
+            {
+                // Unsafe retrieval: needle stick / pathogen exposure
+                infectionIncidents++;
+                communityTrust = Mathf.Max(0, communityTrust - 15);
+                NotifyState();
+                return false;
+            }
         }
 
         // Choice A (Fast Burn Pit vs Bank Sampah Sorting)
