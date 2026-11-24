@@ -32,3 +32,8 @@ unity/UserSettings/
 *.mdb
 *.opendb
 *.VC.db
+
+# Local pitch tools and concept renders
+tools/
+docs/*.jpg
+docs/kali_river_tools_progression_showcase.png
