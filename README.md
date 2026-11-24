@@ -38,9 +38,9 @@ kali-river-sweeper/
 
 ## 👥 Team & Responsibilities
 * **Stevanus Ivan Santoso (0706012410029)** — **Game Logic & Core Lead**: FP Walk/Boat controller, buoyancy & current splines, scoop/dredge mechanics, 3-Choice state machine, Bank Sampah economy, Flood Gauge (`Siaga 4 -> 1`), Map JSON loader, and Git integration.
-* **Jason Christopher (JC)** — **Props, 3D & Lighting Lead**: Custom Blender Indonesian trash props (*Sandal Swallow*, *Aqua*, *Pop Mie*, *Kresek*, *Kasur Kapuk*, *Eceng Gondok*, *Pohon Pisang*, Kampung Bins), Golden Hour & Monsoon lighting, Warung lanterns, and Post-Processing.
+* **Jason Christopher (JC)** — **Props, 3D, Rigging & Lighting Lead**: Custom Blender Indonesian trash props (*Sandal Swallow*, *Aqua*, *Pop Mie*, *Kresek*, *Kasur Kapuk*, *Eceng Gondok*, *Pohon Pisang*, Kampung Bins), `SK_ExcavatorAmfibi` 3-joint IK rig, Golden Hour & Monsoon lighting, Warung lanterns, and Post-Processing.
 * **Wesley Goeinawan (0706012410011)** — **3D Environment & Water Lead**: Custom Blender architecture (*Rumah Panggung*, *Warung*, *Bank Sampah*, *Toko Alat*, *Pos Sortir*, *Jembatan Utama*, *Pintu Air*, 3-tier *Gunung Sampah*), curved river valley mesh, PBR UVs, and `SG_KaliWater` Shader Graph.
-* **Nicholas Gerwin Mawardji (Niki) (0706012410015)** — **Rigging, VFX & UI Lead**: Excavator 3-joint IK rig & tool swings, Villager NPC animations, rain/splash/methane VFX, HUD, Upgrade Shop, NPC dialogue, SFX, and End-Run SDG Impact Screen.
+* **Nicholas Gerwin Mawardji (Niki) (0706012410015)** — **VFX, UI & Audio/Narrative Lead**: Rain/splash/methane VFX, trash avalanche particles, HUD Canvas, Bank Sampah Upgrade Shop, NPC dialogue, SFX, and End-Run SDG Impact Screen.
 
 ---
 
