@@ -1,0 +1,908 @@
+{
+  "preset": "purpose",
+  "worldW": 1040,
+  "worldH": 1440,
+  "river": {
+    "centerX": 520,
+    "width": 180,
+    "clarity": 12,
+    "curved": true
+  },
+  "items": [
+    {
+      "id": "item_1",
+      "type": "sluice_gate",
+      "name": "Pintu Air Siaga 1",
+      "x": 520,
+      "y": 48,
+      "w": 360,
+      "h": 42,
+      "elev": 52,
+      "rot": 0,
+      "color": "#94a3b8",
+      "note": "Northern concrete sluice dam anchoring retention basin"
+    },
+    {
+      "id": "item_2",
+      "type": "gunung_node",
+      "name": "Gunung Sampah Barat",
+      "x": 295,
+      "y": 165,
+      "w": 250,
+      "h": 145,
+      "elev": 76,
+      "rot": 0,
+      "color": "#785a3d",
+      "note": "West terraced trash flank blocking basin spillway"
+    },
+    {
+      "id": "item_3",
+      "type": "gunung_node",
+      "name": "Puncak Gunung Sampah",
+      "x": 525,
+      "y": 150,
+      "w": 320,
+      "h": 175,
+      "elev": 112,
+      "rot": 0,
+      "color": "#785a3d",
+      "note": "3-tier mega-peak jammed against Pintu Air Siaga 1"
+    },
+    {
+      "id": "item_4",
+      "type": "gunung_node",
+      "name": "Gunung Sampah Timur",
+      "x": 755,
+      "y": 170,
+      "w": 240,
+      "h": 140,
+      "elev": 72,
+      "rot": 0,
+      "color": "#785a3d",
+      "note": "East terraced trash flank & compacted plastics"
+    },
+    {
+      "id": "item_5",
+      "type": "trash_pile",
+      "name": "Sludge Muara Barat",
+      "x": 465,
+      "y": 325,
+      "w": 116,
+      "h": 58,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Compacted basin sludge at foot of Gunung Sampah"
+    },
+    {
+      "id": "item_6",
+      "type": "trash_pile",
+      "name": "Overflow Muara Timur",
+      "x": 615,
+      "y": 345,
+      "w": 104,
+      "h": 54,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Overflow plastic raft drifting into basin vortex"
+    },
+    {
+      "id": "item_7",
+      "type": "trash_pile",
+      "name": "Sampah Basin Hilir",
+      "x": 555,
+      "y": 395,
+      "w": 112,
+      "h": 54,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Dense bottleneck raft feeding southward toward Act 2"
+    },
+    {
+      "id": "item_8",
+      "type": "excavator",
+      "name": "Landasan Ekskavator",
+      "x": 255,
+      "y": 345,
+      "w": 66,
+      "h": 48,
+      "elev": 34,
+      "rot": -32,
+      "color": "#eab308",
+      "note": "Heavy dredge deployed on West concrete ramp aimed at mountain base"
+    },
+    {
+      "id": "item_9",
+      "type": "interceptor",
+      "name": "Solar Interceptor",
+      "x": 775,
+      "y": 355,
+      "w": 88,
+      "h": 54,
+      "elev": 24,
+      "rot": 0,
+      "color": "#0ea5e9",
+      "note": "Autonomous solar conveyor boat stationed on East basin dock"
+    },
+    {
+      "id": "item_10",
+      "type": "pohon",
+      "name": "Pohon Muara Barat",
+      "x": 115,
+      "y": 330,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_11",
+      "type": "pohon",
+      "name": "Pohon Muara Timur",
+      "x": 925,
+      "y": 315,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_12",
+      "type": "jembatan",
+      "name": "Jembatan Utama",
+      "x": 551,
+      "y": 740,
+      "w": 230,
+      "h": 64,
+      "elev": 18,
+      "rot": 0,
+      "color": "#8b95a5",
+      "note": "Visual threshold & river choke point dividing Act 1 & Act 2"
+    },
+    {
+      "id": "item_13",
+      "type": "trash_boom",
+      "name": "Trash Boom Timur",
+      "x": 573,
+      "y": 575,
+      "w": 195,
+      "h": 16,
+      "elev": 8,
+      "rot": 22,
+      "color": "#f97316",
+      "note": "Angled barrier funneling mid-river debris into Pos Sortir"
+    },
+    {
+      "id": "item_14",
+      "type": "dermaga",
+      "name": "Dermaga Sortir",
+      "x": 645,
+      "y": 615,
+      "w": 64,
+      "h": 38,
+      "elev": 10,
+      "rot": 0,
+      "color": "#a17a54",
+      "note": "Mid-river offload pier saving players from paddling all the way south"
+    },
+    {
+      "id": "item_15",
+      "type": "sorting_yard",
+      "name": "Pos Sortir & Baling",
+      "x": 735,
+      "y": 615,
+      "w": 96,
+      "h": 68,
+      "elev": 26,
+      "rot": 0,
+      "color": "#14b8a6",
+      "note": "Automation & baling yard for high-volume harvests"
+    },
+    {
+      "id": "item_16",
+      "type": "trash_pile",
+      "name": "Sampah Bendung Boom",
+      "x": 535,
+      "y": 515,
+      "w": 92,
+      "h": 52,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Upstream debris funneling along Trash Boom"
+    },
+    {
+      "id": "item_17",
+      "type": "trash_pile",
+      "name": "Sampah Hulu Jembatan",
+      "x": 545,
+      "y": 632,
+      "w": 86,
+      "h": 52,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Swirling eddy pile jammed upstream of bridge pillars"
+    },
+    {
+      "id": "item_18",
+      "type": "trash_pile",
+      "name": "Sampah Hilir Jembatan",
+      "x": 525,
+      "y": 820,
+      "w": 88,
+      "h": 52,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Eddy debris pocket right downstream of Jembatan Utama"
+    },
+    {
+      "id": "item_19",
+      "type": "rumah",
+      "name": "Rumah Kota Barat 1",
+      "x": 118,
+      "y": 540,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_20",
+      "type": "warung",
+      "name": "Kios Kopi Jembatan",
+      "x": 225,
+      "y": 620,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_21",
+      "type": "rumah",
+      "name": "Rumah Kota Barat 2",
+      "x": 118,
+      "y": 705,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_22",
+      "type": "warung",
+      "name": "Warung Tepi Jembatan",
+      "x": 222,
+      "y": 815,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_23",
+      "type": "rumah",
+      "name": "Rumah Kota Barat 3",
+      "x": 118,
+      "y": 890,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_24",
+      "type": "pohon",
+      "name": "Pohon Kota Barat 1",
+      "x": 320,
+      "y": 605,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_25",
+      "type": "pohon",
+      "name": "Pohon Kota Barat 2",
+      "x": 335,
+      "y": 875,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_26",
+      "type": "rumah",
+      "name": "Rumah Kota Timur 1",
+      "x": 845,
+      "y": 515,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_27",
+      "type": "warung",
+      "name": "Gudang Pengepul",
+      "x": 928,
+      "y": 615,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_28",
+      "type": "rumah",
+      "name": "Rumah Kota Timur 2",
+      "x": 845,
+      "y": 745,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_29",
+      "type": "warung",
+      "name": "Warung Sate Timur",
+      "x": 920,
+      "y": 855,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_30",
+      "type": "pohon",
+      "name": "Pohon Kota Timur 1",
+      "x": 745,
+      "y": 815,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_31",
+      "type": "pohon",
+      "name": "Pohon Kota Timur 2",
+      "x": 940,
+      "y": 500,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_32",
+      "type": "spawn",
+      "name": "Player Spawn",
+      "x": 310,
+      "y": 1210,
+      "w": 38,
+      "h": 38,
+      "elev": 12,
+      "rot": 0,
+      "color": "#38bdf8",
+      "note": "West Bank Plaza facing North — clear sightline straight to Gunung Sampah"
+    },
+    {
+      "id": "item_33",
+      "type": "dermaga",
+      "name": "Dermaga Awal",
+      "x": 378,
+      "y": 1210,
+      "w": 72,
+      "h": 36,
+      "elev": 10,
+      "rot": 0,
+      "color": "#a17a54",
+      "note": "Starter raft & scoop net dock jutting into calm southern bay"
+    },
+    {
+      "id": "item_34",
+      "type": "trash_pile",
+      "name": "Sampah Tutorial 1",
+      "x": 475,
+      "y": 1190,
+      "w": 74,
+      "h": 52,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Effortless first 10 seconds of scooping off the dock"
+    },
+    {
+      "id": "item_35",
+      "type": "trash_pile",
+      "name": "Sampah Tutorial 2",
+      "x": 525,
+      "y": 1295,
+      "w": 68,
+      "h": 48,
+      "elev": 12,
+      "rot": 0,
+      "color": "#8f7254",
+      "note": "Calm bay pocket for immediate follow-up scoop"
+    },
+    {
+      "id": "item_36",
+      "type": "bank_sampah",
+      "name": "Bank Sampah Berkah",
+      "x": 195,
+      "y": 1185,
+      "w": 84,
+      "h": 60,
+      "elev": 42,
+      "rot": 0,
+      "color": "#22c55e",
+      "note": "Immediate Scoop -> Sell loop (weigh trash & earn IDR)"
+    },
+    {
+      "id": "item_37",
+      "type": "toko_alat",
+      "name": "Toko Alat & Bengkel",
+      "x": 195,
+      "y": 1085,
+      "w": 78,
+      "h": 56,
+      "elev": 36,
+      "rot": 0,
+      "color": "#f59e0b",
+      "note": "Upgrade serokan, raft hull & motor after first IDR payout"
+    },
+    {
+      "id": "item_38",
+      "type": "rumah",
+      "name": "Rumah Pak RT",
+      "x": 92,
+      "y": 1045,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_39",
+      "type": "warung",
+      "name": "Warung Kopi Hulu",
+      "x": 92,
+      "y": 1155,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_40",
+      "type": "rumah",
+      "name": "Rumah Nelayan 1",
+      "x": 92,
+      "y": 1275,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_41",
+      "type": "rumah",
+      "name": "Rumah Nelayan 2",
+      "x": 200,
+      "y": 1305,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_42",
+      "type": "pohon",
+      "name": "Pohon Pisang Hulu 1",
+      "x": 288,
+      "y": 1030,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_43",
+      "type": "pohon",
+      "name": "Pohon Pisang Hulu 2",
+      "x": 295,
+      "y": 1320,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_44",
+      "type": "rumah",
+      "name": "Rumah Hilir Timur 1",
+      "x": 755,
+      "y": 1040,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_45",
+      "type": "warung",
+      "name": "Warung Bakso Kali",
+      "x": 870,
+      "y": 1055,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_46",
+      "type": "rumah",
+      "name": "Rumah Hilir Timur 2",
+      "x": 775,
+      "y": 1175,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_47",
+      "type": "rumah",
+      "name": "Rumah Hilir Timur 3",
+      "x": 890,
+      "y": 1200,
+      "w": 58,
+      "h": 48,
+      "elev": 36,
+      "rot": 0,
+      "color": "#c27852",
+      "note": ""
+    },
+    {
+      "id": "item_48",
+      "type": "warung",
+      "name": "Toko Kelontong Hilir",
+      "x": 765,
+      "y": 1300,
+      "w": 62,
+      "h": 50,
+      "elev": 32,
+      "rot": 0,
+      "color": "#d99b38",
+      "note": ""
+    },
+    {
+      "id": "item_49",
+      "type": "pohon",
+      "name": "Pohon Kelapa Timur 1",
+      "x": 660,
+      "y": 1105,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_50",
+      "type": "pohon",
+      "name": "Pohon Pisang Timur 2",
+      "x": 670,
+      "y": 1265,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    },
+    {
+      "id": "item_51",
+      "type": "pohon",
+      "name": "Pohon Pisang Timur 3",
+      "x": 925,
+      "y": 1315,
+      "w": 40,
+      "h": 40,
+      "elev": 44,
+      "rot": 0,
+      "color": "#3f7a4c",
+      "note": ""
+    }
+  ],
+  "zones": [
+    {
+      "id": "zone_1",
+      "name": "Zona 1: Tutorial & Bank Sampah",
+      "color": "#22c55e",
+      "note": "Act 1 Kampung Hulu loop: Spawn -> Dermaga -> Scoop -> Bank Sampah -> Toko Alat.",
+      "points": [
+        {
+          "x": 48,
+          "y": 960
+        },
+        {
+          "x": 992,
+          "y": 960
+        },
+        {
+          "x": 992,
+          "y": 1380
+        },
+        {
+          "x": 48,
+          "y": 1380
+        }
+      ]
+    },
+    {
+      "id": "zone_2",
+      "name": "Zona 2: Jembatan & Boom Automation",
+      "color": "#38bdf8",
+      "note": "Act 2 River choke point: Jembatan Utama, Trash Boom funneling & East Pos Sortir.",
+      "points": [
+        {
+          "x": 48,
+          "y": 480
+        },
+        {
+          "x": 992,
+          "y": 480
+        },
+        {
+          "x": 992,
+          "y": 940
+        },
+        {
+          "x": 48,
+          "y": 940
+        }
+      ]
+    },
+    {
+      "id": "zone_3",
+      "name": "Zona 3: Muara Gunung Sampah",
+      "color": "#f59e0b",
+      "note": "Act 3 Endgame basin: Pintu Air Siaga 1, 3-tier Gunung Sampah, Excavator & Solar Interceptor.",
+      "points": [
+        {
+          "x": 48,
+          "y": 24
+        },
+        {
+          "x": 992,
+          "y": 24
+        },
+        {
+          "x": 992,
+          "y": 460
+        },
+        {
+          "x": 48,
+          "y": 460
+        }
+      ]
+    }
+  ],
+  "footpaths": [
+    [
+      {
+        "x": 195,
+        "y": 1085
+      },
+      {
+        "x": 195,
+        "y": 1185
+      },
+      {
+        "x": 310,
+        "y": 1210
+      },
+      {
+        "x": 378,
+        "y": 1210
+      }
+    ],
+    [
+      {
+        "x": 310,
+        "y": 1210
+      },
+      {
+        "x": 318,
+        "y": 1030
+      },
+      {
+        "x": 325,
+        "y": 880
+      },
+      {
+        "x": 365,
+        "y": 760
+      },
+      {
+        "x": 445,
+        "y": 740
+      },
+      {
+        "x": 551,
+        "y": 740
+      }
+    ],
+    [
+      {
+        "x": 551,
+        "y": 740
+      },
+      {
+        "x": 660,
+        "y": 740
+      },
+      {
+        "x": 735,
+        "y": 685
+      },
+      {
+        "x": 735,
+        "y": 615
+      },
+      {
+        "x": 645,
+        "y": 615
+      }
+    ],
+    [
+      {
+        "x": 735,
+        "y": 615
+      },
+      {
+        "x": 762,
+        "y": 480
+      },
+      {
+        "x": 775,
+        "y": 355
+      }
+    ],
+    [
+      {
+        "x": 365,
+        "y": 760
+      },
+      {
+        "x": 282,
+        "y": 620
+      },
+      {
+        "x": 264,
+        "y": 480
+      },
+      {
+        "x": 255,
+        "y": 345
+      }
+    ]
+  ],
+  "flowSteps": [
+    {
+      "num": 1,
+      "label": "Spawn & Scoop",
+      "x": 405,
+      "y": 1262,
+      "cx": 300,
+      "cy": 1278
+    },
+    {
+      "num": 2,
+      "label": "Bank Sampah",
+      "x": 195,
+      "y": 1246,
+      "cx": 145,
+      "cy": 1140
+    },
+    {
+      "num": 3,
+      "label": "Toko Alat",
+      "x": 195,
+      "y": 1030,
+      "cx": 330,
+      "cy": 880
+    },
+    {
+      "num": 4,
+      "label": "Jembatan & Boom",
+      "x": 452,
+      "y": 684,
+      "cx": 625,
+      "cy": 660
+    },
+    {
+      "num": 5,
+      "label": "Pos Sortir",
+      "x": 735,
+      "y": 556,
+      "cx": 635,
+      "cy": 405
+    },
+    {
+      "num": 6,
+      "label": "Dredge Gunung",
+      "x": 392,
+      "y": 268
+    }
+  ],
+  "layers": {
+    "gunung": true,
+    "buildings": true,
+    "bridges": true,
+    "trash": true,
+    "infra": true,
+    "nature": true,
+    "zones": true,
+    "flow": true
+  }
+}

@@ -37,13 +37,16 @@ kali-river-sweeper/
 ---
 
 ## 👥 Team & Responsibilities
-* **Stevanus Ivan Santoso (0706012410029)**: Lead Graphics & Shaders (Water Cleansing Shader Graph, Buoyancy & Current Spline Physics, Lighting).
-* **Wesley Goeinawan (0706012410011)**: 3D Environment & Assets (Blender modeling: Stilt houses, sampan, authentic Indonesian trash library, PBR textures).
-* **Nicholas Gerwin Mawardji (0706012410015)**: Mechanics, IK & Animation (Excavator 3-joint IK rig, character Mecanim blend trees, Bank Sampah economy).
+* **Stevanus Ivan Santoso (0706012410029)** — **Game Logic & Core Lead**: FP Walk/Boat controller, buoyancy & current splines, scoop/dredge mechanics, 3-Choice state machine, Bank Sampah economy, Flood Gauge (`Siaga 4 -> 1`), Map JSON loader, and Git integration.
+* **Jason Christopher (JC)** — **Props, 3D & Lighting Lead**: Custom Blender Indonesian trash props (*Sandal Swallow*, *Aqua*, *Pop Mie*, *Kresek*, *Kasur Kapuk*, *Eceng Gondok*, *Pohon Pisang*, Kampung Bins), Golden Hour & Monsoon lighting, Warung lanterns, and Post-Processing.
+* **Wesley Goeinawan (0706012410011)** — **3D Environment & Water Lead**: Custom Blender architecture (*Rumah Panggung*, *Warung*, *Bank Sampah*, *Toko Alat*, *Pos Sortir*, *Jembatan Utama*, *Pintu Air*, 3-tier *Gunung Sampah*), curved river valley mesh, PBR UVs, and `SG_KaliWater` Shader Graph.
+* **Nicholas Gerwin Mawardji (Niki) (0706012410015)** — **Rigging, VFX & UI Lead**: Excavator 3-joint IK rig & tool swings, Villager NPC animations, rain/splash/methane VFX, HUD, Upgrade Shop, NPC dialogue, SFX, and End-Run SDG Impact Screen.
 
 ---
 
 ## 🔗 Key Documentation Links
+* [ALP Grade-A Production Masterplan](file:///Users/mynamegee/kali-river-sweeper/docs/ALP_MASTERPLAN.md)
+* [ALP Rubric Production Blueprint](file:///Users/mynamegee/kali-river-sweeper/docs/alp_rubric_production_blueprint.png)
 * [Product Requirements Document (PRD)](file:///Users/mynamegee/kali-river-sweeper/docs/PRD.md)
 * [Academic Proposal](file:///Users/mynamegee/kali-river-sweeper/docs/PROPOSAL.md)
 * [Game Flow Diagram](file:///Users/mynamegee/kali-river-sweeper/docs/kali_game_flow_and_architecture.png)

@@ -1,0 +1,171 @@
+#if UNITY_EDITOR
+using System;
+using System.IO;
+using UnityEditor;
+using UnityEngine;
+using KaliRiverSweeper.Core;
+using KaliRiverSweeper.Player;
+
+namespace KaliRiverSweeper.Editor
+{
+    public static class MapJsonImporter
+    {
+        private const string DefaultMapPath = "Assets/_Project/Data/kali-river-map.json";
+
+        [Serializable]
+        private class MapData
+        {
+            public MapItem[] items;
+        }
+
+        [Serializable]
+        private class MapItem
+        {
+            public string id;
+            public string type;
+            public string name;
+            public float x;
+            public float y;
+            public float w;
+            public float h;
+            public float elev;
+            public float rot;
+            public string color;
+        }
+
+        [MenuItem("KALI/Load Default Purpose-Built Map")]
+        public static void LoadDefaultMap()
+        {
+            ImportFromPath(DefaultMapPath);
+        }
+
+        [MenuItem("KALI/Import Map JSON to Scene...")]
+        public static void ImportViaDialog()
+        {
+            string path = EditorUtility.OpenFilePanel("Select KALI Map JSON", Application.dataPath, "json");
+            if (!string.IsNullOrEmpty(path)) ImportFromPath(path);
+        }
+
+        private static void ImportFromPath(string path)
+        {
+            if (!File.Exists(path))
+            {
+                Debug.LogError($"[KALI] Map JSON not found at: {path}");
+                return;
+            }
+
+            MapData data = JsonUtility.FromJson<MapData>(File.ReadAllText(path));
+            if (data == null || data.items == null)
+            {
+                Debug.LogError("[KALI] Failed to parse Map JSON.");
+                return;
+            }
+
+            GameObject existing = GameObject.Find("_KALI_World");
+            if (existing != null) UnityEngine.Object.DestroyImmediate(existing);
+
+            GameObject root = new GameObject("_KALI_World");
+            GameObject terrainGroup = CreateGroup("Terrain", root.transform);
+            GameObject buildingsGroup = CreateGroup("Buildings", root.transform);
+            GameObject trashGroup = CreateGroup("Trash", root.transform);
+            GameObject infraGroup = CreateGroup("Infrastructure", root.transform);
+            GameObject gunungGroup = CreateGroup("GunungSampah", root.transform);
+            GameObject managersGroup = CreateGroup("Managers", root.transform);
+
+            managersGroup.AddComponent<RiverGameManager>();
+            BuildGreyboxGroundAndRiver(terrainGroup.transform);
+
+            foreach (MapItem item in data.items)
+            {
+                SpawnItem(item, buildingsGroup.transform, trashGroup.transform, infraGroup.transform, gunungGroup.transform, root.transform);
+            }
+
+            Debug.Log($"[KALI] Imported {data.items.Length} objects from {path} into _KALI_World.");
+        }
+
+        private static void BuildGreyboxGroundAndRiver(Transform parent)
+        {
+            GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ground.name = "Ground_Daratan";
+            ground.transform.SetParent(parent);
+            ground.transform.position = new Vector3(0f, -0.5f, 0f);
+            ground.transform.localScale = new Vector3(RiverMath.WorldW * RiverMath.MapScale, 1f, RiverMath.WorldH * RiverMath.MapScale);
+            ApplyTint(ground, new Color(0.24f, 0.31f, 0.22f));
+
+            GameObject river = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            river.name = "River_WaterSurface";
+            river.transform.SetParent(parent);
+            river.transform.position = new Vector3(0f, 0.05f, -5f);
+            river.transform.localScale = new Vector3(2.4f, 1f, 16f);
+            ApplyTint(river, new Color(0.24f, 0.20f, 0.14f));
+        }
+
+        private static void SpawnItem(MapItem item, Transform buildings, Transform trash, Transform infra, Transform gunung, Transform root)
+        {
+            if (item.type == "spawn")
+            {
+                GameObject player = new GameObject("Player_Rig");
+                player.transform.SetParent(root);
+                player.transform.position = RiverMath.ToWorld3D(item.x, item.y, 1.0f);
+                player.transform.rotation = Quaternion.Euler(0f, 180f, 0f); // Look North (-Z) toward Gunung Sampah
+                CharacterController cc = player.AddComponent<CharacterController>();
+                cc.height = 1.8f;
+                cc.radius = 0.4f;
+                player.AddComponent<KaliPlayerController>();
+
+                Camera mainCam = Camera.main;
+                if (mainCam == null)
+                {
+                    GameObject camGo = new GameObject("Main Camera");
+                    camGo.tag = "MainCamera";
+                    mainCam = camGo.AddComponent<Camera>();
+                }
+                mainCam.transform.SetParent(player.transform);
+                mainCam.transform.localPosition = new Vector3(0f, 0.7f, 0f);
+                mainCam.transform.localRotation = Quaternion.identity;
+                return;
+            }
+
+            PrimitiveType prim = item.type == "pohon" || item.type == "trash_pile" ? PrimitiveType.Cylinder : PrimitiveType.Cube;
+            GameObject go = GameObject.CreatePrimitive(prim);
+            go.name = item.name;
+
+            float sx = Mathf.Max(1.5f, item.w * RiverMath.MapScale);
+            float sz = Mathf.Max(1.5f, item.h * RiverMath.MapScale);
+            float sy = Mathf.Max(0.8f, item.elev * RiverMath.MapScale);
+
+            Transform targetParent = item.type switch
+            {
+                "trash_pile" => trash,
+                "gunung_node" => gunung,
+                "dermaga" or "trash_boom" or "excavator" or "interceptor" or "sorting_yard" => infra,
+                _ => buildings
+            };
+
+            go.transform.SetParent(targetParent);
+            go.transform.position = RiverMath.ToWorld3D(item.x, item.y, sy * 0.5f);
+            go.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
+            go.transform.localScale = new Vector3(sx, sy, sz);
+
+            if (ColorUtility.TryParseHtmlString(item.color, out Color parsed)) ApplyTint(go, parsed);
+            if (item.type == "trash_pile") go.AddComponent<RiverFlowBuoyancy>();
+        }
+
+        private static GameObject CreateGroup(string name, Transform parent)
+        {
+            GameObject g = new GameObject(name);
+            g.transform.SetParent(parent);
+            return g;
+        }
+
+        private static void ApplyTint(GameObject go, Color col)
+        {
+            Renderer r = go.GetComponent<Renderer>();
+            if (r == null) return;
+            Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Material mat = new Material(sh) { color = col };
+            r.sharedMaterial = mat;
+        }
+    }
+}
+#endif

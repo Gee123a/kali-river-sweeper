@@ -1,9 +1,34 @@
 .DS_Store
+Thumbs.db
 *.tmp
+*.blend1
+
+# Unity generated folders (root & unity/ subfolder)
 Build/
+Builds/
 Library/
 Temp/
 Obj/
 Logs/
 MemoryCaptures/
 UserSettings/
+unity/Build/
+unity/Builds/
+unity/Library/
+unity/Temp/
+unity/Obj/
+unity/Logs/
+unity/MemoryCaptures/
+unity/UserSettings/
+
+# IDE & build artifacts
+*.csproj
+*.sln
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
