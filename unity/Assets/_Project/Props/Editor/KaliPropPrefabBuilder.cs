@@ -185,6 +185,8 @@ namespace Kali.Props.EditorTools
             if (pointFilter)
             {
                 importer.filterMode = FilterMode.Point;
+                // Atlas swatch colours must not bleed into far mip levels.
+                importer.mipmapEnabled = false;
             }
 
             importer.SaveAndReimport();
@@ -287,29 +289,27 @@ namespace Kali.Props.EditorTools
 
             try
             {
-                MeshFilter mf = root.GetComponentInChildren<MeshFilter>(true);
-                if (mf == null || mf.sharedMesh == null)
+                ApplyMaterial(root, mat);
+
+                Bounds localBounds;
+                if (!TryGetLocalBounds(root, out localBounds))
                 {
-                    Debug.LogError(LogPrefix + "No MeshFilter/mesh found in " + entry.AssetPath);
+                    Debug.LogError(LogPrefix + "No mesh bounds found in " + entry.AssetPath);
                     return false;
                 }
 
-                if (mf.gameObject != root)
-                {
-                    Debug.LogWarning(LogPrefix + entry.AssetPath + ": mesh is on child '" + mf.gameObject.name
-                                     + "', the MeshCollider is put on the root and uses its mesh.");
-                }
+                // Convex MeshCollider would exceed PhysX's 255-polygon convex limit for these props.
+                BoxCollider box = root.AddComponent<BoxCollider>();
+                box.isTrigger = false;
+                box.center = localBounds.center;
+                box.size = localBounds.size;
 
-                ApplyMaterial(root, mat);
-
-                MeshCollider mc = root.AddComponent<MeshCollider>();
-                mc.convex = true;
-                mc.sharedMesh = mf.sharedMesh;
-
+                // Kinematic: RiverFlowBuoyancy drives transform.position in Update().
                 Rigidbody rb = root.AddComponent<Rigidbody>();
                 rb.mass = TrashMass;
                 rb.drag = TrashDrag;
                 rb.angularDrag = TrashAngularDrag;
+                rb.isKinematic = true;
 
                 if (buoyancyType != null)
                 {
