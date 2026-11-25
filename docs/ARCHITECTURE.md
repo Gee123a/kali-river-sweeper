@@ -95,14 +95,20 @@ Menu item **`KALI > Load Default Purpose-Built Map`** parses all **51 nodes** in
 
 ## 4. Hero IK & Hydraulic Rigging Spec (`SK_ExcavatorAmfibi` — `JC`)
 
-1. **Bone Hierarchy**:
-   - `B_Root_Hull` (Pontoon hull + `B_Spud_Leg_FL/FR/BL/BR` lowering `-3.5m` in Z)
+1. **Bone Hierarchy & Coordinate Alignment**:
+   - Blender orientation: Excavator faces **`-Y`** (Front), Left = **`+X`**, Up = **`+Z`**. Ensure the Unity Prefab forward aligns with **`+Z` (blue arrow)** on the root hull.
+   - `B_Root_Hull` (Pontoon hull + `B_Spud_Leg_FL/FR/BL/BR` lowering `0 to -3.5m` in Z)
    - $\rightarrow$ `B_Turret_Slew` (360° Z rotation) $\rightarrow$ `B_Arm_Boom` (`4.2m`) $\rightarrow$ `B_Arm_Stick` (`2.8m`) $\rightarrow$ `B_Tool_Bucket` (`1.4m` dredge scoop + clamp)
-   - Controllers (Deform UNCHECKED): `CTRL_IK_Bucket`, `POLE_Elbow_Target`.
-2. **IK Solver**: Pose Mode on `B_Arm_Stick` $\rightarrow$ `Inverse Kinematics` constraint $\rightarrow$ Target `CTRL_IK_Bucket`, Pole `POLE_Elbow_Target`, **`Chain Length = 2`** (Boom + Stick only).
-3. **Zero-Clipping Hydraulic Pistons**: Mutual **`Damped Track` (`+Y`)** pair (`Cylinder` parented to Turret tracking `Ram`; `Ram` parented to Boom tracking `Cylinder`) so chrome rods telescope smoothly with zero keyframing.
+   - Hydraulic cylinder parents: `B_Piston_Boom_Base_L/R` under `B_Turret_Slew`; `B_Piston_Stick_Base` under `B_Arm_Boom`; **`B_Piston_Bucket_Base` under `B_Arm_Stick`** (matching physical stick-mounted actuator geometry).
+   - Controllers (Deform UNCHECKED): **`CTRL_IK_Bucket` anchored at wrist hinge** (`B_Tool_Bucket` head / `B_Arm_Stick` tail) + `POLE_Elbow_Target`.
+2. **IK Solver & Rotation Control**:
+   - Pose Mode on `B_Arm_Stick` $\rightarrow$ `Inverse Kinematics` constraint $\rightarrow$ Target `CTRL_IK_Bucket`, Pole `POLE_Elbow_Target`, **`Chain Length = 2`** (Boom + Stick only).
+   - Add `Copy Rotation` on `B_Tool_Bucket` targeting `CTRL_IK_Bucket` so one wrist controller handles reach + scoop curl.
+   - Note: Blender's IK solver with a Pole Target overrides `Limit Rotation` constraints; keep `CTRL_IK_Bucket` keyframes within ergonomic reach (Boom `-15°..75°`, Stick `-110°..+10°`) when animating.
+3. **Zero-Clipping Hydraulic Pistons**: Mutual **`Damped Track` (`+Y`)** pairs (`Base` $\leftrightarrow$ `Rod`) for Boom L/R, Stick, and Bucket so chrome shafts telescope smoothly with zero gaps or clipping.
 4. **FBX Export Protocol (Blender 5.3 $\to$ Unity 2022.3)**:
-   - `Ctrl + A -> All Transforms` (`Scale: 1.0`, `Rot: 0,0,0`).
-   - Forward: `-Z Forward`, Up: `Y Up`.
-   - Armature tab: **UNCHECK `Add Leaf Bones`**.
+   - `Ctrl + A -> All Transforms` (`Scale: 1.0`, `Rot: 0,0,0`), reproducible build via `blender -b -P blender/build_all.py`.
+   - Forward: `-Z Forward`, Up: `Y Up`, Smoothing: `Face`.
+   - Armature tab: **UNCHECK `Add Leaf Bones`** (verified zero `_end` bones).
    - Unity Inspector Rig tab: Animation Type **`Generic`**, Root Node **`B_Root_Hull`**.
+   - Material slots (`4,298 tris`): `M_Excavator_Body`, `M_Hydraulic_Steel`, `M_Pontoon_Rubber`.

@@ -15,8 +15,9 @@
   4. Scene lighting & Post-FX prefabs (`KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour`, `VolumeProfile_MonsoonStorm`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`) (`Assets/_Project/Lighting/`).
 
 ### Allowed Files & Directories (READ & WRITE)
-- `unity/Assets/_Project/Props/**` (`Trash/`, `Equipment/`)
-- `unity/Assets/_Project/Rigging/**` (`SK_ExcavatorAmfibi.*`, Animators, `.blend` sources if tracked)
+- `blender/**` *(Reproducible Blender 5.3 Python generators — `blender -b -P blender/build_all.py`)*
+- `unity/Assets/_Project/Props/**` (`Trash/`, `Tools/`, `Equipment/`)
+- `unity/Assets/_Project/Rigging/**` (`SK_ExcavatorAmfibi.*`, Animators)
 - `unity/Assets/_Project/Lighting/**` (`KaliLightingBuilder.cs`, `Prefabs/`, `VolumeProfiles/`)
 
 ### Strictly Forbidden (DO NOT READ OR MODIFY)
@@ -34,21 +35,21 @@
 
 ## 2. Step-by-Step Task Checklist
 
-- [ ] **Task 1: Hero Rigged Asset — `SK_ExcavatorAmfibi` (`Assets/_Project/Rigging/`)**
-  - [ ] Model pontoon catamaran hull (`7.2m × 4.8m × 1.4m`), 4 corner spud anchors, rotating cab turret (`360° Z`), `4.2m` Boom, `2.8m` Stick, `1.4m` 5-tooth dredge Bucket + thumb clamp (`4,000–6,000 tris` total).
-  - [ ] Build Armature hierarchy: `B_Root_Hull` $\to$ `B_Turret_Slew` $\to$ `B_Arm_Boom` $\to$ `B_Arm_Stick` $\to$ `B_Tool_Bucket`, plus `B_Spud_Leg_FL/FR/BL/BR`.
-  - [ ] Add Non-Deform controller bones (`CTRL_IK_Bucket`, `POLE_Elbow_Target`, UNCHECK `Deform`).
-  - [ ] Pose Mode on `B_Arm_Stick`: add `Inverse Kinematics` constraint $\to$ Target `CTRL_IK_Bucket`, Pole `POLE_Elbow_Target`, **`Chain Length = 2`**.
-  - [ ] Setup Dual Mutual **`Damped Track` (`+Y`)** Hydraulic Piston Pairs (`Cylinder` parented to base tracking `Ram`; `Ram` parented to moving arm tracking `Cylinder`) for Boom, Stick, and Bucket hydraulics.
-  - [ ] Assign 3 PBR material slots: `M_Excavator_Body` (`#EAB308`), `M_Hydraulic_Steel` (`Metallic 0.95`, `Smoothness 0.90`), `M_Pontoon_Rubber` (`#1E293B`).
-  - [ ] Export FBX: `Ctrl + A -> All Transforms` (`Scale 1.0`, `Rot 0,0,0`), `-Z Forward`, `Y Up`, **UNCHECK `Add Leaf Bones`**; set Unity Rig to **`Generic`**, Root Node `B_Root_Hull`.
+- [x] **Task 1: Hero Rigged Asset — `SK_ExcavatorAmfibi` (`Assets/_Project/Rigging/`)** *(Implemented in `blender/build_all.py` — 4,298 tris)*
+  - [x] Model pontoon catamaran hull, 4 vertical spud anchors (`0 to -3.5m` Z), rotating cab turret (`360° Z`), `4.2m` Boom, `2.8m` Stick, `1.4m` 5-tooth Bucket (`-Y` forward, `+X` left in Blender).
+  - [x] Build Armature hierarchy: `B_Root_Hull` $\to$ `B_Turret_Slew` $\to$ `B_Arm_Boom` $\to$ `B_Arm_Stick` $\to$ `B_Tool_Bucket`, `B_Piston_Bucket_Base` parented to `B_Arm_Stick`, plus `B_Spud_Leg_FL/FR/BL/BR`.
+  - [x] Add Non-Deform controller bones (`CTRL_IK_Bucket` placed at wrist joint + `Copy Rotation` for bucket curl, `POLE_Elbow_Target`).
+  - [x] Pose Mode on `B_Arm_Stick`: `Inverse Kinematics` constraint $\to$ Target `CTRL_IK_Bucket`, Pole `POLE_Elbow_Target`, **`Chain Length = 2`** *(keep poses within ergonomic Boom `-15°..75°` & Stick `-110°..+10°` bounds during animation since Pole-Target IK bypasses Limit Rotation)*.
+  - [x] Setup Dual Mutual **`Damped Track` (`+Y`)** Hydraulic Piston Pairs for Boom L/R, Stick, and Bucket hydraulics.
+  - [x] Assign 3 PBR material slots (`M_Excavator_Body`, `M_Hydraulic_Steel`, `M_Pontoon_Rubber`).
+  - [x] Export FBX: `Ctrl + A -> All Transforms`, `-Z Forward`, `Y Up`, Face smoothing, **UNCHECK `Add Leaf Bones`** (zero `_end` bones); verify Unity Prefab hull faces `+Z` (blue forward arrow).
 
 - [ ] **Task 2: Trash, Medical Biohazard & 20 Scavenging Tools (`Assets/_Project/Props/`)**
-  - [ ] Ensure exact prefab paths expected by `MapJsonImporter.cs` exist inside `Assets/_Project/Props/Trash/Prefabs/`:
+  - [ ] Model all **20 Scavenging Tools** *(332–1,036 tris done with grip pivot `(0,0,0)` along Z + single `2048×2048` Albedo/Normal/Mask atlas)* — align/alias prefabs cleanly against the official **20-Tool list in `docs/PRD.md` Section 3** (especially `#10 Capitan Ular / Snake Grabber` for Medical Waste).
+  - [ ] Ensure exact trash prefab paths expected by `MapJsonImporter.cs` exist inside `Assets/_Project/Props/Trash/Prefabs/`:
     - `PF_Trash_SandalSwallow.prefab`, `PF_Trash_AquaBottle_600ml.prefab`, `PF_Trash_AquaGalon_19L.prefab`, `PF_Trash_PopMieCup.prefab`, `PF_Trash_KresekBag.prefab`, `PF_Trash_KasurKapuk.prefab`, `PF_Trash_BanBekas.prefab`, `PF_Trash_EcengGondok.prefab`, `PF_Trash_BatangPisang.prefab`.
   - [ ] Attach `Collider` + `RiverFlowBuoyancy` on every floating trash prefab.
-  - [ ] Model **Medical Biohazard Waste B3** props (`PF_Trash_MedicalBag`, `PF_Trash_SyringeBox`) in hazard yellow (`#EAB308`) with red accents so players spot them for `Capitan Ular` extraction.
-  - [ ] Model all **20 Non-Redundant Tools** (`300–1,200 tris` each, shared `2048×2048` atlas) with **grip pivot exact at `(0, 0, 0)`**, shaft pointing `+Z`/`+Y`.
+  - [ ] Model **Medical Biohazard Waste B3** props (`PF_Trash_MedicalBag`, `PF_Trash_SyringeBox`) in hazard yellow (`#EAB308`) with red accents so players spot them for `#10 Capitan Ular` extraction (`RiverGameManager.SecureMedicalWaste()`).
   - [ ] Package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (with `Waterline` `Y = 0` pivot), `RakitGabus`, `PerahuSampan`, and `TongSampahKampung`.
 
 - [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**
