@@ -5,6 +5,7 @@ against real files in unity/Assets/_Project/ on main + all remote origin/* branc
 """
 from __future__ import annotations
 
+import csv
 import os
 import re
 import subprocess
@@ -13,6 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TSV_PATH = REPO_ROOT / "docs" / "KALI_Asset_Master_Tracker.tsv"
+CSV_PATH = REPO_ROOT / "docs" / "KALI_Asset_Master_Tracker.csv"
 XLSX_PATH = REPO_ROOT / "docs" / "KALI_Asset_Master_Tracker.xlsx"
 UNITY_PROJECT_REL = "unity/Assets/_Project"
 
@@ -216,8 +218,11 @@ def sync_tracker() -> tuple[list[list[str]], int]:
             row[7] = new_status
             updated_count += 1
 
-    out_lines = ["\t".join(r) for r in [*title_rows, header, *norm_rows]]
+    all_rows = [*title_rows, header, *norm_rows]
+    out_lines = ["\t".join(r) for r in all_rows]
     TSV_PATH.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+    with CSV_PATH.open("w", encoding="utf-8", newline="") as f:
+        csv.writer(f).writerows(all_rows)
     maybe_write_xlsx(title_rows, header, norm_rows)
     return norm_rows, updated_count
 
