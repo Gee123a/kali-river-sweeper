@@ -9,12 +9,12 @@
 
 The entire visual experience visualizes the game's core ecological promise through color and surface transition rather than walls of text:
 
-1. **Act 1 — Choked Polluted Village (`waterClarity = 0.12`, `Siaga 4–3`)**:
-   - Warm low tropical haze (`3400K` Golden Hour), damp muddy embankments, weathered faded plastics, rusted corrugated *seng* roofs, opaque dark brown-sludge water dragging floating trash toward Pintu Air.
-2. **Act 3 — Monsoon Emergency (`isMonsoonStorm = true`, `Siaga 2–1`)**:
-   - Cool storm overcast (`#334155`), wind-driven rain streaks, flashing orange `PF_WarningBeacon_PintuAir` emergency beacons, glistening wet slick surfaces (`Smoothness 0.85`), and surging turbulent froth.
+1. **Act 1 — Choked Polluted Village (`waterClarity = 0.05..0.25`, `Siaga 4–3`)**:
+   - Warm low tropical haze (`3400K` Golden Hour), damp muddy embankments (`+1.40m`), weathered faded plastics, rusted corrugated *seng* roofs, opaque brown-sludge water dragging `Normal`, `Medical`, and `Biohazard` waste **`+Z` downstream** toward `Pintu Air`.
+2. **Act 3 — Monsoon Overflow & Sell-Lock (`isMonsoonStorm = true`, `Siaga 2–1`)**:
+   - Cool storm overcast (`#334155`), wind-driven rain streaks, flashing orange `PF_WarningBeacon_PintuAir` beacons at downstream `+Z` `Pintu Air`, water overflowing `+1.40m` riverbanks and flooding stations past `+1.85m` (`Sell-Lock`), triggering urgent **`[Q] High-Ground Dump`** & `Biohazard DoT` banners.
 3. **Endgame Victory — Restored Nusantara Sanctuary (`waterClarity = 1.00`, `Siaga 4`)**:
-   - Clear shimmering emerald-teal river (`#1B6B63` to `#06B6D4`), visible submerged riverbed stones, sunny kampung docks with hanging lanterns (`PF_Lantern_Warung`), and baled organized PET blocks at Pos Sortir.
+   - Clear shimmering emerald-teal river (`#1B6B63` to `#06B6D4`), dismantled `Gunung Sampah` (`-Z`), sunny kampung docks with hanging lanterns (`PF_Lantern_Warung`), and organized recycling across `Bank Sampah`, `Pos Medis B3`, and `Karantina Biohazard`.
 
 ---
 
@@ -49,7 +49,17 @@ Every flood alert badge pairs color with an explicit uppercase label (`SIAGA 4 -
 | **Split River Bamboo & Weathered Teak** | Non-metal (`0.0`) | `0.75 – 0.88` | Splintered warm bamboo grain, damp dark base near waterline (`Y = 0`) |
 | **Corrugated Seng & Forged Iron** (*Atap Seng, Ganco, Winch*) | Metal (`0.75 – 0.90`) | `0.50 – 0.80` | Heavy orange-brown oxidation patina along edges, wet specular reflections |
 | **Hydraulic Steel Rams & Excavator** (`SK_ExcavatorAmfibi`) | Industrial Yellow `#EAB308` (`M: 0.15`) / Chrome `#E2E8F0` (`M: 0.95`) | `0.45` (body) / `0.10` (rams) | Oily grease near seals, dried mud buildup along pontoon tracks |
-| **Medical Biohazard Waste B3** (*Yellow Biohazard Bags, Syringes*) | Non-metal / Foil (`0.0 – 0.4`) | `0.30 – 0.45` | High-visibility hazard yellow `#EAB308` + biohazard red markings so players spot danger fast |
+| **Medical Waste (`WasteClass.Medical`)** (*Yellow Biohazard Bags, Syringe Boxes*) | Non-metal / Foil (`0.0 – 0.4`) | `0.30 – 0.45` | Hazard yellow `#EAB308` + red B3 stripes; causes needle-prick HP injury unless handled with `#10 Capitan Ular`; sorted at **`Pos Medis B3`** |
+| **Biohazard / Radioactive (`WasteClass.Biohazard`)** (*Containment Drums / Barrels*) | Coated Drum (`0.2 – 0.6`) | `0.25 – 0.45` | High-contrast purple `#A855F7` + radioactive lime `#84CC16` glow; deals Cargo DoT after 10s; sorted at **`Karantina Biohazard`** |
+
+### 2.4 Dedicated Station Identity Tokens (`Wesley` & `Niki`)
+
+| Station | Waste Accepted | Sign / Accent Color | Wrong-Class Penalty |
+| :--- | :--- | :---: | :--- |
+| **`Bank Sampah Berkah` / `Pos Sortir`** | `Normal` plastics & organic | `#22C55E` / `#14B8A6` | Fines `Medical` (`Rp 5,000`) & `Biohazard` (`Rp 8,000`) |
+| **`Pos Medis B3`** | `Medical` (`MedicalBag`, `SyringeBox`) | `#EAB308` + Red Cross `#DC2626` | Fines `Normal` (`Rp 2,500`) & `Biohazard` (`Rp 8,000`) |
+| **`Karantina Biohazard`** | `Biohazard` / Radioactive | `#A855F7` + `#84CC16` | Fines `Normal` (`Rp 2,500`) & `Medical` (`Rp 5,000`) |
+| **`Gudang Pengepul`** *(Near Spawn)* | All 3 classes in 1 go | `#A87018` (Amber Rust) | Cheap payout (`2k/3k/4.5k`), **0 fine**, **Trust penalty** for `Medical`/`Biohazard` |
 
 ---
 

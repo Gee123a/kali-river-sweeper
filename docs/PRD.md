@@ -16,80 +16,82 @@
 
 > *"Di dunia ini, gunung sampah telah menumpuk sangat tinggi hingga mencekik satu-satunya sungai di desa, dan kamu adalah generasi terakhir penjaga sungai yang tersisa."*
 
-* **English Summary**: In this world, mountains of trash have completely choked the village's only river, and you are the last riverkeeper left to save it. Navigate dynamic currents to scoop, sort, and sell waste at the recycling dock, upgrading your gear from plastic dippers and bamboo nets to motorized vacuum pumps and automated river booms. You win by completely dismantling the colossal trash dam and lowering the water level back to safety before the monsoon arrives. You lose if the debris causes the river to breach the levee, drowning the entire village in a catastrophic flood.
+* **English Summary**: In this world, mountains of trash (*Gunung Sampah* upstream at `-Z`) shed waste downstream (`+Z`) toward the floodgate (*Pintu Air Siaga 1*). Navigate `+Z` river currents to scoop `Normal`, `Medical`, and `Biohazard` waste, routing each to its dedicated sorting station (or risking fines / cheap bulk sales at `Gudang Pengepul`). Your 20 official JC scavenging tools auto-unlock automatically as cumulative Rupiah rises. Win by completely dismantling `Gunung Sampah` (`0%`) OR surviving the 5-minute Monsoon Countdown without fatal flood or `0 HP` death.
 * **SDG Targets Integrated Into Mechanics**:
-  * **SDG 6.3 (Clean Water & Sanitation)**: Driving `_WaterClarity` from polluted toxic brown (`0.12`) to healthy river turquoise (`1.00`) and eliminating hazardous medical/chemical dumping.
-  * **SDG 11.5 (Sustainable Cities / Flood Mitigation)**: Controlling the `Siaga 4 -> 1` flood gauge by clearing sluice chokepoints before monsoon storms flood Kampung Hulu.
-  * **SDG 14.1 (Life Below Water)**: Choosing to dredge `Gunung Sampah` responsibly instead of dumping municipal trash into the ocean (*Pintu Air* emergency flush).
+  * **SDG 6.3 (Clean Water & Sanitation)**: Driving `_WaterClarity` from polluted toxic brown (`0.05`) to healthy river turquoise (`1.00`) while safely isolating Medical (`Pos Medis B3`) and Radioactive Biohazard (`Karantina Biohazard`) waste.
+  * **SDG 11.5 (Sustainable Cities / Flood Mitigation)**: Controlling linear river rise (`waterLevelY = -0.25 + 0.020 * trashInRiver`) before banks overflow (`+1.40m`), stations hit `Sell-Lock` (`+1.85m`), or fatal drowning (`+2.45m`) floods Kampung Hulu.
+  * **SDG 14.1 (Life Below Water)**: Choosing to clear river debris, dump on high ground (`Q`) during Sell-Lock, and dismantle `Gunung Sampah` rather than triggering `CompromisedOceanFlush`.
 
 ---
 
 ## 2. Core Game Loop & 5 Interacting Mechanics
 
 ```text
-  [1. SCOOP & SECURE] ──> [2. SORT AT BANK SAMPAH] ──> [3. UPGRADE TOOLS & BOATS]
-         ▲                                                        │
-         └────── [5. PREVENT & AUTOMATE (Bins & Trash Boom)] ◄────┘
+  [1. SCOOP N/M/B (+Z)] ──> [2. SORT AT 3 STATIONS / PENGEPUL] ──> [3. 20 TOOLS AUTO-UNLOCK]
+         ▲                                                                     │
+         └────── [5. PREVENT & AUTOMATE (Bins & Trash Boom)] ◄─────────────────┘
                                     │
-                       [4. MANAGE MONSOON SIAGA 4 -> 1]
+                       [4. LINEAR WATER RISE -> SELL-LOCK -> MONSOON]
 ```
 
-1. **Dynamic Current & Multi-Point Buoyancy (`RiverFlowBuoyancy.cs`)**: Floating waste drifts toward `-Z` (`Gunung Sampah`), accelerating by `2.2x` during monsoon storms and swirling around bridge piers.
-2. **20 Non-Redundant Scavenging Tools + Medical Biohazard Safety**: Every tool fills a distinct physical aperture, reach, or hazard role (see Section 3). Improperly grabbing Medical Waste causes infection incidents; `Capitan Ular` (`SecureMedicalWaste(true)`) safely yields hazard bounties (`+15,000 IDR`, `+12` Trust).
-3. **Bank Sampah Sorting & Economy (`RiverGameManager.cs`)**: Players earn Rupiah by depositing trash and balance speed vs. environmental ethics (Burn Pit vs. Pos Sortir $3\times$ PET baling).
-4. **Flood Gauge Progression (`Siaga 4 -> Siaga 1`)**: As debris accumulates at `Pintu Air`, `floodPressure` rises (`<0.35` Siaga 4 Green $\to$ `>=0.35` Siaga 3 Yellow $\to$ `>=0.60` Siaga 2 Orange $\to$ `>=0.85` Siaga 1 Critical Red).
-5. **Root-Cause Prevention & River Automation**: Installing upstream **Kampung Trash Bins** (`BuyKampungBins()`) cuts village littering by 60%, while **Floating Trash Booms** halve storm flood pressure buildup (`0.024 -> 0.012`).
+1. **Dynamic `+Z` Current & Linear Water Level (`RiverFlowBuoyancy.cs`, `RiverGameManager.cs`)**: Floating waste sheds from upstream `Gunung Sampah` (`-Z`) and drifts **`+Z` downstream** toward `Pintu Air` (`2.2x` faster in monsoon). `waterLevelY = -0.25f + TotalTrashInRiver * 0.020f` reacts immediately to every item scooped (`Overflow >= 1.40m`, `Sell-Lock >= 1.85m`, `Fatal Flood >= 2.45m`).
+2. **20 Auto-Unlocking Scavenging Tools + 3-Class Waste Hazards (`ToolCatalog.cs`)**: Any tool can scoop all 3 classes (`Normal`, `Medical`, `Biohazard`). Tools `#01..#20` unlock automatically by cumulative Rupiah milestones. `Medical` waste risks needle-prick HP damage (`-18 HP`) mitigated to `0%` by **`#10 Capitan Ular`**. `Biohazard`/Radioactive waste inflicts Cargo DoT after a 10s grace period (`0 HP` triggers `HealthFail`).
+3. **3 Dedicated Stations (+ Fines) vs `Gudang Pengepul` (`1 / 2 / 3 / E`)**: Sort `Normal` at `Bank Sampah` (`4,000` / `7,500` at `Pos Sortir`), `Medical` at `Pos Medis B3` (`9,000` + `+10 HP`), and `Biohazard` at `Karantina Biohazard` (`14,000`). Discarding at the wrong station incurs a Rupiah fine + Trust loss! Alternatively, `Gudang Pengepul` (near Spawn) buys all classes in one go cheaply (`2k/3k/4.5k`) with SDG/Trust penalties for hazardous waste.
+4. **Sell-Lock & High-Ground Dump Anti-Deadlock (`Q` key)**: Past `+1.85m`, stations flood (`Sell-Lock`) and reject sales. Players press **`Q`** to dump cargo safely onto high ground (preventing cargo deadlock) or trigger Emergency Ocean Flush.
+5. **Root-Cause Prevention & River Automation (`Toko Alat`)**: Buying **Kampung Trash Bins** (`30,000 IDR`) cuts upstream shedding by **60%**, while **Trash Boom** slows downstream pileup & passively harvests.
 
 ---
 
-## 3. Itemized 20-Tool Progression & Vessel Matrix (Zero Redundancy)
+## 3. Itemized 20-Tool Auto-Unlock Milestones (`SM_Tool_*` Exact Contracts)
 
-| # | Tool Name | Indonesian Name | Holds (Capacity & Unit) | Primary Waste Target | Physical Differentiation |
-| :---: | :--- | :--- | :--- | :--- | :--- |
-| **01** | **Dining Spoon** | *Sendok Makan Bengkok* | `1 TINY ITEM (0.05 KG)` | Caps, sachets, cigarette butts | Zero drag flick; cannot scoop bottles. |
-| **02** | **Bath Dipper** | *Gayung Mandi* | `2 ITEMS (0.3 KG)` | Small bottles, cups | Solid cup volume; carries water weight until tipped. |
-| **03** | **Rice Paddle** | *Centong Nasi* | `1 FLAT ITEM (0.1 KG)` | Styrofoam lids, film wrappers | Textured flat blade skims surface films. |
-| **04** | **Garden Hand Fork** | *Garpu Taman* | `1 PLASTIC BAG (0.2 KG)` | Tangled *kresek* bags, wet cloth | 3 prongs pierce soaked fabrics that slip off scoops. |
-| **05** | **5L Paint Can** | *Ember Cat 5L* | `3-4 ITEMS (1.0 KG)` | Mixed shallow floaters | Wire-bailed bucket held while wading. |
-| **06** | **Perforated Dipper** | *Gayung Saringan Bambu* | `4 ITEMS (0.8 KG)` | Scattered bank bottles | Drilled holes drain water; 3m taped bamboo reach. |
-| **07** | **Bamboo Hand Net** | *Serokan Waring 3m* | `8-10 ITEMS (2.0 KG)` | Floating bottle clusters | Wire hoop + black nylon mesh drains water instantly. |
-| **08** | **Single Spike Hook** | *Ganco Besi 1-Mata* | `1 HEAVY DEBRIS (150 KG)` | Wet wood logs, debris clumps | Forged iron spike bites dense cores for towing. |
-| **09** | **Weighted 20L Bucket** | *Ember Cat 20L* | `5-6 ITEMS (1.8 KG)` | Whirlpool eddy clusters | Lead rim sinkers + 10m rope thrown from bank/deck. |
-| **10** | **Snake Grabber** | *Capitan Ular* | `1 HAZARD ITEM (0.3 KG)` | **Medical Waste B3** (syringes, IV, glass) | Cable-actuated clamps prevent needle/pathogen injury. |
-| **11** | **Long Grass Sickle** | *Arit Sabit Panjang* | `0.5 M² WEEDS (10 KG)` | Reeds & *Eceng Gondok* roots | Curved steel blade slashes entangled hyacinth mats. |
-| **12** | **Jumbo Waring Net** | *Serokan Jumbo 4.5m* | `15-18 ITEMS (4.0 KG)` | Dense drift mats | 60cm hoop + dual Petung bamboo grip. |
-| **13** | **Double Winch Hook** | *Ganco Ganda Winch* | `1 MASSIVE DEBRIS (400 KG)` | Submerged vehicles, dam timber | Twin grappling claw + 4:1 hand crank steel winch. |
-| **14** | **Float Ring Cast Net** | *Jala Cincin Lempar* | `15-20 ITEMS (5.0 KG)` | Dispersed river surface plastics | Covers `10m²` area; perimeter lead sinkers cinch closed. |
-| **15** | **Manual Bilge Siphon** | *Pompa Siphon Manual* | `1.0 KG/SEC SLUDGE` | Riverbed black silt & pulp | 2-inch PVC piston vacuum lifts submerged mud. |
-| **16** | **50kg Salvage Magnet** | *Blok Magnet 50kg* | `2-3 METAL (30 KG)` | Corrugated iron, cans, rebar | Nickel-plated magnet extracts buried iron junk. |
-| **17** | **Harpoon Launcher** | *Senapan Panah Tali* | `1 BUOYANT ITEM (25 KG)` | Fast runaway drums/logs | Pneumatic tethered dart anchors moving river hazards. |
-| **18** | **49cc Vacuum Impeller** | *Pompa Mesin Rumput* | `4.0 KG/SEC SLURRY` | Toxic slurry & microplastics | 2-stroke engine with spiral suction hose feeds hopper. |
-| **19** | **Twin Saw Weed Slasher** | *Penebas Gergaji* | `3.0 M² WEEDS / SEC` | Dense *Eceng Gondok* choke mats | Dual reciprocating serrated blades clear river channels. |
-| **20** | **Hydraulic Bow Skimmer** | *Garuk Skimmer Hidrolik* | `30-40 ITEMS PUSHED` | River-wide plastic surface | Front barge hydraulic rake herds drift to conveyors. |
+Tools unlock automatically as **Cumulative Rupiah (`cumulativeEarnings`)** crosses each milestone (`Scroll` / `[ ]` cycles unlocked tools; `PF_Tool_*` `BoxCollider`s stay `isTrigger = true` / disabled while equipped):
 
-**Craft Progression**: Wading Rubber Boots (`0`) $\to$ *Rakit Gabus* (`1`, 8–10 cap) $\to$ *Perahu Sampan Kayu* (`2`, 22 cap) $\to$ *Perahu Klotok Diesel* (`3`, 40 cap + Boom support) $\to$ Pontoon Skimmer & **Amphibious Excavator (`SK_ExcavatorAmfibi`)** (`4`, 60 cap + `DamageGunungSampah()`).
+| # | Official Mesh (`SM_Tool_*`) | Indonesian Name | Milestone (IDR) | Reach / Batch | Medical Prick Risk & Role |
+| :---: | :--- | :--- | :---: | :---: | :--- |
+| **01** | `SM_Tool_SendokMakanBengkok` | *Sendok Makan Bengkok* | `0` | `4.2m / 1` | `60%` prick — Starter dining spoon |
+| **02** | `SM_Tool_GayungMandi` | *Gayung Mandi* | `4,000` | `4.5m / 1` | `55%` prick — Bath dipper |
+| **03** | `SM_Tool_CentongNasi` | *Centong Nasi* | `8,000` | `4.8m / 1` | `50%` prick — Flat rice paddle |
+| **04** | `SM_Tool_GarpuTaman` | *Garpu Taman* | `14,000` | `5.0m / 2` | `45%` prick — Garden hand fork |
+| **05** | `SM_Tool_EmberCat5L` | *Ember Cat 5L* | `20,000` | `5.2m / 2` | `42%` prick — 5L paint pail |
+| **06** | `SM_Tool_GayungSaringanBambu` | *Gayung Saringan Bambu* | `28,000` | `6.2m / 2` | `35%` prick — Perforated bamboo dipper |
+| **07** | `SM_Tool_SerokanWaring3m` | *Serokan Waring 3m* | `38,000` | `6.8m / 3` | `30%` prick — 3m bamboo hand net |
+| **08** | `SM_Tool_GancoBesi1Mata` | *Ganco Besi 1-Mata* | `50,000` | `7.0m / 2` | `25%` prick — Single spike iron hook |
+| **09** | `SM_Tool_EmberCat20L` | *Ember Cat 20L* | `64,000` | `7.4m / 3` | `22%` prick — Weighted 20L rope bucket |
+| **10** | `SM_Tool_CapitanUlar` | *Capitan Ular* | `80,000` | `7.8m / 2` | **`0%` prick** — Dedicated B3 snake grabber |
+| **11** | `SM_Tool_AritSabitPanjang` | *Arit Sabit Panjang* | `98,000` | `8.2m / 3` | `14%` prick — Long grass sickle |
+| **12** | `SM_Tool_SerokanJumbo4_5m` | *Serokan Jumbo 4.5m* | `118,000` | `8.8m / 4` | `12%` prick — 4.5m jumbo waring net |
+| **13** | `SM_Tool_GancoGandaWinch` | *Ganco Ganda Winch* | `140,000` | `9.0m / 3` | `8%` prick — Double winch (chips Gunung!) |
+| **14** | `SM_Tool_JalaCincinLempar` | *Jala Cincin Lempar* | `165,000` | `9.6m / 4` | `10%` prick — Float ring cast net |
+| **15** | `SM_Tool_PompaSiphonManual` | *Pompa Siphon Manual* | `192,000` | `9.8m / 4` | `6%` prick — Manual bilge siphon |
+| **16** | `SM_Tool_BlokMagnet50kg` | *Blok Magnet 50kg* | `222,000` | `10.4m / 4` | `6%` prick — 50kg salvage magnet |
+| **17** | `SM_Tool_SenapanPanahTali` | *Senapan Panah Tali* | `254,000` | `11.2m / 3` | `4%` prick — Pneumatic harpoon |
+| **18** | `SM_Tool_PompaMesinRumput49cc` | *Pompa Mesin Rumput 49cc* | `288,000` | `11.6m / 5` | `5%` prick — 49cc vacuum impeller |
+| **19** | `SM_Tool_PenebasGergajiGanda` | *Penebas Gergaji Ganda* | `324,000` | `12.2m / 5` | `5%` prick — Twin-saw weed slasher |
+| **20** | `SM_Tool_GarukSkimmerHidrolik` | *Garuk Skimmer Hidrolik* | `360,000` | `13.0m / 6` | `3%` prick — Hydraulic bow skimmer |
+
+**Vessel Upgrades (`Toko Alat`)**: *Rakit Gabus* (8 cap) $\to$ *Perahu Sampan Kayu* (22 cap, `40k`) $\to$ *Trash Boom & Pos Sortir* (`75k`) $\to$ **Amphibious Excavator (`SK_ExcavatorAmfibi`)** (60 cap + fast `DamageGunungSampah()`, `120k`).
 
 ---
 
-## 4. River Waste Taxonomy (Including Medical Biohazard B3)
+## 4. River Waste Taxonomy (3 Scoopable Classes)
 
-| Class | Assets | Economy / Gameplay Effect |
+| Class | Assets | Hazard & Station Contract |
 | :--- | :--- | :--- |
-| **Organic Biomass** | `PF_Trash_EcengGondok`, `PF_Trash_BatangPisang` | Low payout (compost); grows vegetation barriers clogging boat props. |
-| **Anorganic Plastics** | `PF_Trash_AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `SandalSwallow`, `BaledPlastic` | Core recycling revenue (`4,000` raw $\to$ `7,500` sorted IDR per unit at Pos Sortir). |
-| **Medical Biohazard Waste (B3)** | Yellow biohazard sacks, syringes, IV bags, broken ampoules, hazard drums | **High-stakes Trade-off 1**: Ignoring lowers water safety; scooping without `Capitan Ular` triggers infection penalty (`-15` Trust); securing with `Capitan Ular` earns `+15,000 IDR` & `+12` Trust. |
-| **Submerged / Heavy Dam Debris** | Tangled ropes, logs, truck tires, sunken frames (choking `Gunung Sampah`) | Anchored inside `SM_Env_GunungSampah_3Tiers` blocking Pintu Air; dismantled by Winch & `SK_ExcavatorAmfibi`. |
+| **`Normal`** | `PF_Trash_SandalSwallow`, `AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `KasurKapuk`, `BanBekas`, `EcengGondok`, `BatangPisang` | Safe to scoop; sort at **`Bank Sampah Berkah`** (`4,000 IDR`) or **`Pos Sortir`** (`7,500 IDR` w/ Boom). |
+| **`Medical`** | `PF_Trash_MedicalBag`, `PF_Trash_SyringeBox` (yellow + red B3 markings) | **Pickup Prick Hazard**: Any tool can scoop, but lower tools risk `-18 HP` needle pricks (`0%` with **`#10 Capitan Ular`**). Sort at **`Pos Medis B3`** (`9,000 IDR` + `+10 HP`). |
+| **`Biohazard`** | `PF_Trash_BiohazardDrum` / Radioactive containment barrels (purple/lime glow) | **Cargo DoT Hazard**: Deals escalating Damage Over Time if held past `10s` grace period. Sort at **`Karantina Biohazard`** (`14,000 IDR`). |
 
 ---
 
-## 5. Three Meaningful Player Choices & Three Endings
+## 5. Three Meaningful Player Choices & Four Endings
 
-1. **Choice A — Quick Burn Pit vs. Bank Sampah & Medical Safety**:
-   - Dumping at Burn Pit yields fast cash (`2,000 IDR/item`) but releases toxic smoke (`-10` Community Trust).
-   - Sorting at `Pos Sortir` yields up to `7,500 IDR/item` + trust; using `Capitan Ular` on medical waste protects Kampung health.
-2. **Choice B — Personal Gear vs. Upstream Kampung Bins (`30,000 IDR`)**:
-   - Skipping prevention keeps villager river littering relentless (Sisyphean cleanup); buying `Kampung Bins` + `Trash Boom` cuts source pollution by **60%** and stabilizes storms.
-3. **Choice C — Monsoon `Siaga 1` Climax (`3 Endings`)**:
-   - **`TrueSdgVictory`**: Hold Pintu Air shut during the monsoon storm, dismantle `Gunung Sampah` with `SK_ExcavatorAmfibi` (`CompleteCleanBreach()`). River turns emerald teal (`waterClarity = 1.0`).
-   - **`CompromisedOceanFlush`**: Panic-open the floodgate (`TriggerEmergencyFlush()`). Kampung avoids flooding, but downstream sea is polluted with plastic — End-Run Impact Report flags **SDG 14.1 Failed**.
-   - **`FloodFail`**: `floodPressure >= 1.0f` during storm breaches the embankment and floods Kampung Hulu.
+1. **Choice A — 3 Dedicated Stations vs. `Gudang Pengepul` Shortcut**:
+   - Routing `Normal` $\to$ `Bank Sampah`, `Medical` $\to$ `Pos Medis B3`, and `Biohazard` $\to$ `Karantina Biohazard` (`1/2/3/E`) pays full Rupiah and builds Trust (wrong-station discards incur Rupiah fines!).
+   - Dumping everything in one go at **`Gudang Pengepul`** (near Spawn) pays cheaper rates (`2k/3k/4.5k`) with **no fine**, but inflicts severe Community Trust / SDG penalties if hazardous cargo is mixed in.
+2. **Choice B — Personal Vessel vs. Upstream `Kampung Bins` (`30,000 IDR`)**:
+   - Skipping prevention keeps upstream shedding relentless; buying `Kampung Bins` + `Trash Boom` cuts shedding by **60%** and slows downstream barrier pileup.
+3. **Choice C — Monsoon `Sell-Lock` Crisis & 4 Endings**:
+   - **`TrueSdgVictory`**: Reach **`0% Gunung Sampah`** (`CompleteCleanBreach()`) OR **survive the 5-minute Monsoon Countdown** without fatal flood or `0 HP` death.
+   - **`CompromisedOceanFlush`**: Panic-open the floodgate (`TriggerEmergencyFlush()`). Saves Kampung from flooding, but flags **SDG 14.1 Failed**.
+   - **`FloodFail`**: `waterLevelY >= 2.45m` (`+1.05m` over bank top) drowns the player and floods Kampung Hulu.
+   - **`HealthFail`**: `playerHealth <= 0` from repeated `Medical` needle pricks or untreated `Biohazard` Cargo DoT.

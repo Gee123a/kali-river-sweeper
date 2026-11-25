@@ -40,36 +40,146 @@ namespace KaliRiverSweeper.Core
         }
     }
 
+    /// <summary>
+    /// Simulates sinusoidal bobbing on dynamic linear waterLevelY and +Z downstream drift
+    /// from Gunung Sampah (-Z upstream) toward Pintu Air (+Z downstream barrier).
+    /// </summary>
     public class RiverFlowBuoyancy : MonoBehaviour
     {
-        [Header("Buoyancy & Current")]
+        [Header("Buoyancy & +Z Downstream Current")]
         public float waterLevelY = 0.0f;
         public float bobAmplitude = 0.08f;
         public float bobSpeed = 2.0f;
-        public float currentDriftSpeed = 0.45f;
-        public bool driftTowardGunungSampah = true;
+        public float currentDriftSpeed = 0.75f;
+        public bool driftDownstream = true;
+        public float downstreamBarrierZ = 76.0f;
+        public float trashBoomZ = -18.125f;
 
         private float phaseOffset;
+        private RiverTrashItem trashItem;
+        private bool settledAtBarrier;
 
         private void Awake()
         {
             phaseOffset = Random.Range(0f, Mathf.PI * 2f);
+            trashItem = GetComponent<RiverTrashItem>();
         }
 
         private void Update()
         {
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (gm != null)
+            {
+                waterLevelY = gm.currentWaterLevelY;
+            }
+
             Vector3 pos = transform.position;
             pos.y = waterLevelY + Mathf.Sin(Time.time * bobSpeed + phaseOffset) * bobAmplitude;
 
-            if (driftTowardGunungSampah && pos.z > -44f)
+            if (driftDownstream)
             {
-                float stormMult = RiverGameManager.Instance != null && RiverGameManager.Instance.isMonsoonStorm ? 2.2f : 1f;
-                pos.z -= currentDriftSpeed * stormMult * Time.deltaTime;
-                float targetCenterX = (RiverMath.RiverCenterMapX(pos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
-                pos.x = Mathf.Lerp(pos.x, targetCenterX, 0.25f * Time.deltaTime);
+                if (!settledAtBarrier && pos.z < downstreamBarrierZ)
+                {
+                    float stormMult = gm != null && gm.isMonsoonStorm ? 2.2f : 1f;
+                    float boomSlow = (gm != null && gm.trashBoomActive && Mathf.Abs(pos.z - trashBoomZ) < 4.5f) ? 0.35f : 1f;
+                    pos.z += currentDriftSpeed * stormMult * boomSlow * Time.deltaTime;
+
+                    float mapY = pos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+                    float targetCenterX = (RiverMath.RiverCenterMapX(mapY) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+                    if (gm != null && gm.trashBoomActive && Mathf.Abs(pos.z - trashBoomZ) < 6f)
+                    {
+                        // Boom funnels debris toward east Pos Sortir channel edge.
+                        targetCenterX += 5.5f;
+                    }
+                    pos.x = Mathf.Lerp(pos.x, targetCenterX, 0.35f * Time.deltaTime);
+                }
+                else
+                {
+                    settledAtBarrier = true;
+                    pos.z = downstreamBarrierZ + Mathf.Sin(phaseOffset) * 1.4f;
+                    if (trashItem != null && !trashItem.isPiledAtBarrier)
+                    {
+                        trashItem.MarkPiledAtBarrier();
+                        if (gm != null && gm.ShouldAbsorbVisualBarrierProp())
+                        {
+                            trashItem.AbsorbIntoNumericPile();
+                            return;
+                        }
+                    }
+                }
             }
 
             transform.position = pos;
+        }
+    }
+
+    /// <summary>
+    /// Syncs the water surface mesh Y position with RiverGameManager.currentWaterLevelY
+    /// and scales/anchors Gunung Sampah nodes from their base without mid-air levitation.
+    /// </summary>
+    public class RiverWaterSurfaceFollower : MonoBehaviour
+    {
+        public float verticalOffset = 0.0f;
+
+        private void LateUpdate()
+        {
+            if (RiverGameManager.Instance == null) return;
+            Vector3 p = transform.position;
+            p.y = RiverGameManager.Instance.currentWaterLevelY + verticalOffset;
+            transform.position = p;
+        }
+    }
+
+    public class GunungNodeController : MonoBehaviour
+    {
+        public float baseY = 0.0f;
+        public float initialScaleY = 1.0f;
+        public float nodeHealth = 1.0f;
+        public bool scaleFromCenterPrimitive = true;
+
+        private void Awake()
+        {
+            initialScaleY = Mathf.Max(0.1f, transform.localScale.y);
+            baseY = scaleFromCenterPrimitive ? transform.position.y - initialScaleY * 0.5f : transform.position.y;
+        }
+
+        public void ApplyDamage(float damageFraction)
+        {
+            if (nodeHealth <= 0f) return;
+            nodeHealth = Mathf.Clamp01(nodeHealth - damageFraction);
+            float scaleRatio = Mathf.Max(0.08f, nodeHealth);
+
+            Vector3 sc = transform.localScale;
+            sc.y = initialScaleY * scaleRatio;
+            transform.localScale = sc;
+
+            if (scaleFromCenterPrimitive)
+            {
+                Vector3 pos = transform.position;
+                pos.y = baseY + sc.y * 0.5f;
+                transform.position = pos;
+            }
+
+            if (nodeHealth <= 0.01f)
+            {
+                nodeHealth = 0f;
+                gameObject.SetActive(false);
+            }
+        }
+
+        public void Restore()
+        {
+            nodeHealth = 1f;
+            Vector3 sc = transform.localScale;
+            sc.y = initialScaleY;
+            transform.localScale = sc;
+            if (scaleFromCenterPrimitive)
+            {
+                Vector3 pos = transform.position;
+                pos.y = baseY + sc.y * 0.5f;
+                transform.position = pos;
+            }
+            gameObject.SetActive(true);
         }
     }
 }

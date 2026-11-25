@@ -10,7 +10,7 @@
 | **VFX Pipeline** | **Unity VFX Graph & Shuriken** | `com.unity.visualeffectgraph` `14.0.11` | **Niki** |
 | **UI & Typography** | **uGUI + TextMeshPro** | `com.unity.ugui` `1.0.0`, `com.unity.textmeshpro` `3.0.6` | **Niki** |
 | **Camera & Splines** | **Cinemachine & Unity Splines** | `2.10.1` / `2.6.1` | **Ivan** & **Niki** |
-| **Level Data & Tools** | **JSON + Three.js Browser Preview** | `kali-river-map.json` (51 nodes), `tools/play-3d.html`, `tools/map-editor.html` | **Ivan** |
+| **Level Data & Tools** | **JSON + Three.js Browser Preview** | `kali-river-map.json` (54 nodes, `+Z` flow), `tools/play-3d.html`, `tools/map-editor.html` | **Ivan** |
 | **Asset Coordination** | **MCP For Unity + Git LFS / `.gitattributes`** | `com.coplaydev.unity-mcp` | **Ivan** |
 
 ---
@@ -31,7 +31,7 @@
 | Asset Category | Triangle Budget | Texture / Atlas Spec | Owner |
 | :--- | :---: | :--- | :--- |
 | **Small Trash Props** (`Sandal`, `Aqua`, `Syringe`, `Kresek`) | `150 – 400 tris` | Shared `T_Trash_Atlas` `2048×2048` PBR | **JC** |
-| **20 Scavenging Tools** (`Sendok` to `Vakum 49cc`) | `300 – 1,200 tris` | Shared `T_Tools_Atlas` `2048×2048` PBR | **JC** |
+| **20 Scavenging Tools** (`Sendok` to `Garuk Skimmer Hidrolik`) | `300 – 1,200 tris` | Shared `T_Tools_Atlas` `2048×2048` PBR | **JC** |
 | **Vessels & Automation Props** (`Rakit`, `Sampan`, `TrashBoom`) | `500 – 2,500 tris` | `1024×1024` PBR | **JC** |
 | **Hero Rigged Excavator** (`SK_ExcavatorAmfibi`) | `4,000 – 6,000 tris` | 3 Material Slots (`Body`, `Hydraulic_Steel`, `Pontoon_Rubber`) | **JC** |
 | **Modular Kampung Buildings** (`Rumah`, `Warung`, `Bank`, `Toko`, `Pos`) | `600 – 1,800 tris` | `1024×1024`–`2048×2048` PBR + Lightmap UV2 | **Wesley** |
@@ -42,7 +42,9 @@
 
 ## 3. Core C# Scripts Inventory (`unity/Assets/_Project/Scripts/`)
 
-- `Core/RiverGameManager.cs` — Central state machine, Rupiah & Bank Sampah payouts, Medical Biohazard risk (`SecureMedicalWaste`), Kampung Bins, Upgrade Tiers, Monsoon `Siaga 4 -> 1` flood gauge, `_WaterClarity` global shader push, `F9` Presentation hotkeys.
-- `Core/RiverFlowBuoyancy.cs` — `RiverMath` (`130m × 180m` spline projection & width profile) + `RiverFlowBuoyancy` component for sinusoidal bobbing and `-Z` current drift.
-- `Player/KaliPlayerController.cs` — First-person walking/sprinting, boat toggle (`E`), FreeCam (`F`), Weather test toggle (`R`), Bank Sampah / Pos Sortir interaction, and Scoop/Dredge (`Left Click`).
-- `Editor/MapJsonImporter.cs` — Editor menu (`KALI > Load Default Purpose-Built Map`) spawning all 51 nodes from `kali-river-map.json` plus JC's prefabs (`PF_LightingRig`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`, `PF_Prop_TrashBoomSegment`, `PF_Trash_*`).
+- `Core/RiverGameManager.cs` — Central state machine, linear water level (`waterLevelY = -0.25 + 0.020 * trash`), Overflow & Sell-Lock (`Q` dump), Rupiah & 3-station sorting vs `Gudang Pengepul`, Medical prick & Biohazard DoT (`playerHealth`), Monsoon countdown, 20-tool auto-unlock milestones, `_WaterClarity` global shader push (throttled ~10 Hz), `F9` Presentation hotkeys.
+- `Core/ToolCatalog.cs` — Authoritative 20 official JC tools (`#01 SM_Tool_SendokMakanBengkok` .. `#20 SM_Tool_GarukSkimmerHidrolik`), cumulative Rupiah unlock milestones, reach/batch/cooldown/prick-mitigation stats, `WasteClass` & `DiscardStationType` enums.
+- `Core/RiverTrashItem.cs` & `Core/RiverTrashSpawner.cs` — Live active/piled trash registration (`TotalTrashInRiver`), `Normal`/`Medical`/`Biohazard` classification, and upstream `-Z` spawning slowed by `Kampung Bins`.
+- `Core/RiverFlowBuoyancy.cs` — `RiverMath` (`130m × 180m` spline projection & width profile) + `RiverFlowBuoyancy` (`+Z` downstream drift toward `Pintu Air`, dynamic water Y sync) + `RiverWaterSurfaceFollower` + `GunungNodeController` (bottom-anchored scaling).
+- `Player/KaliPlayerController.cs` — Dual Input System + Legacy fallback, FP walk/sprint/boat Y-tracking, FreeCam (`F`), Weather toggle (`R`), camera-aimed nearest-target scoop (`LMB`), station quick-discard (`1/2/3/E`), high-ground cargo dump (`Q`), tool switching (`Scroll` / `[ ]`, auto-disabling equipped `PF_Tool_*` `BoxCollider`s).
+- `Editor/MapJsonImporter.cs` — Editor menu (`KALI > Load Default Purpose-Built Map`) generating split West/East banks, elevated `Jembatan Utama`, `+Z` `Pintu Air`, `Pos Medis B3`, `Karantina Biohazard`, `Gudang Pengepul` near Spawn, `RiverTrashSpawner`, and loading JC prefabs (`PF_LightingRig`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`, `PF_Prop_TrashBoomSegment`, `PF_Trash_*` incl. `MedicalBag` & `SyringeBox`, `PF_Tool_*`).

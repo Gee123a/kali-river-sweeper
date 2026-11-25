@@ -6,21 +6,22 @@
     "centerX": 520,
     "width": 180,
     "clarity": 12,
-    "curved": true
+    "curved": true,
+    "flowDirection": "+Z"
   },
   "items": [
     {
       "id": "item_1",
       "type": "sluice_gate",
       "name": "Pintu Air Siaga 1",
-      "x": 520,
-      "y": 48,
+      "x": 465,
+      "y": 1390,
       "w": 360,
       "h": 42,
       "elev": 52,
       "rot": 0,
       "color": "#94a3b8",
-      "note": "Northern concrete sluice dam anchoring retention basin"
+      "note": "Downstream (+Z) concrete sluice dam where river current piles debris"
     },
     {
       "id": "item_2",
@@ -33,7 +34,7 @@
       "elev": 76,
       "rot": 0,
       "color": "#785a3d",
-      "note": "West terraced trash flank blocking basin spillway"
+      "note": "Upstream (-Z) west terraced trash flank shedding debris +Z downstream"
     },
     {
       "id": "item_3",
@@ -46,7 +47,7 @@
       "elev": 112,
       "rot": 0,
       "color": "#785a3d",
-      "note": "3-tier mega-peak jammed against Pintu Air Siaga 1"
+      "note": "Upstream (-Z) 3-tier mega-peak feeding waste downstream toward Pintu Air"
     },
     {
       "id": "item_4",
@@ -59,13 +60,13 @@
       "elev": 72,
       "rot": 0,
       "color": "#785a3d",
-      "note": "East terraced trash flank & compacted plastics"
+      "note": "Upstream (-Z) east terraced trash flank & compacted plastics"
     },
     {
       "id": "item_5",
       "type": "trash_pile",
       "name": "Sludge Muara Barat",
-      "x": 465,
+      "x": 525,
       "y": 325,
       "w": 116,
       "h": 58,
@@ -350,7 +351,7 @@
     {
       "id": "item_27",
       "type": "warung",
-      "name": "Gudang Pengepul",
+      "name": "Warung Pelabuhan Timur",
       "x": 928,
       "y": 615,
       "w": 62,
@@ -358,7 +359,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "East bank warung near Pos Sortir"
     },
     {
       "id": "item_28",
@@ -533,8 +534,8 @@
       "id": "item_41",
       "type": "rumah",
       "name": "Rumah Nelayan 2",
-      "x": 200,
-      "y": 1305,
+      "x": 185,
+      "y": 1350,
       "w": 58,
       "h": 48,
       "elev": 36,
@@ -559,8 +560,8 @@
       "id": "item_43",
       "type": "pohon",
       "name": "Pohon Pisang Hulu 2",
-      "x": 295,
-      "y": 1320,
+      "x": 245,
+      "y": 1345,
       "w": 40,
       "h": 40,
       "elev": 44,
@@ -671,14 +672,53 @@
       "rot": 0,
       "color": "#3f7a4c",
       "note": ""
+    },
+    {
+      "id": "item_52",
+      "type": "pengepul",
+      "name": "Gudang Pengepul",
+      "x": 285,
+      "y": 1280,
+      "w": 68,
+      "h": 54,
+      "elev": 34,
+      "rot": 0,
+      "color": "#a87018",
+      "note": "One-go cheap bulk collector near Spawn & Bank Sampah (Trust/SDG penalty on B3/Biohazard)"
+    },
+    {
+      "id": "item_53",
+      "type": "pos_medis",
+      "name": "Pos Medis B3",
+      "x": 220,
+      "y": 720,
+      "w": 82,
+      "h": 58,
+      "elev": 36,
+      "rot": 0,
+      "color": "#eab308",
+      "note": "Dedicated Medical waste B3 disposal station on West bridge approach"
+    },
+    {
+      "id": "item_54",
+      "type": "karantina_biohazard",
+      "name": "Karantina Biohazard",
+      "x": 760,
+      "y": 475,
+      "w": 86,
+      "h": 60,
+      "elev": 38,
+      "rot": 0,
+      "color": "#a855f7",
+      "note": "Dedicated Biohazard/Radioactive quarantine bunker on East bank"
     }
   ],
   "zones": [
     {
       "id": "zone_1",
-      "name": "Zona 1: Tutorial & Bank Sampah",
+      "name": "Zona 1: Kampung, Bank Sampah & Pintu Air (+Z)",
       "color": "#22c55e",
-      "note": "Act 1 Kampung Hulu loop: Spawn -> Dermaga -> Scoop -> Bank Sampah -> Toko Alat.",
+      "note": "Act 1 downstream loop: Spawn -> Dermaga -> Bank Sampah / Gudang Pengepul -> Toko Alat -> Pintu Air (+Z).",
       "points": [
         {
           "x": 48,
@@ -690,27 +730,27 @@
         },
         {
           "x": 992,
-          "y": 1380
+          "y": 1410
         },
         {
           "x": 48,
-          "y": 1380
+          "y": 1410
         }
       ]
     },
     {
       "id": "zone_2",
-      "name": "Zona 2: Jembatan & Boom Automation",
+      "name": "Zona 2: Jembatan, Pos Medis B3 & Karantina",
       "color": "#38bdf8",
-      "note": "Act 2 River choke point: Jembatan Utama, Trash Boom funneling & East Pos Sortir.",
+      "note": "Act 2 mid-river hubs: Jembatan Utama, Pos Medis B3, Trash Boom, Pos Sortir & Karantina Biohazard.",
       "points": [
         {
           "x": 48,
-          "y": 480
+          "y": 460
         },
         {
           "x": 992,
-          "y": 480
+          "y": 460
         },
         {
           "x": 992,
@@ -724,9 +764,9 @@
     },
     {
       "id": "zone_3",
-      "name": "Zona 3: Muara Gunung Sampah",
+      "name": "Zona 3: Hulu Gunung Sampah (-Z)",
       "color": "#f59e0b",
-      "note": "Act 3 Endgame basin: Pintu Air Siaga 1, 3-tier Gunung Sampah, Excavator & Solar Interceptor.",
+      "note": "Act 3 upstream source: 3-tier Gunung Sampah shedding trash +Z downstream, Excavator & Solar Interceptor.",
       "points": [
         {
           "x": 48,
@@ -738,11 +778,11 @@
         },
         {
           "x": 992,
-          "y": 460
+          "y": 445
         },
         {
           "x": 48,
-          "y": 460
+          "y": 445
         }
       ]
     }
@@ -772,6 +812,20 @@
         "y": 1210
       },
       {
+        "x": 285,
+        "y": 1280
+      },
+      {
+        "x": 195,
+        "y": 1185
+      }
+    ],
+    [
+      {
+        "x": 310,
+        "y": 1210
+      },
+      {
         "x": 318,
         "y": 1030
       },
@@ -779,6 +833,16 @@
         "x": 325,
         "y": 880
       },
+      {
+        "x": 365,
+        "y": 760
+      },
+      {
+        "x": 220,
+        "y": 720
+      }
+    ],
+    [
       {
         "x": 365,
         "y": 760
@@ -820,8 +884,8 @@
         "y": 615
       },
       {
-        "x": 762,
-        "y": 480
+        "x": 760,
+        "y": 475
       },
       {
         "x": 775,

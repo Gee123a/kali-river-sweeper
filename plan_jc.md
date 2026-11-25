@@ -7,10 +7,10 @@
 ## 1. Identity & Scope Boundaries
 
 - **Owner**: Jason Christopher (JC)
-- **Track**: 3D Props, 20 Scavenging Tools, Medical Biohazard Props, Hero IK Rigging & Lighting
+- **Track**: 3D Props, 20 Scavenging Tools, Medical B3 & Biohazard Props, Hero IK Rigging & Lighting
 - **Primary Deliverables**:
-  1. Authentic Indonesian floating trash prefabs + **Medical Biohazard Waste B3** prefabs (`Assets/_Project/Props/Trash/`).
-  2. 20 non-redundant tool models (from `Sendok Makan` and `Gayung` to `Capitan Ular` and `Pompa Mesin 49cc`), vessels (`Rakit Gabus`, `Perahu Sampan`), `Kampung Bins`, and `PF_Prop_TrashBoomSegment` (`Assets/_Project/Props/Equipment/`).
+  1. Authentic Indonesian floating trash prefabs + **Medical B3 (`MedicalBag`, `SyringeBox`)** & **Biohazard/Radioactive** prefabs (`Assets/_Project/Props/Trash/`).
+  2. 20 non-redundant tool models (from `Sendok Makan` and `Gayung` to `Capitan Ular` and `Garuk Skimmer Hidrolik`, with `PF_Tool_*` `BoxCollider` `isTrigger = true` or disabled while equipped), vessels (`Rakit Gabus`, `Perahu Sampan`), `Kampung Bins`, and `PF_Prop_TrashBoomSegment` (`Assets/_Project/Props/Equipment/`).
   3. Hero rigged `SK_ExcavatorAmfibi.fbx` with 3-bone IK arm, 4 vertical spud legs, and dual `Damped Track` hydraulic pistons (`Assets/_Project/Rigging/`).
   4. Scene lighting & Post-FX prefabs (`KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour`, `VolumeProfile_MonsoonStorm`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`) (`Assets/_Project/Lighting/`).
 
@@ -44,17 +44,19 @@
   - [x] Assign 3 PBR material slots (`M_Excavator_Body`, `M_Hydraulic_Steel`, `M_Pontoon_Rubber`).
   - [x] Export FBX: `Ctrl + A -> All Transforms`, `-Z Forward`, `Y Up`, Face smoothing, **UNCHECK `Add Leaf Bones`** (zero `_end` bones); verify Unity Prefab hull faces `+Z` (blue forward arrow).
 
-- [ ] **Task 2: Trash, Medical Biohazard & 20 Scavenging Tools (`Assets/_Project/Props/`)**
-  - [ ] Model all **20 Scavenging Tools** *(332–1,036 tris done with grip pivot `(0,0,0)` along Z + single `2048×2048` Albedo/Normal/Mask atlas)* — align/alias prefabs cleanly against the official **20-Tool list in `docs/PRD.md` Section 3** (especially `#10 Capitan Ular / Snake Grabber` for Medical Waste).
-  - [ ] Ensure exact trash prefab paths expected by `MapJsonImporter.cs` exist inside `Assets/_Project/Props/Trash/Prefabs/`:
-    - `PF_Trash_SandalSwallow.prefab`, `PF_Trash_AquaBottle_600ml.prefab`, `PF_Trash_AquaGalon_19L.prefab`, `PF_Trash_PopMieCup.prefab`, `PF_Trash_KresekBag.prefab`, `PF_Trash_KasurKapuk.prefab`, `PF_Trash_BanBekas.prefab`, `PF_Trash_EcengGondok.prefab`, `PF_Trash_BatangPisang.prefab`.
-  - [ ] Attach `Collider` + `RiverFlowBuoyancy` on every floating trash prefab.
-  - [ ] Model **Medical Biohazard Waste B3** props (`PF_Trash_MedicalBag`, `PF_Trash_SyringeBox`) in hazard yellow (`#EAB308`) with red accents so players spot them for `#10 Capitan Ular` extraction (`RiverGameManager.SecureMedicalWaste()`).
+- [ ] **Task 2: Trash, Medical vs Biohazard Props & 20 Scavenging Tools (`Assets/_Project/Props/`)**
+  - [ ] Package all **20 Scavenging Tools** (`PF_Tool_SendokMakanBengkok` .. `PF_Tool_GarukSkimmerHidrolik` matching `SM_Tool_*` names in `docs/PRD.md` Section 3 — auto-unlocked by cumulative Rupiah milestones, especially **`#10 PF_Tool_CapitanUlar`** reducing Medical prick chance to `0%`).
+  - [ ] **CRITICAL `PF_Tool_*` Collider Rule**: Ensure `PF_Tool_*` `BoxCollider` components are set to **`isTrigger = true` or disabled while equipped** in `KaliPropPrefabBuilder` / prefab assets so equipped tools never collide with the player `CharacterController` or block scoop raycasts (`KaliPlayerController` also disables colliders on equip as a safety net).
+  - [ ] Ensure exact trash prefab paths expected by `MapJsonImporter.cs` & `RiverTrashSpawner.cs` exist inside `Assets/_Project/Props/Trash/Prefabs/`:
+    - **Normal Waste**: `PF_Trash_SandalSwallow.prefab`, `PF_Trash_AquaBottle_600ml.prefab`, `PF_Trash_AquaGalon_19L.prefab`, `PF_Trash_PopMieCup.prefab`, `PF_Trash_KresekBag.prefab`, `PF_Trash_KasurKapuk.prefab`, `PF_Trash_BanBekas.prefab`, `PF_Trash_EcengGondok.prefab`, `PF_Trash_BatangPisang.prefab`.
+    - **Medical Waste (`WasteClass.Medical`)**: `PF_Trash_MedicalBag.prefab` & `PF_Trash_SyringeBox.prefab` (hazard yellow `#EAB308` + red accents; causes needle-prick HP damage if scooped carelessly, mitigated by `#10 Capitan Ular`, sorted at **`Pos Medis B3`**).
+    - **Biohazard / Radioactive Waste (`WasteClass.Biohazard`)**: Model distinct glowing purple/lime containment props (e.g., `PF_Trash_BiohazardDrum.prefab`, `PF_Trash_RadioactiveBarrel.prefab`) visually distinct from Medical yellow bags/sharps! Deals Cargo DoT if held past 10s grace period; must be sorted at **`Karantina Biohazard`**.
+  - [ ] Attach `Collider` + `RiverFlowBuoyancy` + `RiverTrashItem` on every floating trash prefab.
   - [ ] Package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (with `Waterline` `Y = 0` pivot), `RakitGabus`, `PerahuSampan`, and `TongSampahKampung`.
 
 - [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**
   - [ ] Build/verify `Assets/_Project/Lighting/Prefabs/PF_LightingRig.prefab` (Sun + `VolumeProfile_GoldenHour` `3400K` + `VolumeProfile_MonsoonStorm`).
-  - [ ] Build `Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab` (warm `2100K` point light with subtle flicker) and `PF_WarningBeacon_PintuAir.prefab` (rotating orange/red flood siren spot light).
+  - [ ] Build `Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab` (warm `2100K` point light with subtle flicker) and `PF_WarningBeacon_PintuAir.prefab` (rotating orange/red flood siren spot light mounted atop **`+Z` downstream `Pintu Air Siaga 1`**).
 
 ---
 
