@@ -219,11 +219,19 @@ def sync_tracker() -> tuple[list[list[str]], int]:
             updated_count += 1
 
     all_rows = [*title_rows, header, *norm_rows]
-    out_lines = ["\t".join(r) for r in all_rows]
-    TSV_PATH.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
-    with CSV_PATH.open("w", encoding="utf-8", newline="") as f:
-        csv.writer(f).writerows(all_rows)
-    maybe_write_xlsx(title_rows, header, norm_rows)
+    new_tsv = "\n".join("\t".join(r) for r in all_rows) + "\n"
+    old_tsv = TSV_PATH.read_text(encoding="utf-8") if TSV_PATH.exists() else ""
+
+    import io
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="\n").writerows(all_rows)
+    new_csv = buf.getvalue()
+    old_csv = CSV_PATH.read_text(encoding="utf-8") if CSV_PATH.exists() else ""
+
+    if new_tsv != old_tsv or new_csv != old_csv or not XLSX_PATH.exists():
+        TSV_PATH.write_text(new_tsv, encoding="utf-8")
+        CSV_PATH.write_text(new_csv, encoding="utf-8")
+        maybe_write_xlsx(title_rows, header, norm_rows)
     return norm_rows, updated_count
 
 
