@@ -1,0 +1,231 @@
+{
+  "generated": "2026-11-25T08:39:30+00:00",
+  "repo": "/home/user/kali-river-sweeper",
+  "blender_version": "5.3.0",
+  "only": null,
+  "assets": [
+    {
+      "asset": "SK_ExcavatorAmfibi",
+      "kind": "excavator",
+      "status": "PASS",
+      "tris": 4298,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Vehicles/SK_ExcavatorAmfibi.fbx",
+      "blend": "blender/SK_ExcavatorAmfibi.blend",
+      "bones": [
+        "B_Root_Hull",
+        "B_Turret_Slew",
+        "B_Arm_Boom",
+        "B_Arm_Stick",
+        "B_Tool_Bucket",
+        "B_Piston_Bucket_Rod",
+        "B_Piston_Stick_Rod",
+        "B_Piston_Bucket_Base",
+        "B_Piston_Boom_Rod_L",
+        "B_Piston_Boom_Rod_R",
+        "B_Piston_Stick_Base",
+        "B_Piston_Boom_Base_L",
+        "B_Piston_Boom_Base_R",
+        "B_Spud_Leg_FL",
+        "B_Spud_Leg_FR",
+        "B_Spud_Leg_BL",
+        "B_Spud_Leg_BR"
+      ],
+      "meshes": [
+        "SK_ExcavatorAmfibi"
+      ]
+    },
+    {
+      "asset": "SM_Tool_SendokBengkok",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 444,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_SendokBengkok.fbx"
+    },
+    {
+      "asset": "SM_Tool_GayungBolong",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 628,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_GayungBolong.fbx"
+    },
+    {
+      "asset": "SM_Tool_SerokanBambu",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 624,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_SerokanBambu.fbx"
+    },
+    {
+      "asset": "SM_Tool_GancoBambu",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 550,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_GancoBambu.fbx"
+    },
+    {
+      "asset": "SM_Tool_EmberCat",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 728,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_EmberCat.fbx"
+    },
+    {
+      "asset": "SM_Tool_PompaVakum49cc",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 1036,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_PompaVakum49cc.fbx"
+    },
+    {
+      "asset": "SM_Tool_SapuLidi",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 660,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_SapuLidi.fbx"
+    },
+    {
+      "asset": "SM_Tool_PengkiSeng",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 592,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_PengkiSeng.fbx"
+    },
+    {
+      "asset": "SM_Tool_CapitSampah",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 648,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_CapitSampah.fbx"
+    },
+    {
+      "asset": "SM_Tool_SekopKecil",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 444,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_SekopKecil.fbx"
+    },
+    {
+      "asset": "SM_Tool_Cangkul",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 386,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_Cangkul.fbx"
+    },
+    {
+      "asset": "SM_Tool_Garu",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 674,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_Garu.fbx"
+    },
+    {
+      "asset": "SM_Tool_Golok",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 366,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_Golok.fbx"
+    },
+    {
+      "asset": "SM_Tool_TombakTusuk",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 438,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_TombakTusuk.fbx"
+    },
+    {
+      "asset": "SM_Tool_KeranjangRotan",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 740,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_KeranjangRotan.fbx"
+    },
+    {
+      "asset": "SM_Tool_KarungGoni",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 612,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_KarungGoni.fbx"
+    },
+    {
+      "asset": "SM_Tool_DayungKayu",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 396,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_DayungKayu.fbx"
+    },
+    {
+      "asset": "SM_Tool_TongkatMagnet",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 700,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_TongkatMagnet.fbx"
+    },
+    {
+      "asset": "SM_Tool_JerigenPotong",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 372,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_JerigenPotong.fbx"
+    },
+    {
+      "asset": "SM_Tool_GuntingDahan",
+      "kind": "tool",
+      "status": "PASS",
+      "tris": 364,
+      "issues": [],
+      "error": null,
+      "fbx": "unity/Assets/_Project/Art/Props/Tools/SM_Tool_GuntingDahan.fbx"
+    }
+  ],
+  "atlas": {
+    "status": "PASS",
+    "paths": {
+      "albedo": "unity/Assets/_Project/Art/Props/Tools/Textures/T_Tools_Atlas_Albedo.png",
+      "normal": "unity/Assets/_Project/Art/Props/Tools/Textures/T_Tools_Atlas_Normal.png",
+      "mask": "unity/Assets/_Project/Art/Props/Tools/Textures/T_Tools_Atlas_Mask.png"
+    },
+    "error": null
+  },
+  "tools_blend": "blender/SM_Tools_Pack.blend",
+  "status": "PASS"
+}

@@ -80,3 +80,14 @@ Before export, all transforms are applied. `verify_fbx` re-imports the file, che
 - `kali_blender/excavator_spec.py`, `kali_blender/tools_common.py`: data dan helper bersama / shared data and helpers.
 - `tools_check.py`: cek dan render tool satu per satu / check and render tools one at a time.
 - `tests/test_export.py`: tes ekspor dengan stand-in / export tests with stand-ins.
+
+## Catatan rig / Rig notes
+
+- Batas sudut boom (-15..75 deg) dan stick (-110..+10 deg) dipasang sebagai Limit Rotation (FK) dan IK limits.
+  Solver IK legacy Blender **mengabaikan IK limits kalau pole target dipakai** (diverifikasi: tanpa pole 0/357
+  titik target melanggar, dengan pole 132/357). Pole `POLE_Elbow_Target` tetap dipakai karena diminta spec, jadi saat
+  animasi pakai IK, jaga `CTRL_IK_Bucket` di area kerja wajar. Jarak maksimum controller dikunci Limit Distance (6.86 m).
+- Pasangan Damped Track Base <-> Rod membentuk dependency cycle di depsgraph (sesuai spec). Untuk evaluasi lewat
+  script panggil `excavator_rig.evaluate(armature)`; di viewport Blender cukup ganti frame / geser controller lagi.
+- Constraint Blender tidak ikut ke Unity. Di Unity, gerakkan bone (atau bake animasi dengan `bake_anim`).
+- QA lengkap: `python blender/tests/qa_spec_check.py` (setelah `build_all.py`).
