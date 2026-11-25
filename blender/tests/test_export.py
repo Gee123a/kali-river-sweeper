@@ -195,9 +195,24 @@ def test_fbx_settings():
     print("  FBX_SETTINGS: exact match with spec")
 
 
+def test_build_all_stages():
+    import ast
+    src = open(os.path.join(BLENDER_DIR, "build_all.py"), encoding="utf-8").read()
+    stages = None
+    for node in ast.parse(src).body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "STAGES" for t in node.targets):
+            stages = ast.literal_eval(node.value)
+    assert stages is not None, "build_all.py has no STAGES list"
+    assert stages == ["excavator", "tools", "trash"], stages
+    from kali_blender import trash_common as trc  # noqa: F401  (imports cleanly)
+    assert trc.MATERIAL_NAME == "M_Trash_Atlas", trc.MATERIAL_NAME
+    print(f"  build_all stages: {stages}")
+
+
 def main():
     try:
         test_fbx_settings()
+        test_build_all_stages()
         test_apply_all_transforms()
         test_export_excavator_and_verify()
         test_verify_rejects_leaf_bones()

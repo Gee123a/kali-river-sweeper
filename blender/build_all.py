@@ -1,13 +1,14 @@
-"""One-command build for the KALI Blender assets (excavator + 20 tools).
+"""One-command build for the KALI Blender assets (excavator + 20 tools + trash props).
 
-    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools] [--repo ROOT]
-    blender -b -P blender/build_all.py -- [--only excavator|tools] [--repo ROOT]
+    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash] [--repo ROOT]
+    blender -b -P blender/build_all.py -- [--only excavator|tools|trash] [--repo ROOT]
     Blender GUI: open this file in the Text Editor (saved, so __file__ is known) and press Run Script.
 
 Outputs (paths relative to the repo root):
-    excavator: S.BLEND_PATH, S.FBX_PATH
+    excavator: S.BLEND_PATH, S.FBX_PATH (unity/Assets/_Project/Rigging/)
     tools:     tools_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, tools_common.BLEND_PATH
-    report:    blender/build_report.json
+    trash:     trash_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, trash_common.BLEND_PATH
+    report:    blender/build_report.json (repo-relative paths only)
 Exit code 1 if any asset failed.
 """
 import argparse
@@ -23,9 +24,11 @@ sys.path.insert(0, HERE)
 import bpy  # noqa: E402  (must be imported before bmesh / mathutils)
 from kali_blender import excavator_spec as S  # noqa: E402
 from kali_blender import tools_common as tc  # noqa: E402
+from kali_blender import trash_common as trc  # noqa: E402
 from kali_blender.export_fbx import export_excavator, export_tool, verify_fbx  # noqa: E402
 
 DEFAULT_ROOT = os.path.dirname(HERE)
+STAGES = ["excavator", "tools", "trash"]
 
 
 def _argv():
@@ -93,28 +96,48 @@ def _discard_collection(coll):
     bpy.data.collections.remove(coll)
 
 
-def build_tools(root, report):
+def _pack_config(kind):
+    """Settings for one prop pack. 'tools' and 'trash' share the same build/export/atlas flow."""
+    if kind == "tools":
+        return {
+            "kind": "tool", "modules": tc.TOOL_MODULES, "load": tc.load_tool_module,
+            "build": lambda mod, coll: tc.build_tool(mod, collection=coll),
+            "validate": tc.validate_tool, "fbx_dir": tc.FBX_DIR, "tex_dir": tc.TEX_DIR,
+            "blend_path": tc.BLEND_PATH, "material": tc.MATERIAL_NAME, "atlas_files": tc.ATLAS_FILES,
+            "preview": "Tools_Preview",
+        }
+    return {
+        "kind": "trash", "modules": trc.TRASH_MODULES, "load": trc.load_trash_module,
+        "build": lambda mod, coll: trc.build_trash(mod, collection=coll),
+        "validate": trc.validate_trash, "fbx_dir": trc.FBX_DIR, "tex_dir": trc.TEX_DIR,
+        "blend_path": trc.BLEND_PATH, "material": trc.MATERIAL_NAME, "atlas_files": trc.ATLAS_FILES,
+        "preview": "Trash_Preview",
+    }
+
+
+def build_pack(root, report, kind):
+    """Build every module of a prop pack, export each FBX, write its atlas and preview pack."""
+    cfg = _pack_config(kind)
     _reset()
     scene = bpy.context.scene
     specs = []            # every SPEC that loaded (drives the atlas, even if a build failed)
-    built = []            # (grid slot, spec name, collection) for tools kept in the pack
-    tex_dir = os.path.join(root, tc.TEX_DIR)
-    for slot, mod_name in enumerate(tc.TOOL_MODULES):
-        entry = {"asset": mod_name, "kind": "tool", "status": "FAIL", "tris": None, "issues": [],
+    built = []            # (grid slot, spec name, collection) for assets kept in the pack
+    tex_dir = os.path.join(root, cfg["tex_dir"])
+    for slot, mod_name in enumerate(cfg["modules"]):
+        entry = {"asset": mod_name, "kind": cfg["kind"], "status": "FAIL", "tris": None, "issues": [],
                  "error": None, "fbx": None}
         report["assets"].append(entry)
         coll = None
-        spec = None
         try:
-            spec = tc.load_tool_module(mod_name).SPEC
+            spec = cfg["load"](mod_name).SPEC
             specs.append(spec)
             entry["asset"] = spec["name"]
             coll = bpy.data.collections.new(spec["name"])
             scene.collection.children.link(coll)
-            obj = tc.build_tool(mod_name, collection=coll)
-            entry["issues"] = tc.validate_tool(obj, spec)
+            obj = cfg["build"](mod_name, coll)
+            entry["issues"] = cfg["validate"](obj, spec)
             entry["tris"] = tc.tri_count(obj)
-            fbx_abs = os.path.join(root, tc.FBX_DIR, spec["name"] + ".fbx")
+            fbx_abs = os.path.join(root, cfg["fbx_dir"], spec["name"] + ".fbx")
             export_tool(obj, fbx_abs)
             entry["fbx"] = _rel(root, fbx_abs)
             verify_fbx(fbx_abs, expected_meshes=[spec["name"]])
@@ -129,18 +152,18 @@ def build_tools(root, report):
               f"error={entry['error']}", flush=True)
 
     atlas = {"status": "FAIL", "paths": {}, "error": None}
-    report["atlas"] = atlas
+    report["atlases"][kind] = atlas
     try:
-        paths = tc.write_atlas_images(specs, tex_dir)
-        tc.wire_atlas_material(paths)
+        paths = tc.write_atlas_images(specs, tex_dir, files=cfg["atlas_files"])
+        tc.wire_atlas_material(paths, material_name=cfg["material"])
         atlas["paths"] = {k: _rel(root, v) for k, v in paths.items()}
         atlas["status"] = "PASS"
     except Exception as exc:
         traceback.print_exc()
         atlas["error"] = f"{type(exc).__name__}: {exc}"
 
-    # Browsable pack: tool collections excluded from the view layer, instanced on a 5x4 grid.
-    preview = bpy.data.collections.new("Tools_Preview")
+    # Browsable pack: asset collections excluded from the view layer, instanced on a 5x4 grid.
+    preview = bpy.data.collections.new(cfg["preview"])
     scene.collection.children.link(preview)
     for slot, name, coll in built:
         col, row = slot % tc.ATLAS_COLS, slot // tc.ATLAS_COLS
@@ -152,9 +175,9 @@ def build_tools(root, report):
         lc = _layer_collection(bpy.context.view_layer.layer_collection, coll.name)
         if lc is not None:
             lc.exclude = True
-    blend_abs = os.path.join(root, tc.BLEND_PATH)
+    blend_abs = os.path.join(root, cfg["blend_path"])
     _save_blend(blend_abs)
-    report["tools_blend"] = _rel(root, blend_abs)
+    report[f"{kind}_blend"] = _rel(root, blend_abs)
     return report
 
 
@@ -164,9 +187,8 @@ def _print_table(report):
         detail = a["error"] or "; ".join(a["issues"]) or ""
         rows.append((a["asset"], a["kind"], a["status"],
                      "-" if a["tris"] is None else str(a["tris"]), detail[:90]))
-    if "atlas" in report:
-        at = report["atlas"]
-        rows.append(("atlas", "texture", at["status"], "-", at["error"] or ""))
+    for kind, at in report.get("atlases", {}).items():
+        rows.append((f"atlas-{kind}", "texture", at["status"], "-", at["error"] or ""))
     widths = [max(len(str(r[i])) for r in rows) for i in range(5)]
     print()
     for r in rows:
@@ -175,32 +197,34 @@ def _print_table(report):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build KALI excavator and tool assets.")
-    parser.add_argument("--only", choices=["excavator", "tools"], default=None)
+    parser = argparse.ArgumentParser(description="Build KALI excavator, tool and trash assets.")
+    parser.add_argument("--only", choices=STAGES, default=None)
     parser.add_argument("--repo", default=DEFAULT_ROOT, help="repo root (default: parent of blender/)")
     args = parser.parse_args(_argv())
     root = os.path.abspath(args.repo)
 
     report = {
         "generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-        "repo": root,
         "blender_version": bpy.app.version_string,
         "only": args.only,
         "assets": [],
+        "atlases": {},
     }
     if args.only in (None, "excavator"):
         build_excavator(root, report)
     if args.only in (None, "tools"):
-        build_tools(root, report)
+        build_pack(root, report, "tools")
+    if args.only in (None, "trash"):
+        build_pack(root, report, "trash")
 
     failed = any(a["status"] != "PASS" for a in report["assets"]) or \
-        report.get("atlas", {}).get("status", "PASS") != "PASS"
+        any(at["status"] != "PASS" for at in report["atlases"].values())
     report["status"] = "FAIL" if failed else "PASS"
     report_path = os.path.join(root, "blender", "build_report.json")
     with open(report_path, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
     _print_table(report)
-    print(f"report: {report_path}")
+    print(f"report: {_rel(root, report_path)}")
     print("BUILD " + report["status"])
     if bpy.app.background:
         sys.exit(1 if failed else 0)

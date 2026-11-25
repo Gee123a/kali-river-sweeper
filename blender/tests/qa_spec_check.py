@@ -8,6 +8,7 @@ import bpy
 from mathutils import Vector, Matrix
 from kali_blender import excavator_spec as S
 from kali_blender import tools_common as tc
+from kali_blender import trash_common as trc
 
 fails = []
 def check(cond, msg):
@@ -202,5 +203,26 @@ for k, fn in tc.ATLAS_FILES.items():
         img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
     check(ok, f"atlas {fn} 2048x2048")
 check(len({s['name'] for s in specs}) == 20, "20 unique tool names")
+
+# ------------------------------------------------ trash (Medical B3)
+tspecs = []
+for name in trc.TRASH_MODULES:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    try:
+        mod = trc.load_trash_module(name); obj = trc.build_trash(name)
+        issues = trc.validate_trash(obj, mod.SPEC); tspecs.append(mod.SPEC)
+        check(not issues, f"trash {name} validate {issues} tris={tc.tri_count(obj)}")
+    except Exception as e:
+        check(False, f"trash {name} builds ({e})"); continue
+    f = os.path.join(REPO, trc.FBX_DIR, mod.SPEC["name"] + ".fbx")
+    check(os.path.exists(f), f"trash FBX {os.path.basename(f)} exists")
+check({s["prefab"] for s in tspecs} >= {"PF_Trash_MedicalBag", "PF_Trash_SyringeBox"}, "B3 prefab names PF_Trash_MedicalBag / PF_Trash_SyringeBox")
+for k, fn in trc.ATLAS_FILES.items():
+    p = os.path.join(REPO, trc.TEX_DIR, fn)
+    ok = os.path.exists(p)
+    if ok:
+        img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
+    check(ok, f"trash atlas {fn} 2048x2048")
+check(not os.path.exists(os.path.join(REPO, "unity/Assets/_Project/Art")), "no stale outputs under Art/ (JC folders are Props/, Rigging/)")
 print(f"\n{len(fails)} FAIL(s)")
 sys.exit(1 if fails else 0)

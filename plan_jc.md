@@ -45,11 +45,12 @@
   - [x] Export FBX: `Ctrl + A -> All Transforms`, `-Z Forward`, `Y Up`, Face smoothing, **UNCHECK `Add Leaf Bones`** (zero `_end` bones); verify Unity Prefab hull faces `+Z` (blue forward arrow).
 
 - [ ] **Task 2: Trash, Medical Biohazard & 20 Scavenging Tools (`Assets/_Project/Props/`)**
-  - [ ] Model all **20 Scavenging Tools** *(332–1,036 tris done with grip pivot `(0,0,0)` along Z + single `2048×2048` Albedo/Normal/Mask atlas)* — align/alias prefabs cleanly against the official **20-Tool list in `docs/PRD.md` Section 3** (especially `#10 Capitan Ular / Snake Grabber` for Medical Waste).
+  - [x] Model all **20 Scavenging Tools** per the official list in `docs/PRD.md` Section 3 (`#01 Sendok Makan Bengkok` .. `#20 Garuk Skimmer Hidrolik`, 364–1,120 tris, grip pivot `(0,0,0)` along Z, single `2048×2048` `T_Tools_Atlas` Albedo/Normal/Mask) → `Props/Tools/Meshes/SM_Tool_*.fbx`; prefabs via Unity menu `KALI > JC > Build Tool Prefabs`.
   - [ ] Ensure exact trash prefab paths expected by `MapJsonImporter.cs` exist inside `Assets/_Project/Props/Trash/Prefabs/`:
     - `PF_Trash_SandalSwallow.prefab`, `PF_Trash_AquaBottle_600ml.prefab`, `PF_Trash_AquaGalon_19L.prefab`, `PF_Trash_PopMieCup.prefab`, `PF_Trash_KresekBag.prefab`, `PF_Trash_KasurKapuk.prefab`, `PF_Trash_BanBekas.prefab`, `PF_Trash_EcengGondok.prefab`, `PF_Trash_BatangPisang.prefab`.
   - [ ] Attach `Collider` + `RiverFlowBuoyancy` on every floating trash prefab.
-  - [ ] Model **Medical Biohazard Waste B3** props (`PF_Trash_MedicalBag`, `PF_Trash_SyringeBox`) in hazard yellow (`#EAB308`) with red accents so players spot them for `#10 Capitan Ular` extraction (`RiverGameManager.SecureMedicalWaste()`).
+  - [x] Model **Medical Biohazard Waste B3** props (`SM_Trash_MedicalBag` 372 tris, `SM_Trash_SyringeBox` 288 tris) in hazard yellow (`#EAB308`) with red accents → `Props/Trash/Meshes/`, `T_Trash_Atlas` 2048.
+  - [ ] Run Unity menu `KALI > JC > Build All JC Prefabs` to generate `PF_Trash_MedicalBag` / `PF_Trash_SyringeBox` (MeshCollider + Rigidbody + `RiverFlowBuoyancy`) and `PF_Tool_*` prefabs, then commit the prefabs + `.meta` files.
   - [ ] Package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (with `Waterline` `Y = 0` pivot), `RakitGabus`, `PerahuSampan`, and `TongSampahKampung`.
 
 - [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**
