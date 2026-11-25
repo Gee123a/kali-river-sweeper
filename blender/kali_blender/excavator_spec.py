@@ -141,7 +141,7 @@ MATERIAL_ORDER = ["M_Excavator_Body", "M_Hydraulic_Steel", "M_Pontoon_Rubber"]
 TRI_BUDGET = (4000, 6000)
 
 # ---- Output paths (relative to repo root) --------------------------------
-FBX_PATH = "unity/Assets/_Project/Art/Props/Vehicles/SK_ExcavatorAmfibi.fbx"
+FBX_PATH = "unity/Assets/_Project/Rigging/SK_ExcavatorAmfibi.fbx"
 BLEND_PATH = "blender/SK_ExcavatorAmfibi.blend"
 
 

@@ -36,18 +36,20 @@ ATLAS_FILES = {
     "normal": "T_Tools_Atlas_Normal.png",
     "mask": "T_Tools_Atlas_Mask.png",
 }
-FBX_DIR = "unity/Assets/_Project/Art/Props/Tools"
-TEX_DIR = "unity/Assets/_Project/Art/Props/Tools/Textures"
+FBX_DIR = "unity/Assets/_Project/Props/Tools/Meshes"
+TEX_DIR = "unity/Assets/_Project/Props/Tools/Textures"
 BLEND_PATH = "blender/SM_Tools_Pack.blend"
+MAX_SIZE = 5.0              # longest tool (#12 Serokan Jumbo) is 4.5 m
 
+# Official 20-tool list: docs/PRD.md section 3 (index = PRD number).
 TOOL_MODULES = [
-    "tool_01_sendok_bengkok", "tool_02_gayung_bolong", "tool_03_serokan_bambu",
-    "tool_04_ganco_bambu", "tool_05_ember_cat", "tool_06_pompa_vakum_49cc",
-    "tool_07_sapu_lidi", "tool_08_pengki_seng", "tool_09_capit_sampah",
-    "tool_10_sekop_kecil", "tool_11_cangkul", "tool_12_garu",
-    "tool_13_golok", "tool_14_tombak_tusuk", "tool_15_keranjang_rotan",
-    "tool_16_karung_goni", "tool_17_dayung_kayu", "tool_18_tongkat_magnet",
-    "tool_19_jerigen_potong", "tool_20_gunting_dahan",
+    "tool_01_sendok_makan_bengkok", "tool_02_gayung_mandi", "tool_03_centong_nasi",
+    "tool_04_garpu_taman", "tool_05_ember_cat_5l", "tool_06_gayung_saringan_bambu",
+    "tool_07_serokan_waring_3m", "tool_08_ganco_besi_1_mata", "tool_09_ember_cat_20l",
+    "tool_10_capitan_ular", "tool_11_arit_sabit_panjang", "tool_12_serokan_jumbo_4_5m",
+    "tool_13_ganco_ganda_winch", "tool_14_jala_cincin_lempar", "tool_15_pompa_siphon_manual",
+    "tool_16_blok_magnet_50kg", "tool_17_senapan_panah_tali", "tool_18_pompa_mesin_rumput_49cc",
+    "tool_19_penebas_gergaji_ganda", "tool_20_garuk_skimmer_hidrolik",
 ]
 
 
@@ -113,14 +115,14 @@ def _box_project_into(obj, rect):
     bm.free()
 
 
-def atlas_material():
-    mat = bpy.data.materials.get(MATERIAL_NAME)
+def atlas_material(name=MATERIAL_NAME):
+    mat = bpy.data.materials.get(name)
     if mat is None:
-        mat = bpy.data.materials.new(MATERIAL_NAME)
+        mat = bpy.data.materials.new(name)
     return mat
 
 
-def assemble(spec, parts):
+def assemble(spec, parts, material_name=MATERIAL_NAME):
     """Join tagged parts into one finished tool object named spec['name']."""
     if not parts:
         raise ValueError(f"{spec['name']}: build() returned no parts")
@@ -149,7 +151,7 @@ def assemble(spec, parts):
     for k in list(obj.keys()):
         del obj[k]
     obj.data.materials.clear()
-    obj.data.materials.append(atlas_material())
+    obj.data.materials.append(atlas_material(material_name))
     for poly in obj.data.polygons:
         poly.material_index = 0
         poly.use_smooth = False
@@ -222,7 +224,7 @@ def validate_tool(obj, spec):
     dx, dy, dz = max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs)
     if dz < max(dx, dy):
         issues.append(f"long axis not Z (dims x{dx:.2f} y{dy:.2f} z{dz:.2f})")
-    if not 0.12 <= max(dx, dy, dz) <= 2.6:
+    if not 0.12 <= max(dx, dy, dz) <= MAX_SIZE:
         issues.append(f"implausible size {max(dx, dy, dz):.2f} m")
     hd = spec.get("head_dir")
     if hd == "+Z" and max(zs) < -min(zs):
@@ -242,7 +244,7 @@ def _srgb(hexstr):
     return [int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
 
 
-def write_atlas_images(specs, out_dir):
+def write_atlas_images(specs, out_dir, files=ATLAS_FILES):
     """Paint albedo / flat normal / URP mask (R metal, G AO, B detail, A smoothness)."""
     import os
     import numpy as np
@@ -262,7 +264,7 @@ def write_atlas_images(specs, out_dir):
     paths = {}
     for key, arr, colorspace in (("albedo", albedo, "sRGB"), ("normal", normal, "Non-Color"),
                                  ("mask", mask, "Non-Color")):
-        name = ATLAS_FILES[key]
+        name = files[key]
         img = bpy.data.images.get(name) or bpy.data.images.new(name, n, n, alpha=True)
         img.colorspace_settings.name = colorspace
         img.pixels.foreach_set(arr.ravel())
@@ -274,8 +276,8 @@ def write_atlas_images(specs, out_dir):
     return paths
 
 
-def wire_atlas_material(paths):
-    mat = atlas_material()
+def wire_atlas_material(paths, material_name=MATERIAL_NAME):
+    mat = atlas_material(material_name)
     mat.use_nodes = True
     nt = mat.node_tree
     bsdf = next(nd for nd in nt.nodes if nd.type == "BSDF_PRINCIPLED")

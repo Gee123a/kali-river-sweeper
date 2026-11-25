@@ -1,6 +1,6 @@
 """Build + validate KALI tools in isolation and optionally render a preview PNG.
 
-    python blender/tools_check.py tool_01_sendok_bengkok [tool_02_...] [--render OUT_DIR]
+    python blender/tools_check.py tool_01_sendok_makan_bengkok [trash_01_medical_bag ...] [--render OUT_DIR]
     python blender/tools_check.py --all [--render OUT_DIR]
 Prints one line per tool: PASS/FAIL, tri count, issues. Exit code 1 if any FAIL.
 """
@@ -14,6 +14,7 @@ argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
 import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
 from kali_blender import tools_common as tc  # noqa: E402
+from kali_blender import trash_common as trc  # noqa: E402
 
 
 def render(obj, path):
@@ -49,21 +50,29 @@ def main():
     out_dir = None
     if "--render" in argv:
         out_dir = argv[argv.index("--render") + 1]
-    names = tc.TOOL_MODULES if "--all" in argv else [a for a in argv if a.startswith("tool_")]
+    names = (tc.TOOL_MODULES + trc.TRASH_MODULES) if "--all" in argv else \
+        [a for a in argv if a.startswith(("tool_", "trash_"))]
     failed = 0
     specs = []
     for name in names:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         try:
-            mod = tc.load_tool_module(name)
-            obj = tc.build_tool(name)
-            issues = tc.validate_tool(obj, mod.SPEC)
+            if name.startswith("trash_"):
+                mod = trc.load_trash_module(name)
+                obj = trc.build_trash(name)
+                issues = trc.validate_trash(obj, mod.SPEC)
+                files, mat = trc.ATLAS_FILES, trc.MATERIAL_NAME
+            else:
+                mod = tc.load_tool_module(name)
+                obj = tc.build_tool(name)
+                issues = tc.validate_tool(obj, mod.SPEC)
+                files, mat = tc.ATLAS_FILES, tc.MATERIAL_NAME
             specs.append(mod.SPEC)
             tris = tc.tri_count(obj)
             if out_dir:
                 os.makedirs(out_dir, exist_ok=True)
-                paths = tc.write_atlas_images([mod.SPEC], os.path.join(out_dir, "_tex_" + name))
-                tc.wire_atlas_material(paths)
+                paths = tc.write_atlas_images([mod.SPEC], os.path.join(out_dir, "_tex_" + name), files)
+                tc.wire_atlas_material(paths, mat)
                 render(obj, os.path.join(out_dir, name + ".png"))
         except Exception as exc:  # report and keep going
             import traceback; traceback.print_exc()
