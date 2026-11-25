@@ -1,0 +1,53 @@
+name: Auto-Sync Asset Master Tracker
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'unity/Assets/_Project/**'
+      - 'blender/**'
+      - '.github/scripts/sync_tracker.py'
+      - '.github/workflows/sync-asset-tracker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-tracker:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main with all remote branches
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch all origin branches for PR/branch tracking
+        run: |
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+
+      - name: Set up Python & openpyxl
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install openpyxl
+        run: pip install openpyxl
+
+      - name: Run Asset Tracker Auto-Sync
+        run: python .github/scripts/sync_tracker.py
+
+      - name: Commit updated tracker to main if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/KALI_Asset_Master_Tracker.tsv docs/KALI_Asset_Master_Tracker.xlsx
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(tracker): auto-sync asset status from repo & branches [skip ci]"
+            git push origin main
+          else
+            echo "No tracker changes."
+          fi
