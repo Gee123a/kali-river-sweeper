@@ -3,7 +3,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 using KaliRiverSweeper.Core;
 using KaliRiverSweeper.Player;
 
@@ -12,6 +16,8 @@ namespace KaliRiverSweeper.Editor
     public static class MapJsonImporter
     {
         private const string DefaultMapPath = "Assets/_Project/Data/kali-river-map.json";
+        private const string MainScenePath = "Assets/_Project/Scenes/Main.unity";
+        private const string MethaneBubblesPrefabPath = "Assets/_Project/VFX/VFX_MethaneSludgeBubbles.prefab";
         private const float BankTopY = 1.40f;
         private const float RiverbedTopY = -2.0f;
 
@@ -76,32 +82,146 @@ namespace KaliRiverSweeper.Editor
             "PF_Trash_RadioactiveBarrel"
         };
 
+        private static readonly string[] NikiRootPrefabs = new[]
+        {
+            "Assets/_Project/UI/Prefabs/Canvas_HUD.prefab",
+            "Assets/_Project/UI/Prefabs/Canvas_ShopBankSampah.prefab",
+            "Assets/_Project/UI/Prefabs/Canvas_SDGImpactReport.prefab",
+            "Assets/_Project/VFX/VFX_MonsoonRain.prefab"
+        };
+
+        private static string[] EnvPaths(string baseName) => new[]
+        {
+            $"Assets/_Project/Environment/Prefabs/PF_Env_{baseName}.prefab",
+            $"Assets/_Project/Environment/Meshes/SM_Env_{baseName}.fbx"
+        };
+
+        private static string[] PropPaths(string baseName) => new[]
+        {
+            $"Assets/_Project/Props/Equipment/Prefabs/PF_Prop_{baseName}.prefab",
+            $"Assets/_Project/Props/Equipment/Meshes/SM_Prop_{baseName}.fbx"
+        };
+
+        private static readonly Dictionary<string, string[]> ItemAssetTable = new Dictionary<string, string[]>
+        {
+            ["bank_sampah"] = EnvPaths("BankSampah"),
+            ["sorting_yard"] = new[]
+            {
+                "Assets/_Project/Environment/Prefabs/PF_Env_PosSortir.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_PosSortir.fbx",
+                "Assets/_Project/Props/Equipment/Prefabs/PF_Prop_PosSortir.prefab"
+            },
+            ["pos_medis"] = EnvPaths("PosMedisB3"),
+            ["karantina_biohazard"] = EnvPaths("KarantinaBiohazard"),
+            ["pengepul"] = EnvPaths("GudangPengepul"),
+            ["toko_alat"] = EnvPaths("TokoAlat"),
+            ["rumah"] = EnvPaths("RumahPanggung"),
+            ["warung"] = EnvPaths("Warung"),
+            ["dermaga"] = EnvPaths("Dermaga"),
+            ["gunung_node"] = EnvPaths("GunungSampah_3Tiers"),
+            ["jembatan"] = EnvPaths("JembatanUtama"),
+            ["sluice_gate"] = EnvPaths("PintuAirSiaga1"),
+            ["interceptor"] = PropPaths("SolarInterceptor"),
+            ["trash_boom"] = PropPaths("TrashBoomSegment"),
+            ["excavator"] = new[]
+            {
+                "Assets/_Project/Rigging/PF_ExcavatorAmfibi.prefab",
+                "Assets/_Project/Rigging/SK_ExcavatorAmfibi.fbx"
+            }
+        };
+
         [MenuItem("KALI/Load Default Purpose-Built Map")]
         public static void LoadDefaultMap()
         {
-            ImportFromPath(DefaultMapPath);
+            EnsureUrpPipelineAssigned();
+            if (ImportFromPath(DefaultMapPath) && !Application.isPlaying && !EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                SaveMainScene();
+            }
+        }
+
+        [MenuItem("KALI/Save Main Scene")]
+        public static void SaveMainScene()
+        {
+            if (Application.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                Debug.LogWarning("[KALI] Cannot save Main.unity while in PlayMode.");
+                return;
+            }
+
+            if (!AssetDatabase.IsValidFolder("Assets/_Project/Scenes"))
+            {
+                AssetDatabase.CreateFolder("Assets/_Project", "Scenes");
+            }
+
+            Scene scene = SceneManager.GetActiveScene();
+            if (!EditorSceneManager.SaveScene(scene, MainScenePath))
+            {
+                Debug.LogError($"[KALI] Failed to save scene at: {MainScenePath}");
+                return;
+            }
+
+            List<EditorBuildSettingsScene> scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            int idx = scenes.FindIndex(s => string.Equals(s.path, MainScenePath, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0) scenes[idx].enabled = true;
+            else scenes.Insert(0, new EditorBuildSettingsScene(MainScenePath, true));
+            EditorBuildSettings.scenes = scenes.ToArray();
+
+            Debug.Log($"[KALI] Saved {MainScenePath} and enabled it in EditorBuildSettings.");
+        }
+
+        [MenuItem("KALI/Setup URP Pipeline")]
+        public static void EnsureUrpPipelineAssigned()
+        {
+            if (GraphicsSettings.defaultRenderPipeline != null) return;
+
+            const string dir = "Assets/_Project/Settings";
+            const string assetPath = dir + "/URP_KaliPipeline.asset";
+            const string rendererPath = dir + "/URP_KaliRenderer.asset";
+            if (!AssetDatabase.IsValidFolder(dir))
+            {
+                AssetDatabase.CreateFolder("Assets/_Project", "Settings");
+            }
+
+            UniversalRenderPipelineAsset pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(assetPath);
+            if (pipeline == null)
+            {
+                pipeline = UniversalRenderPipelineAsset.Create();
+                AssetDatabase.CreateAsset(pipeline, assetPath);
+                pipeline.LoadBuiltinRendererData(RendererType.UniversalRenderer);
+                if (AssetDatabase.LoadAssetAtPath<ScriptableRendererData>("Assets/UniversalRenderer.asset") != null)
+                {
+                    AssetDatabase.MoveAsset("Assets/UniversalRenderer.asset", rendererPath);
+                }
+                AssetDatabase.SaveAssets();
+            }
+
+            GraphicsSettings.defaultRenderPipeline = pipeline;
+            QualitySettings.renderPipeline = pipeline;
+            Debug.Log("[KALI] Assigned URP Pipeline Asset: " + assetPath);
         }
 
         [MenuItem("KALI/Import Map JSON to Scene...")]
         public static void ImportViaDialog()
         {
+            EnsureUrpPipelineAssigned();
             string path = EditorUtility.OpenFilePanel("Select KALI Map JSON", Application.dataPath, "json");
             if (!string.IsNullOrEmpty(path)) ImportFromPath(path);
         }
 
-        private static void ImportFromPath(string path)
+        private static bool ImportFromPath(string path)
         {
             if (!File.Exists(path))
             {
                 Debug.LogError($"[KALI] Map JSON not found at: {path}");
-                return;
+                return false;
             }
 
             MapData data = JsonUtility.FromJson<MapData>(File.ReadAllText(path));
             if (data == null || data.items == null)
             {
                 Debug.LogError("[KALI] Failed to parse Map JSON.");
-                return;
+                return false;
             }
 
             GameObject existing = GameObject.Find("_KALI_World");
@@ -123,7 +243,7 @@ namespace KaliRiverSweeper.Editor
             spawner.medicalPrefabs = LoadTrashPrefabPool(MedicalTrashNames);
             spawner.biohazardPrefabs = LoadTrashPrefabPool(BiohazardTrashNames);
 
-            BuildSplitBanksAndRiver(terrainGroup.transform);
+            BuildTerrainAndWater(terrainGroup.transform);
             SetupLightingRig(lightingGroup.transform);
 
             foreach (MapItem item in data.items)
@@ -131,7 +251,26 @@ namespace KaliRiverSweeper.Editor
                 SpawnItem(item, buildingsGroup.transform, trashGroup.transform, infraGroup.transform, gunungGroup.transform, root.transform);
             }
 
+            foreach (string nikiPath in NikiRootPrefabs)
+            {
+                AttachPrefabIfPresent(root.transform, nikiPath);
+            }
+
             Debug.Log($"[KALI] Imported {data.items.Length} objects from {path} into _KALI_World.");
+            return true;
+        }
+
+        private static GameObject LoadFirstPrefab(params string[] paths) => LoadFirstAsset<GameObject>(paths);
+
+        private static T LoadFirstAsset<T>(params string[] paths) where T : UnityEngine.Object
+        {
+            if (paths == null) return null;
+            foreach (string p in paths)
+            {
+                T asset = AssetDatabase.LoadAssetAtPath<T>(p);
+                if (asset != null) return asset;
+            }
+            return null;
         }
 
         private static GameObject[] LoadTrashPrefabPool(string[] names)
@@ -139,25 +278,72 @@ namespace KaliRiverSweeper.Editor
             List<GameObject> list = new List<GameObject>();
             foreach (string n in names)
             {
-                GameObject p = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/_Project/Props/Trash/Prefabs/{n}.prefab");
+                GameObject p = LoadFirstPrefab($"Assets/_Project/Props/Trash/Prefabs/{n}.prefab");
                 if (p != null) list.Add(p);
             }
             return list.ToArray();
         }
 
-        /// <summary>
-        /// Splits Ground_Daratan into West & East riverbank segments matching RiverMath S-curve,
-        /// leaving the central river channel open down to -2.0m for boats and water flow.
-        /// </summary>
-        private static void BuildSplitBanksAndRiver(Transform parent)
+        private static void BuildTerrainAndWater(Transform parent)
         {
-            float worldWidthM = RiverMath.WorldW * RiverMath.MapScale;   // 130m
-            float worldLenM = RiverMath.WorldH * RiverMath.MapScale;     // 180m
-            float halfWorldX = worldWidthM * 0.5f;                       // 65m
-            float bankThickness = BankTopY - RiverbedTopY;               // 3.4m
-            float bankCenterY = RiverbedTopY + bankThickness * 0.5f;     // -0.3m
+            float worldWidthM = RiverMath.WorldW * RiverMath.MapScale; // 130m
+            float worldLenM = RiverMath.WorldH * RiverMath.MapScale;  // 180m
 
-            // 1. Sunken riverbed floor at Y = -2.0m
+            GameObject valleyPrefab = LoadFirstPrefab(EnvPaths("RiverValleyTerrain"));
+            if (valleyPrefab != null)
+            {
+                GameObject valley = (GameObject)PrefabUtility.InstantiatePrefab(valleyPrefab, parent);
+                valley.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                EnsureCollider(valley, concaveMesh: true, ensureRootCollider: false, solidRootCollider: false);
+            }
+            else
+            {
+                BuildSplitBanksAndRiver(parent, worldWidthM, worldLenM);
+            }
+
+            GameObject river = FindDescendantByName(parent, "River_WaterSurface");
+            bool createdRiver = river == null;
+            if (createdRiver)
+            {
+                river = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                river.name = "River_WaterSurface";
+                river.transform.SetParent(parent);
+                river.transform.position = Vector3.zero;
+                river.transform.localScale = new Vector3(worldWidthM * 0.1f, 1f, worldLenM * 0.1f);
+            }
+
+            Collider waterCol = river.GetComponent<Collider>();
+            if (waterCol != null) UnityEngine.Object.DestroyImmediate(waterCol);
+
+            Material waterMat = LoadFirstAsset<Material>(
+                "Assets/_Project/Shaders/M_KaliWater.mat",
+                "Assets/_Project/Environment/Materials/M_KaliWater.mat");
+            Renderer riverRenderer = river.GetComponent<Renderer>();
+            if (waterMat != null && riverRenderer != null)
+            {
+                riverRenderer.sharedMaterial = waterMat;
+            }
+            else if (createdRiver || (riverRenderer != null && riverRenderer.sharedMaterial == null))
+            {
+                ApplyTint(river, new Color(0.24f, 0.20f, 0.14f, 0.85f));
+            }
+
+            if (river.GetComponent<RiverWaterSurfaceFollower>() == null)
+            {
+                river.AddComponent<RiverWaterSurfaceFollower>();
+            }
+        }
+
+        /// <summary>
+        /// Greybox fallback when SM_Env_RiverValleyTerrain is absent: splits Ground_Daratan into
+        /// West and East riverbank segments matching RiverMath S-curve down to -2.0m.
+        /// </summary>
+        private static void BuildSplitBanksAndRiver(Transform parent, float worldWidthM, float worldLenM)
+        {
+            float halfWorldX = worldWidthM * 0.5f;                   // 65m
+            float bankThickness = BankTopY - RiverbedTopY;           // 3.4m
+            float bankCenterY = RiverbedTopY + bankThickness * 0.5f; // -0.3m
+
             GameObject riverbed = GameObject.CreatePrimitive(PrimitiveType.Cube);
             riverbed.name = "Riverbed_Floor";
             riverbed.transform.SetParent(parent);
@@ -165,9 +351,8 @@ namespace KaliRiverSweeper.Editor
             riverbed.transform.localScale = new Vector3(worldWidthM, 1f, worldLenM);
             ApplyTint(riverbed, new Color(0.18f, 0.15f, 0.11f));
 
-            // 2. Segmented West & East embankments leaving open S-curve water channel
             const int slices = 18;
-            float sliceLenM = worldLenM / slices; // 10m per slice
+            float sliceLenM = worldLenM / slices;
             Color bankColor = new Color(0.24f, 0.31f, 0.22f);
 
             for (int i = 0; i < slices; i++)
@@ -195,178 +380,145 @@ namespace KaliRiverSweeper.Editor
                 eastBank.transform.localScale = new Vector3(eastWidth, bankThickness, sliceLenM + 0.15f);
                 ApplyTint(eastBank, bankColor);
             }
-
-            // 3. Water Surface Plane (collider disabled so boats/players pass cleanly through water)
-            GameObject river = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            river.name = "River_WaterSurface";
-            river.transform.SetParent(parent);
-            river.transform.position = new Vector3(0f, 0.0f, 0f);
-            river.transform.localScale = new Vector3(worldWidthM * 0.1f, 1f, worldLenM * 0.1f);
-            Collider waterCol = river.GetComponent<Collider>();
-            if (waterCol != null) UnityEngine.Object.DestroyImmediate(waterCol);
-            ApplyTint(river, new Color(0.24f, 0.20f, 0.14f, 0.85f));
-            river.AddComponent<RiverWaterSurfaceFollower>();
         }
 
         private static void SetupLightingRig(Transform parent)
         {
-            const string rigPath = "Assets/_Project/Lighting/Prefabs/PF_LightingRig.prefab";
-            GameObject rigPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(rigPath);
+            GameObject rigPrefab = LoadFirstPrefab("Assets/_Project/Lighting/Prefabs/PF_LightingRig.prefab");
             if (rigPrefab != null)
             {
                 GameObject rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab, parent);
                 rig.name = "PF_LightingRig";
                 Debug.Log("[KALI] Successfully instantiated JC's PF_LightingRig.");
+                return;
             }
-            else
-            {
-                GameObject sun = new GameObject("Directional Light (Fallback)");
-                sun.transform.SetParent(parent);
-                sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-                Light l = sun.AddComponent<Light>();
-                l.type = LightType.Directional;
-                l.color = new Color(1f, 0.95f, 0.84f);
-                l.intensity = 1.8f;
-                l.shadows = LightShadows.Soft;
-            }
+
+            GameObject sun = new GameObject("Directional Light (Fallback)");
+            sun.transform.SetParent(parent);
+            sun.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            Light l = sun.AddComponent<Light>();
+            l.type = LightType.Directional;
+            l.color = new Color(1f, 0.95f, 0.84f);
+            l.intensity = 1.8f;
+            l.shadows = LightShadows.Soft;
         }
 
         private static void SpawnItem(MapItem item, Transform buildings, Transform trash, Transform infra, Transform gunung, Transform root)
         {
             if (item.type == "spawn")
             {
-                GameObject player = new GameObject("Player_Rig");
-                player.transform.SetParent(root);
-                player.transform.position = RiverMath.ToWorld3D(item.x, item.y, BankTopY + 1.0f);
-                player.transform.rotation = Quaternion.Euler(0f, 180f, 0f); // Look North (-Z) toward Gunung Sampah
-                CharacterController cc = player.AddComponent<CharacterController>();
-                cc.height = 1.8f;
-                cc.radius = 0.4f;
-                KaliPlayerController ctrl = player.AddComponent<KaliPlayerController>();
-
-                Camera mainCam = Camera.main;
-                if (mainCam == null)
-                {
-                    GameObject camGo = new GameObject("Main Camera");
-                    camGo.tag = "MainCamera";
-                    mainCam = camGo.AddComponent<Camera>();
-                }
-                mainCam.transform.SetParent(player.transform);
-                mainCam.transform.localPosition = new Vector3(0f, 0.7f, 0f);
-                mainCam.transform.localRotation = Quaternion.identity;
-
-                GameObject socket = new GameObject("ToolSocket");
-                socket.transform.SetParent(mainCam.transform);
-                socket.transform.localPosition = new Vector3(0.38f, -0.32f, 0.65f);
-                socket.transform.localRotation = Quaternion.identity;
-                ctrl.toolSocket = socket.transform;
-
-                var allTools = ToolCatalog.AllTools;
-                ctrl.toolPrefabs = new GameObject[allTools.Count];
-                for (int i = 0; i < allTools.Count; i++)
-                {
-                    ctrl.toolPrefabs[i] = AssetDatabase.LoadAssetAtPath<GameObject>(
-                        $"Assets/_Project/Props/Tools/Prefabs/{allTools[i].PrefabName}.prefab");
-                }
+                SpawnPlayerRig(item, root);
                 return;
             }
 
             if (item.type == "trash_pile")
             {
                 SpawnTrashCluster(item, trash);
+                AttachPrefabIfPresent(trash, MethaneBubblesPrefabPath, RiverMath.ToWorld3D(item.x, item.y, 0f), $"VFX_MethaneSludgeBubbles_{item.name}");
                 return;
             }
-
-            if (item.type == "trash_boom")
-            {
-                const string boomPath = "Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab";
-                GameObject boomPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(boomPath);
-                if (boomPrefab != null)
-                {
-                    GameObject boom = (GameObject)PrefabUtility.InstantiatePrefab(boomPrefab, infra);
-                    boom.name = item.name;
-                    boom.transform.position = RiverMath.ToWorld3D(item.x, item.y, 0f);
-                    boom.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
-                    return;
-                }
-            }
-
-            if (item.type == "jembatan")
-            {
-                BuildElevatedBridge(item, infra);
-                return;
-            }
-
-            if (item.type == "sluice_gate")
-            {
-                BuildSluiceGateAndPileZone(item, infra);
-                return;
-            }
-
-            if (item.type == "excavator")
-            {
-                const string prefabPath = "Assets/_Project/Rigging/PF_ExcavatorAmfibi.prefab";
-                const string fbxPath = "Assets/_Project/Rigging/SK_ExcavatorAmfibi.fbx";
-                GameObject excPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-                bool isFbx = false;
-                if (excPrefab == null)
-                {
-                    excPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
-                    isFbx = true;
-                }
-                if (excPrefab != null)
-                {
-                    GameObject exc = (GameObject)PrefabUtility.InstantiatePrefab(excPrefab, infra);
-                    exc.name = item.name;
-                    exc.transform.position = RiverMath.ToWorld3D(item.x, item.y, 0f);
-                    exc.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
-                    if (isFbx && exc.GetComponent<Collider>() == null && exc.GetComponentInChildren<Collider>() == null)
-                    {
-                        exc.AddComponent<BoxCollider>();
-                    }
-                    return;
-                }
-            }
-
-            PrimitiveType prim = item.type == "pohon" ? PrimitiveType.Cylinder : PrimitiveType.Cube;
-            GameObject go = GameObject.CreatePrimitive(prim);
-            go.name = item.name;
-
-            float sx = Mathf.Max(1.5f, item.w * RiverMath.MapScale);
-            float sz = Mathf.Max(1.5f, item.h * RiverMath.MapScale);
-            float sy = Mathf.Max(0.8f, item.elev * RiverMath.MapScale);
 
             Transform targetParent = item.type switch
             {
                 "gunung_node" => gunung,
-                "dermaga" or "trash_boom" or "excavator" or "interceptor" or "sorting_yard" => infra,
+                "dermaga" or "trash_boom" or "excavator" or "interceptor" or "sorting_yard" or "jembatan" or "sluice_gate" => infra,
                 _ => buildings
             };
 
-            bool isWaterFeature = item.type == "gunung_node" || item.type == "dermaga" ||
-                                  item.type == "trash_boom" || item.type == "interceptor";
-            float groundY = isWaterFeature ? 0f : BankTopY;
+            bool isWaterLevel = item.type is "gunung_node" or "dermaga" or "trash_boom" or "interceptor" or "excavator" or "jembatan" or "sluice_gate";
+            float groundY = isWaterLevel ? 0f : BankTopY;
 
-            go.transform.SetParent(targetParent);
-            go.transform.position = RiverMath.ToWorld3D(item.x, item.y, groundY + sy * 0.5f);
-            go.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
-            go.transform.localScale = new Vector3(sx, sy, sz);
-
-            if (ColorUtility.TryParseHtmlString(item.color, out Color parsed)) ApplyTint(go, parsed);
+            GameObject go = SpawnEnvOrFallback(item, targetParent, groundY, out bool usedPrefab);
 
             if (item.type == "gunung_node")
             {
-                GunungNodeController gCtrl = go.AddComponent<GunungNodeController>();
-                gCtrl.scaleFromCenterPrimitive = true;
+                GunungNodeController gCtrl = go.GetComponent<GunungNodeController>();
+                if (gCtrl == null) gCtrl = go.AddComponent<GunungNodeController>();
+                gCtrl.scaleFromCenterPrimitive = !usedPrefab;
+                AttachPrefabIfPresent(gunung, MethaneBubblesPrefabPath, RiverMath.ToWorld3D(item.x, item.y, 0f), $"VFX_MethaneSludgeBubbles_{item.name}");
             }
-
-            if (item.type == "warung")
+            else if (item.type == "warung")
             {
-                AttachPropIfPresent(go.transform, "Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab", new Vector3(0f, 0.55f, 0f));
+                AttachOnTopIfPresent(go.transform, "Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab");
+            }
+            else if (item.type == "sluice_gate")
+            {
+                AttachOnTopIfPresent(go.transform, "Assets/_Project/Lighting/Prefabs/PF_WarningBeacon_PintuAir.prefab");
+                CreatePintuAirPileZone(item, infra);
             }
         }
 
-        private static void BuildElevatedBridge(MapItem item, Transform parent)
+        private static GameObject SpawnEnvOrFallback(MapItem item, Transform parent, float groundY, out bool usedPrefab)
+        {
+            GameObject prefab = ItemAssetTable.TryGetValue(item.type, out string[] paths) ? LoadFirstPrefab(paths) : null;
+            if (prefab != null)
+            {
+                usedPrefab = true;
+                GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+                inst.name = item.name;
+                inst.transform.SetPositionAndRotation(RiverMath.ToWorld3D(item.x, item.y, groundY), Quaternion.Euler(0f, item.rot, 0f));
+
+                bool concave = item.type is "jembatan" or "sluice_gate";
+                bool isGunung = item.type == "gunung_node";
+                bool needRoot = isGunung || item.type is "bank_sampah" or "sorting_yard" or "pos_medis" or "karantina_biohazard" or "pengepul" or "toko_alat";
+                EnsureCollider(inst, concave, needRoot, isGunung);
+                return inst;
+            }
+
+            usedPrefab = false;
+            if (item.type == "jembatan") return BuildElevatedBridge(item, parent);
+
+            float sx = Mathf.Max(item.type == "sluice_gate" ? 16f : 1.5f, item.w * RiverMath.MapScale);
+            float sz = Mathf.Max(item.type == "sluice_gate" ? 3f : 1.5f, item.h * RiverMath.MapScale);
+            float sy = Mathf.Max(item.type == "sluice_gate" ? 4f : 0.8f, item.elev * RiverMath.MapScale);
+
+            GameObject fallback = GameObject.CreatePrimitive(item.type == "pohon" ? PrimitiveType.Cylinder : PrimitiveType.Cube);
+            fallback.name = item.name;
+            fallback.transform.SetParent(parent);
+            fallback.transform.SetPositionAndRotation(RiverMath.ToWorld3D(item.x, item.y, groundY + sy * 0.5f), Quaternion.Euler(0f, item.rot, 0f));
+            fallback.transform.localScale = new Vector3(sx, sy, sz);
+            if (ColorUtility.TryParseHtmlString(item.color, out Color parsed)) ApplyTint(fallback, parsed);
+            return fallback;
+        }
+
+        private static void SpawnPlayerRig(MapItem item, Transform root)
+        {
+            GameObject player = new GameObject("Player_Rig");
+            player.transform.SetParent(root);
+            player.transform.position = RiverMath.ToWorld3D(item.x, item.y, BankTopY + 1.0f);
+            player.transform.rotation = Quaternion.Euler(0f, 180f, 0f); // Look North (-Z) toward Gunung Sampah
+            CharacterController cc = player.AddComponent<CharacterController>();
+            cc.height = 1.8f;
+            cc.radius = 0.4f;
+            KaliPlayerController ctrl = player.AddComponent<KaliPlayerController>();
+
+            Camera mainCam = Camera.main;
+            if (mainCam == null)
+            {
+                GameObject camGo = new GameObject("Main Camera");
+                camGo.tag = "MainCamera";
+                mainCam = camGo.AddComponent<Camera>();
+            }
+            mainCam.transform.SetParent(player.transform);
+            mainCam.transform.localPosition = new Vector3(0f, 0.7f, 0f);
+            mainCam.transform.localRotation = Quaternion.identity;
+
+            GameObject socket = new GameObject("ToolSocket");
+            socket.transform.SetParent(mainCam.transform);
+            socket.transform.localPosition = new Vector3(0.38f, -0.32f, 0.65f);
+            socket.transform.localRotation = Quaternion.identity;
+            ctrl.toolSocket = socket.transform;
+
+            IReadOnlyList<ToolDefinition> allTools = ToolCatalog.AllTools;
+            ctrl.toolPrefabs = new GameObject[allTools.Count];
+            for (int i = 0; i < allTools.Count; i++)
+            {
+                ctrl.toolPrefabs[i] = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    $"Assets/_Project/Props/Tools/Prefabs/{allTools[i].PrefabName}.prefab");
+            }
+        }
+
+        private static GameObject BuildElevatedBridge(MapItem item, Transform parent)
         {
             float sx = Mathf.Max(12f, item.w * RiverMath.MapScale);
             float sz = Mathf.Max(4f, item.h * RiverMath.MapScale);
@@ -374,8 +526,7 @@ namespace KaliRiverSweeper.Editor
 
             GameObject bridgeRoot = new GameObject(item.name);
             bridgeRoot.transform.SetParent(parent);
-            bridgeRoot.transform.position = center;
-            bridgeRoot.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
+            bridgeRoot.transform.SetPositionAndRotation(center, Quaternion.Euler(0f, item.rot, 0f));
 
             const float deckY = 3.6f; // >= 3.6m boat clearance above baseline water
             const float deckThick = 0.45f;
@@ -389,7 +540,6 @@ namespace KaliRiverSweeper.Editor
             deck.transform.localScale = new Vector3(sx, deckThick, sz);
             ApplyTint(deck, deckCol);
 
-            // Outer piers leaving wide central channel unobstructed for boats
             float[] pierXFrac = new[] { -0.38f, -0.22f, 0.22f, 0.38f };
             float[] pierZFrac = new[] { -0.35f, 0.35f };
             foreach (float xf in pierXFrac)
@@ -405,7 +555,6 @@ namespace KaliRiverSweeper.Editor
                 }
             }
 
-            // Approach ramps down to West & East riverbanks (+1.4m)
             const float rampLen = 8.5f;
             float dy = deckY - BankTopY;
             float hyp = Mathf.Sqrt(rampLen * rampLen + dy * dy);
@@ -420,24 +569,14 @@ namespace KaliRiverSweeper.Editor
                 ramp.transform.localScale = new Vector3(hyp, deckThick, sz * 0.92f);
                 ApplyTint(ramp, pierCol);
             }
+
+            return bridgeRoot;
         }
 
-        private static void BuildSluiceGateAndPileZone(MapItem item, Transform parent)
+        private static void CreatePintuAirPileZone(MapItem item, Transform parent)
         {
             float sx = Mathf.Max(16f, item.w * RiverMath.MapScale);
-            float sz = Mathf.Max(3f, item.h * RiverMath.MapScale);
-            float sy = Mathf.Max(4f, item.elev * RiverMath.MapScale);
             Vector3 center = RiverMath.ToWorld3D(item.x, item.y, 0f);
-
-            GameObject sluiceRoot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sluiceRoot.name = item.name;
-            sluiceRoot.transform.SetParent(parent);
-            sluiceRoot.transform.position = new Vector3(center.x, sy * 0.5f, center.z);
-            sluiceRoot.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
-            sluiceRoot.transform.localScale = new Vector3(sx, sy, sz);
-            if (ColorUtility.TryParseHtmlString(item.color, out Color parsed)) ApplyTint(sluiceRoot, parsed);
-
-            AttachPropIfPresent(sluiceRoot.transform, "Assets/_Project/Lighting/Prefabs/PF_WarningBeacon_PintuAir.prefab", new Vector3(0f, 0.55f, 0f));
 
             // Scoopable barrier pile zone just upstream (-Z) of downstream Pintu Air
             GameObject pileZone = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -453,7 +592,7 @@ namespace KaliRiverSweeper.Editor
         private static void SpawnTrashCluster(MapItem item, Transform parent)
         {
             Vector3 center = RiverMath.ToWorld3D(item.x, item.y, 0f);
-            int count = 5;
+            const int count = 5;
 
             for (int i = 0; i < count; i++)
             {
@@ -466,14 +605,11 @@ namespace KaliRiverSweeper.Editor
                     _ => NormalTrashNames[(i + Mathf.Abs(item.name.GetHashCode())) % NormalTrashNames.Length]
                 };
 
-                string prefabPath = $"Assets/_Project/Props/Trash/Prefabs/{prefabName}.prefab";
-                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-
-                // Also verify against TrashPrefabNames contract list
+                GameObject prefab = LoadFirstPrefab($"Assets/_Project/Props/Trash/Prefabs/{prefabName}.prefab");
                 if (prefab == null && wc == WasteClass.Normal)
                 {
                     string alt = TrashPrefabNames[(i + Mathf.Abs(item.name.GetHashCode())) % TrashPrefabNames.Length];
-                    prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/_Project/Props/Trash/Prefabs/{alt}.prefab");
+                    prefab = LoadFirstPrefab($"Assets/_Project/Props/Trash/Prefabs/{alt}.prefab");
                 }
 
                 Vector3 offset = new Vector3(UnityEngine.Random.Range(-2.2f, 2.2f), 0f, UnityEngine.Random.Range(-2.2f, 2.2f));
@@ -481,8 +617,7 @@ namespace KaliRiverSweeper.Editor
                 if (prefab != null)
                 {
                     trashObj = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
-                    trashObj.transform.position = center + offset;
-                    trashObj.transform.rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
+                    trashObj.transform.SetPositionAndRotation(center + offset, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                 }
                 else
                 {
@@ -504,25 +639,106 @@ namespace KaliRiverSweeper.Editor
                 if (trashItem == null) trashItem = trashObj.AddComponent<RiverTrashItem>();
                 trashItem.wasteClass = wc;
 
-                if (trashObj.GetComponent<RiverFlowBuoyancy>() == null)
-                {
-                    trashObj.AddComponent<RiverFlowBuoyancy>();
-                }
-                if (trashObj.GetComponent<Collider>() == null)
-                {
-                    trashObj.AddComponent<BoxCollider>();
-                }
+                if (trashObj.GetComponent<RiverFlowBuoyancy>() == null) trashObj.AddComponent<RiverFlowBuoyancy>();
+                if (trashObj.GetComponent<Collider>() == null) trashObj.AddComponent<BoxCollider>();
             }
         }
 
-        private static void AttachPropIfPresent(Transform parent, string path, Vector3 localPos)
+        private static GameObject AttachPrefabIfPresent(Transform parent, string path, Vector3? worldPos = null, string nameOverride = null)
         {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab != null)
+            GameObject prefab = LoadFirstPrefab(path);
+            if (prefab == null) return null;
+
+            GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            if (worldPos.HasValue) inst.transform.position = worldPos.Value;
+            if (!string.IsNullOrEmpty(nameOverride)) inst.name = nameOverride;
+            return inst;
+        }
+
+        private static void AttachOnTopIfPresent(Transform parent, string path)
+        {
+            GameObject inst = AttachPrefabIfPresent(parent, path);
+            if (inst == null) return;
+
+            Vector3 localPos = TryGetLocalBounds(parent.gameObject, out Bounds b)
+                ? new Vector3(b.center.x, b.max.y + 0.05f, b.center.z)
+                : new Vector3(0f, 0.55f, 0f);
+            inst.transform.localPosition = localPos;
+        }
+
+        private static void EnsureCollider(GameObject go, bool concaveMesh, bool ensureRootCollider, bool solidRootCollider)
+        {
+            if (go.GetComponentInChildren<Collider>(true) == null)
             {
-                GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
-                inst.transform.localPosition = localPos;
+                if (concaveMesh)
+                {
+                    foreach (MeshFilter mf in go.GetComponentsInChildren<MeshFilter>(true))
+                    {
+                        if (mf.sharedMesh != null && mf.gameObject.GetComponent<Collider>() == null)
+                        {
+                            mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+                        }
+                    }
+                    if (go.GetComponentInChildren<Collider>(true) != null) return;
+                }
+
+                AddFittedBoxCollider(go, isTrigger: false);
+                return;
             }
+
+            if (ensureRootCollider && go.GetComponent<Collider>() == null)
+            {
+                AddFittedBoxCollider(go, isTrigger: !solidRootCollider);
+            }
+        }
+
+        private static void AddFittedBoxCollider(GameObject go, bool isTrigger)
+        {
+            BoxCollider box = go.AddComponent<BoxCollider>();
+            box.isTrigger = isTrigger;
+            if (TryGetLocalBounds(go, out Bounds localBounds))
+            {
+                box.center = localBounds.center;
+                box.size = localBounds.size;
+            }
+        }
+
+        private static bool TryGetLocalBounds(GameObject root, out Bounds localBounds)
+        {
+            localBounds = new Bounds();
+            bool any = false;
+            foreach (MeshFilter mf in root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh != null) EncapsulateMeshBounds(root.transform, mf.transform, mf.sharedMesh, ref localBounds, ref any);
+            }
+            foreach (SkinnedMeshRenderer smr in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (smr.sharedMesh != null) EncapsulateMeshBounds(root.transform, smr.transform, smr.sharedMesh, ref localBounds, ref any);
+            }
+            return any;
+        }
+
+        private static void EncapsulateMeshBounds(Transform root, Transform meshTransform, Mesh mesh, ref Bounds localBounds, ref bool any)
+        {
+            Bounds mb = mesh.bounds;
+            Vector3 min = mb.min;
+            Vector3 max = mb.max;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = new Vector3((i & 1) == 0 ? min.x : max.x, (i & 2) == 0 ? min.y : max.y, (i & 4) == 0 ? min.z : max.z);
+                Vector3 local = root.InverseTransformPoint(meshTransform.TransformPoint(corner));
+                if (!any) { localBounds = new Bounds(local, Vector3.zero); any = true; }
+                else localBounds.Encapsulate(local);
+            }
+        }
+
+        private static GameObject FindDescendantByName(Transform parent, string targetName)
+        {
+            foreach (Transform t in parent.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == targetName) return t.gameObject;
+            }
+            return null;
         }
 
         private static GameObject CreateGroup(string name, Transform parent)
@@ -536,9 +752,9 @@ namespace KaliRiverSweeper.Editor
         {
             Renderer r = go.GetComponent<Renderer>();
             if (r == null) return;
-            Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-            Material mat = new Material(sh) { color = col };
-            r.sharedMaterial = mat;
+            Shader sh = Shader.Find("Universal Render Pipeline/Lit");
+            if (sh == null) sh = Shader.Find("Standard");
+            r.sharedMaterial = new Material(sh) { color = col };
         }
     }
 }
