@@ -303,6 +303,31 @@ namespace KaliRiverSweeper.Editor
                 return;
             }
 
+            if (item.type == "excavator")
+            {
+                const string prefabPath = "Assets/_Project/Rigging/PF_ExcavatorAmfibi.prefab";
+                const string fbxPath = "Assets/_Project/Rigging/SK_ExcavatorAmfibi.fbx";
+                GameObject excPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                bool isFbx = false;
+                if (excPrefab == null)
+                {
+                    excPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
+                    isFbx = true;
+                }
+                if (excPrefab != null)
+                {
+                    GameObject exc = (GameObject)PrefabUtility.InstantiatePrefab(excPrefab, infra);
+                    exc.name = item.name;
+                    exc.transform.position = RiverMath.ToWorld3D(item.x, item.y, 0f);
+                    exc.transform.rotation = Quaternion.Euler(0f, item.rot, 0f);
+                    if (isFbx && exc.GetComponent<Collider>() == null && exc.GetComponentInChildren<Collider>() == null)
+                    {
+                        exc.AddComponent<BoxCollider>();
+                    }
+                    return;
+                }
+            }
+
             PrimitiveType prim = item.type == "pohon" ? PrimitiveType.Cylinder : PrimitiveType.Cube;
             GameObject go = GameObject.CreatePrimitive(prim);
             go.name = item.name;

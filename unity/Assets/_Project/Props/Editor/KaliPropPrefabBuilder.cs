@@ -9,14 +9,15 @@ using Object = UnityEngine.Object;
 namespace Kali.Props.EditorTools
 {
     /// <summary>
-    /// Turns JC's FBX meshes (Props/Trash/Meshes, Props/Tools/Meshes) into prefabs and builds the
-    /// shared 2048 atlas URP Lit materials. Editor-only (lives in an Editor folder).
+    /// Turns JC's FBX meshes (Props/Trash/Meshes, Props/Tools/Meshes, Rigging) into prefabs and builds the
+    /// shared 2048 atlas & URP Lit materials. Editor-only (lives in an Editor folder).
     /// </summary>
     public static class KaliPropPrefabBuilder
     {
         private const string LogPrefix = "[KALI JC] ";
 
         private const string PropsRoot = "Assets/_Project/Props";
+        private const string RiggingRoot = "Assets/_Project/Rigging";
 
         private const string TrashMeshFolder = PropsRoot + "/Trash/Meshes";
         private const string TrashPrefabFolder = PropsRoot + "/Trash/Prefabs";
@@ -32,11 +33,22 @@ namespace Kali.Props.EditorTools
         private const string ToolMaterialPath = ToolMaterialFolder + "/M_Tools_Atlas.mat";
         private const string ToolAtlasBaseName = "T_Tools_Atlas";
 
+        private const string RiggingMeshFolder = RiggingRoot;
+        private const string RiggingPrefabFolder = RiggingRoot;
+        private const string RiggingMaterialFolder = RiggingRoot + "/Materials";
+
+        private const string ExcavatorBodyMatPath = RiggingMaterialFolder + "/M_Excavator_Body.mat";
+        private const string ExcavatorSteelMatPath = RiggingMaterialFolder + "/M_Hydraulic_Steel.mat";
+        private const string ExcavatorRubberMatPath = RiggingMaterialFolder + "/M_Pontoon_Rubber.mat";
+        private const string ExcavatorPrefabPath = RiggingRoot + "/PF_ExcavatorAmfibi.prefab";
+        private const string ExcavatorModelPath = RiggingRoot + "/SK_ExcavatorAmfibi.fbx";
+
         private const string TrashMeshPattern = @"^SM_Trash_(.+)\.fbx$";
         private const string ToolMeshPattern = @"^SM_Tool_(.+)\.fbx$";
 
         private const string UrpLitShader = "Universal Render Pipeline/Lit";
         private const string BuoyancyTypeName = "RiverFlowBuoyancy";
+        private const string TrashItemTypeName = "RiverTrashItem";
 
         private const float TrashMass = 0.5f;
         private const float TrashDrag = 1f;
@@ -94,6 +106,20 @@ namespace Kali.Props.EditorTools
             }
         }
 
+        [MenuItem("KALI/JC/Build Excavator Prefab")]
+        public static void BuildExcavatorPrefabMenu()
+        {
+            try
+            {
+                bool ok = BuildExcavatorPrefab();
+                Debug.Log(LogPrefix + "Build Excavator Prefab result: " + (ok ? "SUCCESS" : "FAILED"));
+            }
+            finally
+            {
+                AssetDatabase.SaveAssets();
+            }
+        }
+
         [MenuItem("KALI/JC/Build All JC Prefabs")]
         public static void BuildAllJcPrefabs()
         {
@@ -102,6 +128,7 @@ namespace Kali.Props.EditorTools
             int trashFailed = 0;
             int toolBuilt = 0;
             int toolFailed = 0;
+            bool excavatorBuilt = false;
 
             try
             {
@@ -115,13 +142,17 @@ namespace Kali.Props.EditorTools
                 // 2. Tool prefabs.
                 BuildPrefabsFromFolder(ToolMeshFolder, ToolMeshPattern, ToolPrefabFolder, "PF_Tool_",
                     LoadToolMaterial(), BuildToolPrefab, out toolBuilt, out toolFailed);
+
+                // 4. Excavator prefab & materials.
+                excavatorBuilt = BuildExcavatorPrefab();
             }
             finally
             {
                 AssetDatabase.SaveAssets();
                 Debug.Log(LogPrefix + "Build All JC Prefabs summary: atlas materials ok=" + atlasCount
                           + " | trash prefabs built=" + trashBuilt + " failed=" + trashFailed
-                          + " | tool prefabs built=" + toolBuilt + " failed=" + toolFailed);
+                          + " | tool prefabs built=" + toolBuilt + " failed=" + toolFailed
+                          + " | excavator built=" + excavatorBuilt);
             }
         }
 
@@ -279,7 +310,8 @@ namespace Kali.Props.EditorTools
 
         private static bool BuildTrashPrefab(MeshEntry entry, string prefabPath, Material mat)
         {
-            Type buoyancyType = FindBuoyancyType();
+            Type buoyancyType = FindComponentType(BuoyancyTypeName);
+            Type trashItemType = FindComponentType(TrashItemTypeName);
 
             GameObject root = InstantiateUnpacked(entry);
             if (root == null)
@@ -314,6 +346,29 @@ namespace Kali.Props.EditorTools
                 if (buoyancyType != null)
                 {
                     root.AddComponent(buoyancyType);
+                }
+
+                if (trashItemType != null)
+                {
+                    Component trashComp = root.AddComponent(trashItemType);
+                    // Infer WasteClass: Medical=1 if entry.Variant contains "Medical" or "Syringe",
+                    // Biohazard=2 if entry.Variant contains "Biohazard" or "Radioactive" or "Drum", else Normal=0.
+                    int wasteClassVal = 0;
+                    string vUpper = entry.Variant != null ? entry.Variant.ToUpperInvariant() : string.Empty;
+                    if (vUpper.Contains("BIOHAZARD") || vUpper.Contains("RADIOACTIVE") || vUpper.Contains("DRUM"))
+                    {
+                        wasteClassVal = 2; // WasteClass.Biohazard
+                    }
+                    else if (vUpper.Contains("MEDICAL") || vUpper.Contains("SYRINGE"))
+                    {
+                        wasteClassVal = 1; // WasteClass.Medical
+                    }
+
+                    var wasteClassField = trashItemType.GetField("wasteClass");
+                    if (wasteClassField != null)
+                    {
+                        wasteClassField.SetValue(trashComp, Enum.ToObject(wasteClassField.FieldType, wasteClassVal));
+                    }
                 }
 
                 return SavePrefab(root, prefabPath);
@@ -376,7 +431,8 @@ namespace Kali.Props.EditorTools
                 }
 
                 BoxCollider box = root.AddComponent<BoxCollider>();
-                box.isTrigger = false;
+                // Equipped tools must never block CharacterController or scoop raycasts
+                box.isTrigger = true;
                 box.center = localBounds.center;
                 box.size = localBounds.size;
 
@@ -386,6 +442,112 @@ namespace Kali.Props.EditorTools
             {
                 Object.DestroyImmediate(root);
             }
+        }
+
+        // ------------------------------------------------------------------
+        // 5. Excavator Prefab & URP Material Support
+        // ------------------------------------------------------------------
+
+        private static bool BuildExcavatorPrefab()
+        {
+            EnsureFolder(RiggingMaterialFolder);
+
+            Shader shader = Shader.Find(UrpLitShader);
+            if (shader == null)
+            {
+                Debug.LogError(LogPrefix + "Shader '" + UrpLitShader + "' not found. Cannot build Excavator materials.");
+                return false;
+            }
+
+            Material bodyMat = GetOrCreateExcavatorMaterial(ExcavatorBodyMatPath, shader, new Color(0.9176f, 0.6902f, 0.0314f), 0.15f, 0.45f); // #eab308
+            Material steelMat = GetOrCreateExcavatorMaterial(ExcavatorSteelMatPath, shader, new Color(0.8863f, 0.9098f, 0.9412f), 0.95f, 0.90f); // #e2e8f0
+            Material rubberMat = GetOrCreateExcavatorMaterial(ExcavatorRubberMatPath, shader, new Color(0.1176f, 0.1608f, 0.2314f), 0.0f, 0.20f);  // #1e293b
+
+            GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(ExcavatorModelPath);
+            if (model == null)
+            {
+                Debug.LogWarning(LogPrefix + "Excavator model not found at " + ExcavatorModelPath + ". Skipping excavator prefab.");
+                return false;
+            }
+
+            GameObject instance = PrefabUtility.InstantiatePrefab(model) as GameObject;
+            if (instance == null)
+            {
+                Debug.LogError(LogPrefix + "Could not instantiate excavator model " + ExcavatorModelPath);
+                return false;
+            }
+
+            PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+            instance.name = "PF_ExcavatorAmfibi";
+
+            try
+            {
+                // Remap Renderer slots by existing material name substring
+                foreach (Renderer r in instance.GetComponentsInChildren<Renderer>(true))
+                {
+                    Material[] oldMats = r.sharedMaterials;
+                    Material[] newMats = new Material[oldMats.Length];
+                    for (int i = 0; i < oldMats.Length; i++)
+                    {
+                        string mName = oldMats[i] != null ? oldMats[i].name.ToLowerInvariant() : string.Empty;
+                        if (mName.Contains("steel") || mName.Contains("hydraulic") || mName.Contains("metal"))
+                        {
+                            newMats[i] = steelMat;
+                        }
+                        else if (mName.Contains("rubber") || mName.Contains("pontoon") || mName.Contains("track"))
+                        {
+                            newMats[i] = rubberMat;
+                        }
+                        else
+                        {
+                            // Default / Body
+                            newMats[i] = bodyMat;
+                        }
+                    }
+                    r.sharedMaterials = newMats;
+                }
+
+                Bounds localBounds;
+                if (TryGetLocalBounds(instance, out localBounds))
+                {
+                    BoxCollider box = instance.AddComponent<BoxCollider>();
+                    box.isTrigger = false;
+                    box.center = localBounds.center;
+                    box.size = localBounds.size;
+                }
+                else
+                {
+                    Debug.LogWarning(LogPrefix + "Excavator model has no mesh bounds; skipping BoxCollider generation.");
+                }
+
+                bool success = SavePrefab(instance, ExcavatorPrefabPath);
+                Debug.Log(LogPrefix + (success ? "Successfully built excavator prefab at " + ExcavatorPrefabPath : "Failed to save excavator prefab."));
+                return success;
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+        }
+
+        private static Material GetOrCreateExcavatorMaterial(string matPath, Shader shader, Color baseColor, float metallic, float smoothness)
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, matPath);
+            }
+            else if (mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+
+            mat.SetColor("_BaseColor", baseColor);
+            mat.SetFloat("_Metallic", metallic);
+            mat.SetFloat("_Smoothness", smoothness);
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         // ------------------------------------------------------------------
@@ -505,18 +667,17 @@ namespace Kali.Props.EditorTools
             }
         }
 
-        private static Type FindBuoyancyType()
+        private static Type FindComponentType(string typeName)
         {
             foreach (Type t in TypeCache.GetTypesDerivedFrom<MonoBehaviour>())
             {
-                if (t.Name == BuoyancyTypeName && !t.IsAbstract)
+                if (t.Name == typeName && !t.IsAbstract)
                 {
                     return t;
                 }
             }
 
-            Debug.LogWarning(LogPrefix + "Component '" + BuoyancyTypeName
-                             + "' not found; trash prefabs are built without buoyancy.");
+            Debug.LogWarning(LogPrefix + "Component '" + typeName + "' not found.");
             return null;
         }
 
@@ -525,37 +686,49 @@ namespace Kali.Props.EditorTools
             localBounds = new Bounds();
             bool any = false;
 
+            // Handle BOTH MeshFilter.sharedMesh AND SkinnedMeshRenderer.sharedMesh via clean shared helper loop
             foreach (MeshFilter mf in root.GetComponentsInChildren<MeshFilter>(true))
             {
-                if (mf.sharedMesh == null)
+                if (mf.sharedMesh != null)
                 {
-                    continue;
+                    AddMeshBoundsToRoot(root, mf.transform, mf.sharedMesh, ref localBounds, ref any);
                 }
+            }
 
-                Bounds mb = mf.sharedMesh.bounds;
-                Vector3 min = mb.min;
-                Vector3 max = mb.max;
-                for (int i = 0; i < 8; i++)
+            foreach (SkinnedMeshRenderer smr in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                if (smr.sharedMesh != null)
                 {
-                    Vector3 corner = new Vector3(
-                        (i & 1) == 0 ? min.x : max.x,
-                        (i & 2) == 0 ? min.y : max.y,
-                        (i & 4) == 0 ? min.z : max.z);
-                    Vector3 local = root.transform.InverseTransformPoint(mf.transform.TransformPoint(corner));
-
-                    if (!any)
-                    {
-                        localBounds = new Bounds(local, Vector3.zero);
-                        any = true;
-                    }
-                    else
-                    {
-                        localBounds.Encapsulate(local);
-                    }
+                    AddMeshBoundsToRoot(root, smr.transform, smr.sharedMesh, ref localBounds, ref any);
                 }
             }
 
             return any;
+        }
+
+        private static void AddMeshBoundsToRoot(GameObject root, Transform meshTransform, Mesh mesh, ref Bounds localBounds, ref bool any)
+        {
+            Bounds mb = mesh.bounds;
+            Vector3 min = mb.min;
+            Vector3 max = mb.max;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = new Vector3(
+                    (i & 1) == 0 ? min.x : max.x,
+                    (i & 2) == 0 ? min.y : max.y,
+                    (i & 4) == 0 ? min.z : max.z);
+                Vector3 local = root.transform.InverseTransformPoint(meshTransform.TransformPoint(corner));
+
+                if (!any)
+                {
+                    localBounds = new Bounds(local, Vector3.zero);
+                    any = true;
+                }
+                else
+                {
+                    localBounds.Encapsulate(local);
+                }
+            }
         }
 
         private static bool IsIdentity(Transform t)

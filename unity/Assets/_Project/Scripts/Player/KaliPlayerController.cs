@@ -36,6 +36,8 @@ namespace KaliRiverSweeper.Player
         private float nextScoopTime;
         private int lastEquippedVisualIndex = -1;
         private GameObject activeToolVisual;
+        private Quaternion toolSocketBaseRot = Quaternion.identity;
+        private float toolSwingTimer;
 
         private void Awake()
         {
@@ -50,6 +52,7 @@ namespace KaliRiverSweeper.Player
 
         private void Start()
         {
+            if (toolSocket != null) toolSocketBaseRot = toolSocket.localRotation;
             if (RiverGameManager.Instance != null)
             {
                 RiverGameManager.Instance.OnEquippedToolChanged += OnEquippedToolChanged;
@@ -70,6 +73,12 @@ namespace KaliRiverSweeper.Player
             if (RiverGameManager.Instance != null && RiverGameManager.Instance.activeEnding != GameEnding.None)
             {
                 return;
+            }
+
+            if (toolSwingTimer > 0f && toolSocket != null)
+            {
+                toolSwingTimer = Mathf.Max(0f, toolSwingTimer - Time.deltaTime * 4f);
+                toolSocket.localRotation = toolSocketBaseRot * Quaternion.Euler(Mathf.Sin(toolSwingTimer * Mathf.PI) * 32f, 0f, 0f);
             }
 
             HandleLook();
@@ -363,6 +372,7 @@ namespace KaliRiverSweeper.Player
 
             ToolDefinition tool = gm.EquippedTool;
             nextScoopTime = Time.time + tool.Cooldown;
+            toolSwingTimer = 1f;
 
             float reach = tool.Reach + (gm.excavatorUnlocked && isInBoat ? 3.5f : 0f);
             Vector3 eyeOrigin = cam != null ? cam.transform.position : (transform.position + Vector3.up * 0.7f);
@@ -533,7 +543,7 @@ namespace KaliRiverSweeper.Player
             {
                 activeToolVisual = Instantiate(prefab, toolSocket);
                 activeToolVisual.transform.localPosition = Vector3.zero;
-                activeToolVisual.transform.localRotation = Quaternion.identity;
+                activeToolVisual.transform.localRotation = Quaternion.Euler(tool.HeadDir == "-Z" ? -18f : 65f, -8f, 0f);
 
                 // Ensure equipped PF_Tool_* BoxCollider never collides with player CharacterController or raycasts
                 foreach (Collider col in activeToolVisual.GetComponentsInChildren<Collider>(true))

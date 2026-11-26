@@ -834,6 +834,7 @@ namespace KaliRiverSweeper.Core
                 ResetStageState(targetCumulativeRupiah: 360000, targetRupiah: 250000, targetToolIdx: 20,
                     galah: true, sampan: true, boom: true, bins: true, excavator: true, monsoon: false);
                 piledRiverTrashCount = 0;
+                activeRiverTrashCount = 0;
                 CompleteCleanBreach();
             }
         }
