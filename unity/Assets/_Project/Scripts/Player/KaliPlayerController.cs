@@ -34,6 +34,7 @@ namespace KaliRiverSweeper.Player
         private float pitch;
         private float verticalVel;
         private float nextScoopTime;
+        private float nextPaddleSplashTime;
         private int lastEquippedVisualIndex = -1;
         private GameObject activeToolVisual;
         private Quaternion toolSocketBaseRot = Quaternion.identity;
@@ -149,6 +150,12 @@ namespace KaliRiverSweeper.Player
             }
 
             controller.Move(move * Time.deltaTime);
+
+            if (isInBoat && gm != null && dir.sqrMagnitude > 0.05f && Time.time >= nextPaddleSplashTime)
+            {
+                nextPaddleSplashTime = Time.time + 0.45f;
+                gm.NotifyWaterSplash(new Vector3(transform.position.x, waterY, transform.position.z));
+            }
         }
 
         private void HandleActions()
@@ -448,12 +455,14 @@ namespace KaliRiverSweeper.Player
                 trashCandidates.Sort((a, b) => a.score.CompareTo(b.score));
                 int batchLimit = Mathf.Max(1, tool.BatchCount);
                 int scooped = 0;
+                Vector3 lastScoopPos = transform.position;
 
                 for (int i = 0; i < trashCandidates.Count && scooped < batchLimit; i++)
                 {
                     RiverTrashItem item = trashCandidates[i].item;
                     if (gm.TryPickupWaste(item.wasteClass, item.trashUnits))
                     {
+                        lastScoopPos = item.transform.position;
                         item.ConsumeOnScoop();
                         scooped++;
                     }
@@ -462,13 +471,21 @@ namespace KaliRiverSweeper.Player
                         break; // Cargo full
                     }
                 }
+                if (scooped > 0)
+                {
+                    gm.NotifyWaterSplash(new Vector3(lastScoopPos.x, gm.currentWaterLevelY, lastScoopPos.z));
+                }
                 return;
             }
 
             // 3. Fallback: scoop piled barrier trash at downstream Pintu Air
             if (bestPileCol != null && gm.piledRiverTrashCount > 0)
             {
-                gm.TryScoopPiledBarrierTrash(tool.BatchCount);
+                int pileScooped = gm.TryScoopPiledBarrierTrash(tool.BatchCount);
+                if (pileScooped > 0)
+                {
+                    gm.NotifyWaterSplash(new Vector3(bestPileCol.transform.position.x, gm.currentWaterLevelY, bestPileCol.transform.position.z));
+                }
                 return;
             }
 
@@ -509,7 +526,7 @@ namespace KaliRiverSweeper.Player
                 Physics.SyncTransforms();
             }
 
-            gm.DamageGunungSampah(dmg * 0.5f);
+            gm.DamageGunungSampah(dmg * 0.5f, col.transform.position);
             return true;
         }
 
