@@ -116,7 +116,7 @@ def compute_status(asset_id: str, current_status: str, head_files: set[str], loc
         head_pf, head_pf_meta = find_matches(prefabs, head_files) if prefabs else ([], False)
         in_main = bool((head_pf and head_pf_meta) or head_src)
         if in_main:
-            return "In Progress in main (Needs Dock & 720p QA)"
+            return "In Progress in main (Needs 720p & Scene Bake)"
         niki_files = branch_files.get("niki-vfx", set())
         b_src, _ = find_matches(sources, niki_files)
         b_pf, b_pf_meta = find_matches(prefabs, niki_files) if prefabs else ([], False)
@@ -268,8 +268,8 @@ def sync_tracker() -> tuple[list[list[str]], int]:
         new_status = compute_status(row[0], old_status, head_files, local_files, branch_files)
 
         if row[0] == "Canvas_HUD":
-            if new_status == "In Progress in main (Needs Dock & 720p QA)":
-                row[9] = "Sprites, contour map & chevron in main; wire BC_StationDockSheet to OnNearbyHubChanged & verify 1280x720"
+            if new_status == "In Progress in main (Needs 720p & Scene Bake)":
+                row[9] = "Dock, sprites & map markers in main; run LoadDefaultMap for Main.unity bake & check 1280x720"
             elif new_status == "In Progress in Branch (niki-vfx)":
                 row[9] = "Prototype Canvas_HUD.prefab on niki-vfx; needs vellum/hatch sprites, contour minimap, [1][2][3][E] dock & 1280x720 QA"
 

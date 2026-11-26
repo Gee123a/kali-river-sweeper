@@ -56,13 +56,13 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 
 ## 3. Milestone Tasks (Prioritized)
 
-### Merged to `main` (`a982cb1`)
+### Merged to `main` (`a982cb1` + `6d27006`)
 - [x] `4 URP VFX Prefabs & Event Scripts (Assets/_Project/VFX/)`: `VFX_MonsoonRain` (`OnWeatherChanged`), `VFX_WaterSplashMuddy` (`OnWaterSplash`), `VFX_MethaneSludgeBubbles`, `VFX_TrashAvalanche` (`OnGunungTierBreached`) - auto-placed by `MapJsonImporter.cs`.
-- [x] `Canvas_HUD` Core + Sprites + Minimap (`UI/Prefabs/Canvas_HUD.prefab`, `UI/Scripts/KaliHudController.cs`): Barlow Condensed + IBM Plex Mono, `UI_Vellum9Slice`, `UI_Hatch45_Tile`, `UI_CrossHatch90_Magenta`, `UI_Contour`, `UI_Chevron`, HP ramp cells, Siaga dot/ruler, clarity fill, cargo counts, and alerts.
+- [x] `Canvas_HUD` Core + Sprites + Minimap + Station Dock (`UI/Prefabs/Canvas_HUD.prefab`, `UI/Scripts/KaliHudController.cs`, `HudMapLayout.cs`): Barlow Condensed + IBM Plex Mono, `UI_Vellum9Slice`, `UI_Hatch45_Tile`, `UI_CrossHatch90_Magenta`, `UI_Contour`, `UI_Chevron`, river/station markers from `kali-river-map.json`, HP/Siaga/Clarity/Cargo HUD, and `BC_StationDockSheet` subscribed to `KaliPlayerController.OnNearbyHubChanged`.
+- [x] `Canvas_SDGImpactReport` (`UI/Prefabs/Canvas_SDGImpactReport.prefab`, `UI/Scripts/SdgImpactReportController.cs`): all 4 endings (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`), end-of-run stats, and SDG 6.3 / 11.5 / 14.1 verdict.
 
-### Priority 1: MVP Blockers (Kerjakan Sekarang - `git pull origin main` dulu!)
-- [ ] **Task 1A: Wire `BC_StationDockSheet` & Pin Minimap**: run `git pull origin main` (includes `a982cb1`, `OnNearbyHubChanged`, and `RiverMath` bounds), subscribe `KaliHudController.cs` to `KaliPlayerController.OnNearbyHubChanged` for `[1][2][3][E]` dock prompts, verify `1920x1080` and `1280x720`, and run `KALI > Load Default Purpose-Built Map` to save updated `Main.unity`. *(Note: run `Window > TextMeshPro > Import TMP Essential Resources` locally if TMP fonts warn.)*
-- [ ] **Task 1B: Build `Canvas_SDGImpactReport` (Primary MVP Loop Closer)**: ending/victory modal handling all **4 endings** (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`), summarizing recycled vs flushed kg, Medical/Biohazard secured, wrong-station fines, Pengepul hazard dumps, and **SDG 6.3 / 11.5 / 14.1** educational verdict.
+### Priority 1: MVP Scene Bake & Final UI Verification (Kerjakan Sekarang)
+- [ ] **Task 1A: Bake HUD, SDG Report & 4 VFX into `Main.unity` + `1280x720` QA**: run `git pull origin main`, open Unity (`Window > TextMeshPro > Import TMP Essential Resources` if TMP warns), run `KALI > Load Default Purpose-Built Map` to bake `Canvas_HUD`, `Canvas_SDGImpactReport`, and all 4 VFX into `Main.unity`, then verify `1920x1080` and `1280x720` in Play Mode (including `F9 + 1..4` & endings).
 
 ### Priority 2: Economy Shop & Audio (Setelah HUD & SDG Report Selesai)
 - [ ] **Task 2: `Canvas_ShopBankSampah` (`Assets/_Project/UI/`)**: `DiscardWasteAtStation` / `DiscardAllAtStation`, `Gudang Pengepul` (`SellAllAtPengepul`), Choice B upgrades (`BuyKampungBins()`, `BuyUpgrade(UpgradeTier)`), 20-tool milestone selector (`SelectTool`), and Choice C emergency floodgate (`TriggerEmergencyFlush()`).

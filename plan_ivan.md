@@ -65,7 +65,8 @@
   - [x] Add prefab/material/UI/VFX auto-wiring table (`MapJsonImporter.cs`), extract `GunungNodeController.cs` & `RiverWaterSurfaceFollower.cs` for clean `.unity` serialization, fix `KaliPlayerController` child-collider lookup & `RiverGameManager` single-ending DoT guard, and pass `7/7` Unity batchmode QA suites (`KaliCoreQaTests.cs`).
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
-- [x] **Task 4B (Part 1): Merge `origin/niki-vfx` + Station Event & 4-VFX Importer Hooks**: merged `origin/niki-vfx` (`Canvas_HUD` + 4 VFX), added `KaliPlayerController.OnNearbyHubChanged` + `RiverMath` bounds, and added all 4 VFX prefabs to `NikiRootPrefabs` / node hooks in `MapJsonImporter.cs` (re-run `KALI > Load Default Purpose-Built Map` once Unity SSD is mounted, then wire `Canvas_SDGImpactReport` once Niki pushes it).
+- [x] **Task 4B (Part 1): Merge `origin/niki-vfx` (`d1f1914`) + Station Event & 4-VFX Importer Hooks**: merged `Canvas_HUD` (with station dock & map markers), `Canvas_SDGImpactReport` (4 endings), and all 4 VFX into `main`; added `KaliPlayerController.OnNearbyHubChanged` + `RiverMath` bounds + auto-wiring in `MapJsonImporter.cs`.
+- [ ] **Task 4B (Part 2): Bake Merged UI & 4 VFX into `Main.unity`**: mount `UnitySSD` (`KYO 1 TB`), open Unity `2022.3.46f1`, run `KALI > Load Default Purpose-Built Map` + `KALI > QA > Run Core Verification`, test Play Mode end-to-end (`Canvas_HUD` + `Canvas_SDGImpactReport` + 4 VFX), and push updated `Main.unity`.
 - [ ] **Task 4C: Team Unity Security Lock & Git History Hygiene**: finalize team agreement on staying on `2022.3.46f1 LTS` for dev vs patching `CVE-2025-59489` (`2022.3.67f2` or `Unity 6`) before final build packaging, and scrub earlier AI bot / `Co-Authored-By` commits if approved.
 
 ### Priority 2: Environment, Trash & Shop Integration (Setelah Prefab Tim Masuk)
