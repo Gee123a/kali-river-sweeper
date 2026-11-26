@@ -101,3 +101,4 @@ URP_KaliRenderer	Asset	URP KaliRenderer	Team	Assets/_Project/Settings/	ASSET	Aut
 GunungNodeController.cs	Core Code	GunungNodeController	Ivan (Lead)	Assets/_Project/Scripts/Core/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Core/GunungNodeController.cs
 RiverWaterSurfaceFollower.cs	Core Code	RiverWaterSurfaceFollower	Ivan (Lead)	Assets/_Project/Scripts/Core/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Core/RiverWaterSurfaceFollower.cs
 KaliCoreQaTests.cs	Core Code	KaliCoreQaTests	Ivan (Lead)	Assets/_Project/Scripts/Editor/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Editor/KaliCoreQaTests.cs
+KaliHudSpriteBuilder.cs	UI & Audio	KaliHudSpriteBuilder	Niki	Assets/_Project/UI/Editor/	CS	Auto	In Branch (niki-vfx) - Scripted Ready	Auto-Discovered	Detected at unity/Assets/_Project/UI/Editor/KaliHudSpriteBuilder.cs
