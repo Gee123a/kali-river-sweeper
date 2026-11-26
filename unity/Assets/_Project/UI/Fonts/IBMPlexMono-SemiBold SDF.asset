@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71c1514a6bd24e1e882cebbe1904ce04, type: 3}
   m_Name: IBMPlexMono-SemiBold SDF
   m_EditorClassIdentifier: 
-  hashCode: 0
+  hashCode: 1812698447
   material: {fileID: 0}
-  materialHashCode: -2006316128
+  materialHashCode: -1275939313
   m_Version: 1.1.0
   m_SourceFontFileGUID: 2ead581fd80344f169ad79c2ff8dabea
   m_SourceFontFile_EditorRef: {fileID: 12800000, guid: 2ead581fd80344f169ad79c2ff8dabea, type: 3}
@@ -42,18 +42,72 @@ MonoBehaviour:
     m_StrikethroughOffset: 18.4
     m_StrikethroughThickness: 7.92
     m_TabWidth: 54
-  m_GlyphTable: []
-  m_CharacterTable: []
+  m_GlyphTable:
+  - m_Index: 76
+    m_Metrics:
+      m_Width: 47.875
+      m_Height: 13.234375
+      m_HorizontalBearingX: 3.0625
+      m_HorizontalBearingY: 12.6875
+      m_HorizontalAdvance: 54
+    m_GlyphRect:
+      m_X: 10
+      m_Y: 10
+      m_Width: 48
+      m_Height: 14
+    m_Scale: 1
+    m_AtlasIndex: 0
+    m_ClassDefinitionType: 0
+  - m_Index: 74
+    m_Metrics:
+      m_Width: 43.1875
+      m_Height: 9.640625
+      m_HorizontalBearingX: 5.40625
+      m_HorizontalBearingY: -7.015625
+      m_HorizontalAdvance: 54
+    m_GlyphRect:
+      m_X: 77
+      m_Y: 10
+      m_Width: 44
+      m_Height: 10
+    m_Scale: 1
+    m_AtlasIndex: 0
+    m_ClassDefinitionType: 0
+  m_CharacterTable:
+  - m_ElementType: 1
+    m_Unicode: 8230
+    m_GlyphIndex: 76
+    m_Scale: 1
+  - m_ElementType: 1
+    m_Unicode: 95
+    m_GlyphIndex: 74
+    m_Scale: 1
   m_AtlasTextures:
   - {fileID: 0}
   m_AtlasTextureIndex: 0
   m_IsMultiAtlasTexturesEnabled: 1
   m_ClearDynamicDataOnBuild: 0
-  m_UsedGlyphRects: []
-  m_FreeGlyphRects:
+  m_UsedGlyphRects:
   - m_X: 0
     m_Y: 0
+    m_Width: 67
+    m_Height: 33
+  - m_X: 67
+    m_Y: 0
+    m_Width: 63
+    m_Height: 29
+  m_FreeGlyphRects:
+  - m_X: 0
+    m_Y: 33
     m_Width: 2047
+    m_Height: 2014
+  - m_X: 67
+    m_Y: 29
+    m_Width: 1980
+    m_Height: 2018
+  - m_X: 130
+    m_Y: 0
+    m_Width: 1917
     m_Height: 2047
   m_fontInfo:
     Name: 

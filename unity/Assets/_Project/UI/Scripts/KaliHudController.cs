@@ -1,22 +1,51 @@
 using System.Globalization;
 using KaliRiverSweeper.Core;
+using KaliRiverSweeper.Player;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace KaliRiverSweeper.UI
 {
     /// <summary>
-    /// Drives Canvas_HUD from RiverGameManager events. Reads state only inside handlers,
-    /// never polls gameplay fields in Update.
-    /// Child elements are located by name at Awake, so Canvas_HUD.prefab must keep the
-    /// names from docs/HUD_SPEC_NIKI.md section 3.
+    /// Drives Canvas_HUD from RiverGameManager events (OnStateChanged, OnToolUnlocked, OnWeatherChanged,
+    /// OnHazardOrAlert). Gameplay values are read inside handlers. The only timed work is the toast
+    /// timer and the map refresh at mapRefreshHz, which keeps the chevron on the player.
+    /// Child elements are found by name at Awake, so Canvas_HUD.prefab must keep the names from
+    /// docs/HUD_SPEC_NIKI.md section 3.
     /// </summary>
     public sealed class KaliHudController : MonoBehaviour
     {
         private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
-        private RiverGameManager manager;
+        // Filtration dot colors per docs/HUD_SPEC_NIKI.md section 4.
+        private static readonly Color SiagaGreen = new Color32(0x15, 0x80, 0x3D, 255);
+        private static readonly Color SiagaAmber = new Color32(0xC9, 0x7A, 0x0A, 255);
+        private static readonly Color SiagaOrange = new Color32(0xEA, 0x58, 0x0C, 255);
+        private static readonly Color SiagaRed = new Color32(0xE1, 0x1D, 0x8F, 255);
+        private static readonly Color Ink = new Color32(0x1E, 0x1F, 0x1D, 255);
+        private static readonly Color Alert = new Color32(0xB5, 0x0E, 0x6F, 255);
+        private static readonly Color Track = new Color32(0xDC, 0xDA, 0xD2, 255);
 
+        [Header("Map bounds (world X/Z), matched to the river extent")]
+        [SerializeField] private float mapMinX = -65f;
+        [SerializeField] private float mapMaxX = 65f;
+        [SerializeField] private float mapMinZ = -90f;
+        [SerializeField] private float mapMaxZ = 90f;
+        [SerializeField] private float mapRefreshHz = 15f;
+
+        private RiverGameManager manager;
+        private KaliPlayerController player;
+        private float mapTimer;
+        private float toastTimer;
+
+        private Image[] rampCells;
+        private Image filtrationDot;
+        private RectTransform ruler;
+        private RectTransform clarityFill;
+        private RectTransform contour;
+        private RectTransform chevron;
+        private TMP_Text damLabel;
         private TMP_Text hpValue;
         private TMP_Text siagaLevel;
         private TMP_Text waterMeters;
@@ -35,10 +64,22 @@ namespace KaliRiverSweeper.UI
         private TMP_Text warga;
         private GameObject toast;
         private TMP_Text toastText;
-        private float toastTimer;
 
         private void Awake()
         {
+            rampCells = new Image[10];
+            for (int i = 0; i < rampCells.Length; i++)
+            {
+                rampCells[i] = Find<Image>("TL_SurvivalFloodSheet/Row_HP/Cell_Ramp_" + i);
+            }
+
+            filtrationDot = Find<Image>("TL_SurvivalFloodSheet/Row_SiagaWater/Img_FiltrationDot");
+            ruler = Find<RectTransform>("TL_SurvivalFloodSheet/Row_SiagaWater/RulerNeedle");
+            clarityFill = Find<RectTransform>("TC_EcologicalHydroRail/Cell_Kejernihan/Img_ClarityFill");
+            contour = Find<RectTransform>("BR_VellumHydroMap/Img_ContourCanalBase");
+            chevron = Find<RectTransform>("BR_VellumHydroMap/Icon_PlayerSampan");
+            damLabel = Find<TMP_Text>("BR_VellumHydroMap/TMP_DamLabel");
+
             hpValue = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_HP/TMP_HPValue");
             siagaLevel = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_SiagaLevel");
             waterMeters = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_WaterMeters");
@@ -78,6 +119,8 @@ namespace KaliRiverSweeper.UI
 
             manager.OnStateChanged -= Refresh;
             manager.OnToolUnlocked -= HandleToolUnlocked;
+            manager.OnWeatherChanged -= HandleWeatherChanged;
+            manager.OnHazardOrAlert -= HandleHazardOrAlert;
             manager = null;
         }
 
@@ -89,10 +132,8 @@ namespace KaliRiverSweeper.UI
                 TrySubscribe();
             }
 
-            if (toast == null || !toast.activeSelf) return;
-
-            toastTimer -= Time.unscaledDeltaTime;
-            if (toastTimer <= 0f) toast.SetActive(false);
+            UpdateToast();
+            UpdateMap();
         }
 
         private void TrySubscribe()
@@ -102,20 +143,87 @@ namespace KaliRiverSweeper.UI
             manager = RiverGameManager.Instance;
             manager.OnStateChanged += Refresh;
             manager.OnToolUnlocked += HandleToolUnlocked;
+            manager.OnWeatherChanged += HandleWeatherChanged;
+            manager.OnHazardOrAlert += HandleHazardOrAlert;
             Refresh();
+        }
+
+        private void HandleWeatherChanged(bool isMonsoonStorm)
+        {
+            Refresh();
+        }
+
+        private void HandleHazardOrAlert(string message, bool isAlert)
+        {
+            Refresh();
+        }
+
+        private void UpdateToast()
+        {
+            if (toast == null || !toast.activeSelf) return;
+
+            toastTimer -= Time.unscaledDeltaTime;
+            if (toastTimer <= 0f) toast.SetActive(false);
+        }
+
+        // Throttled to mapRefreshHz. Map +Z points up; the chevron tip points along the player's heading.
+        private void UpdateMap()
+        {
+            if (chevron == null || contour == null) return;
+
+            mapTimer -= Time.unscaledDeltaTime;
+            if (mapTimer > 0f) return;
+            mapTimer = 1f / Mathf.Max(1f, mapRefreshHz);
+
+            if (player == null)
+            {
+                player = FindObjectOfType<KaliPlayerController>();
+                if (player == null) return;
+            }
+
+            Vector3 p = player.transform.position;
+            float nx = Mathf.Clamp01(Mathf.InverseLerp(mapMinX, mapMaxX, p.x));
+            float nz = Mathf.Clamp01(Mathf.InverseLerp(mapMinZ, mapMaxZ, p.z));
+
+            // Contour and chevron share the map's top-left anchor. Clamp the chevron inside the contour area.
+            Vector2 origin = contour.anchoredPosition;
+            Vector2 area = contour.sizeDelta;
+            chevron.anchoredPosition = new Vector2(origin.x + nx * area.x, origin.y - (1f - nz) * area.y);
+            chevron.localRotation = Quaternion.Euler(0f, 0f, -player.transform.eulerAngles.y);
         }
 
         private void Refresh()
         {
             if (manager == null) return;
 
+            float hpRatio = manager.maxPlayerHealth > 0f ? Mathf.Clamp01(manager.playerHealth / manager.maxPlayerHealth) : 0f;
+            int filled = Mathf.RoundToInt(hpRatio * rampCells.Length);
+            Color filledColor = manager.playerHealth <= 40f ? Alert : Ink;
+            for (int i = 0; i < rampCells.Length; i++)
+            {
+                if (rampCells[i] != null) rampCells[i].color = i < filled ? filledColor : Track;
+            }
+
             SetText(hpValue, Mathf.RoundToInt(manager.playerHealth).ToString(Invariant));
             SetText(siagaLevel, "SIAGA " + manager.SiagaLevel.ToString(Invariant));
             SetText(waterMeters, FormatMeters(manager.currentWaterLevelY));
+            if (filtrationDot != null) filtrationDot.color = SiagaDotColor(manager.SiagaLevel);
+            if (ruler != null)
+            {
+                float t = Mathf.Clamp01(Mathf.InverseLerp(-0.25f, 2.45f, manager.currentWaterLevelY));
+                ruler.anchoredPosition = new Vector2(200f + t * 120f, ruler.anchoredPosition.y);
+            }
+
             SetText(gunungPercent, Mathf.RoundToInt(manager.gunungSampahHealth * 100f).ToString(Invariant) + "%");
             SetText(clarityPercent, Mathf.RoundToInt(manager.waterClarity * 100f).ToString(Invariant) + "%");
+            if (clarityFill != null)
+            {
+                clarityFill.sizeDelta = new Vector2(240f * Mathf.Clamp01(manager.waterClarity), clarityFill.sizeDelta.y);
+            }
+
             SetText(monsunTimer, FormatClock(manager.monsoonCountdownRemaining));
             SetText(monsunLabel, manager.isMonsoonStorm ? "BADAI" : "MONSUN");
+            SetText(damLabel, "DAM " + Mathf.RoundToInt(manager.gunungSampahHealth * 100f).ToString(Invariant) + "%");
 
             bool hasBiohazard = manager.biohazardCargo > 0;
             SetActive(biohazardStrip, hasBiohazard);
@@ -142,6 +250,17 @@ namespace KaliRiverSweeper.UI
             SetText(toastText, "Alat Baru: #" + tool.Index.ToString("00", Invariant) + " " + tool.DisplayName + badge);
             toast.SetActive(true);
             toastTimer = 3.5f;
+        }
+
+        private static Color SiagaDotColor(int siagaLevel)
+        {
+            switch (siagaLevel)
+            {
+                case 1: return SiagaRed;
+                case 2: return SiagaOrange;
+                case 3: return SiagaAmber;
+                default: return SiagaGreen;
+            }
         }
 
         private static string FormatMeters(float levelY)
