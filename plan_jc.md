@@ -8,6 +8,8 @@
 
 - **Owner**: Jason Christopher (JC)
 - **Track**: 3D Props, 20 Scavenging Tools, Medical B3 & Biohazard Props, Hero IK Rigging & Lighting
+- **Unity Version Alignment**: Current workspace operates on Unity `2022.3.46f1 LTS`. To address `CVE-2025-59489` security vulnerabilities, team will coordinate either upgrading to patched Unity `2022.3.67f2` or migrating to patched Unity 6 (`6000.0.58f2+` / `6000.3.29f1 LTS`) prior to final build packaging.
+- **Git Contributor Hygiene**: Local personal git author commits only. Zero AI bot author attribution, zero `Co-Authored-By` trailers.
 - **Primary Deliverables**:
   1. Authentic Indonesian floating trash prefabs + **Medical B3 (`MedicalBag`, `SyringeBox`)** & **Biohazard/Radioactive** prefabs (`Assets/_Project/Props/Trash/`).
   2. 20 non-redundant tool models (from `Sendok Makan` and `Gayung` to `Capitan Ular` and `Garuk Skimmer Hidrolik`, with `PF_Tool_*` `BoxCollider` `isTrigger = true` or disabled while equipped), vessels (`Rakit Gabus`, `Perahu Sampan`), `Kampung Bins`, and `PF_Prop_TrashBoomSegment` (`Assets/_Project/Props/Equipment/`).
@@ -15,7 +17,7 @@
   4. Scene lighting & Post-FX prefabs (`KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour`, `VolumeProfile_MonsoonStorm`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`) (`Assets/_Project/Lighting/`).
 
 ### Allowed Files & Directories (READ & WRITE)
-- `blender/**` *(Reproducible Blender 5.3 Python generators — `blender -b -P blender/build_all.py`)*
+- `blender/**` *(Reproducible Blender 5.3 Python generators - `blender -b -P blender/build_all.py`)*
 - `unity/Assets/_Project/Props/**` (`Trash/`, `Tools/`, `Equipment/`)
 - `unity/Assets/_Project/Rigging/**` (`SK_ExcavatorAmfibi.*`, Animators)
 - `unity/Assets/_Project/Lighting/**` (`KaliLightingBuilder.cs`, `Prefabs/`, `VolumeProfiles/`)
@@ -33,9 +35,12 @@
 
 ---
 
-## 2. Step-by-Step Task Checklist
+## 2. Roadmap & Milestone Tasks (Prioritized)
 
-- [x] **Task 1: Hero Rigged Asset — `SK_ExcavatorAmfibi` (`Assets/_Project/Rigging/`)** *(Implemented in `blender/build_all.py` — 4,298 tris)*
+- **Timeline Overview**: **Completed in `main`** (`SM_Tool_*` x20 FBX, `SK_ExcavatorAmfibi.fbx`, `SM_Trash_MedicalBag.fbx`, `SM_Trash_SyringeBox.fbx`, `KaliPropPrefabBuilder.cs`) vs **Generated Locally on Ivan's Machine** (`PF_Tool_*`, `PF_Trash_*`, `PF_ExcavatorAmfibi.prefab` pending commit).
+
+### Completed in main
+- [x] **Task 1: Hero Rigged Asset - `SK_ExcavatorAmfibi` (`Assets/_Project/Rigging/`)** *(Implemented in `blender/build_all.py` - 4,298 tris)*
   - [x] Model pontoon catamaran hull, 4 vertical spud anchors (`0 to -3.5m` Z), rotating cab turret (`360° Z`), `4.2m` Boom, `2.8m` Stick, `1.4m` 5-tooth Bucket (`-Y` forward, `+X` left in Blender).
   - [x] Build Armature hierarchy: `B_Root_Hull` $\to$ `B_Turret_Slew` $\to$ `B_Arm_Boom` $\to$ `B_Arm_Stick` $\to$ `B_Tool_Bucket`, `B_Piston_Bucket_Base` parented to `B_Arm_Stick`, plus `B_Spud_Leg_FL/FR/BL/BR`.
   - [x] Add Non-Deform controller bones (`CTRL_IK_Bucket` placed at wrist joint + `Copy Rotation` for bucket curl, `POLE_Elbow_Target`).
@@ -43,20 +48,22 @@
   - [x] Setup Dual Mutual **`Damped Track` (`+Y`)** Hydraulic Piston Pairs for Boom L/R, Stick, and Bucket hydraulics.
   - [x] Assign 3 PBR material slots (`M_Excavator_Body`, `M_Hydraulic_Steel`, `M_Pontoon_Rubber`).
   - [x] Export FBX: `Ctrl + A -> All Transforms`, `-Z Forward`, `Y Up`, Face smoothing, **UNCHECK `Add Leaf Bones`** (zero `_end` bones); verify Unity Prefab hull faces `+Z` (blue forward arrow).
-
-- [ ] **Task 2: Trash, Medical vs Biohazard Props & 20 Scavenging Tools (`Assets/_Project/Props/`)**
-  - [x] Model all **20 Scavenging Tools** per `docs/PRD.md` Section 3 (`#01 Sendok Makan Bengkok` .. `#20 Garuk Skimmer Hidrolik`, 364–1,120 tris, grip pivot `(0,0,0)` along Z, `2048×2048` `T_Tools_Atlas` Albedo/Normal/Mask) $\to$ `Props/Tools/Meshes/SM_Tool_*.fbx`.
-  - [ ] **CRITICAL `PF_Tool_*` Collider Rule**: Ensure `PF_Tool_*` `BoxCollider` components are set to **`isTrigger = true` or disabled while equipped** in `KaliPropPrefabBuilder` / prefab assets so equipped tools never collide with the player `CharacterController` or block scoop raycasts (`KaliPlayerController` also disables colliders on equip as a safety net).
+- [x] **Task 1b: 20 Scavenging Tools & Medical B3 Assets**
+  - [x] Model all **20 Scavenging Tools** per `docs/PRD.md` Section 3 (`#01 Sendok Makan` .. `#20 Garuk Skimmer Hidrolik`, 364–1,120 tris, grip pivot `(0,0,0)` along Z, `2048×2048` `T_Tools_Atlas` Albedo/Normal/Mask) $\to$ `Props/Tools/Meshes/SM_Tool_*.fbx`.
+  - [x] **CRITICAL `PF_Tool_*` Collider Rule**: `BoxCollider.isTrigger = true` implemented in `KaliPropPrefabBuilder.cs` and disabled while equipped in `KaliPlayerController.cs`.
   - [x] Model **Medical Waste B3 (`WasteClass.Medical`)** props (`SM_Trash_MedicalBag` 372 tris, `SM_Trash_SyringeBox` 288 tris) in hazard yellow (`#EAB308`) with red accents $\to$ `Props/Trash/Meshes/`, `T_Trash_Atlas` 2048 (`0%` needle prick when using `#10 Capitan Ular`, sorted at **`Pos Medis B3`**).
-  - [ ] Model **Biohazard / Radioactive Waste (`WasteClass.Biohazard`)** glowing purple/lime containment props (e.g., `SM_Trash_BiohazardDrum`, `SM_Trash_RadioactiveBarrel`) visually distinct from Medical yellow bags/sharps; deals Cargo DoT past 10s grace period; sorted at **`Karantina Biohazard`**.
-  - [ ] Ensure exact **Normal Waste** trash prefab paths expected by `MapJsonImporter.cs` & `RiverTrashSpawner.cs` exist inside `Assets/_Project/Props/Trash/Prefabs/`:
-    - `PF_Trash_SandalSwallow.prefab`, `PF_Trash_AquaBottle_600ml.prefab`, `PF_Trash_AquaGalon_19L.prefab`, `PF_Trash_PopMieCup.prefab`, `PF_Trash_KresekBag.prefab`, `PF_Trash_KasurKapuk.prefab`, `PF_Trash_BanBekas.prefab`, `PF_Trash_EcengGondok.prefab`, `PF_Trash_BatangPisang.prefab`.
-  - [ ] Run Unity menu `KALI > JC > Build All JC Prefabs` to generate `PF_Trash_*` (`BoxCollider` + kinematic `Rigidbody` + `RiverFlowBuoyancy` + `RiverTrashItem`), `PF_Tool_*` (`BoxCollider.isTrigger = true`), and `PF_ExcavatorAmfibi`, then commit prefabs + `.meta` files.
-  - [ ] Package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (with `Waterline` `Y = 0` pivot), `RakitGabus`, `PerahuSampan`, and `TongSampahKampung`.
 
-- [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**
-  - [ ] Build/verify `Assets/_Project/Lighting/Prefabs/PF_LightingRig.prefab` (Sun + `VolumeProfile_GoldenHour` `3400K` + `VolumeProfile_MonsoonStorm`).
-  - [ ] Build `Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab` (warm `2100K` point light with subtle flicker) and `PF_WarningBeacon_PintuAir.prefab` (rotating orange/red flood siren spot light mounted atop **`+Z` downstream `Pintu Air Siaga 1`**).
+### Priority 1: MVP Blockers (Kerjakan Sekarang)
+- [ ] **Task 2A: Biohazard Drum & 9 Missing Normal Trash FBXs & Prefabs**: model/export `SM_Trash_BiohazardDrum` (`WasteClass.Biohazard`, purple/lime) plus `PF_Trash_SandalSwallow`, `AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `KasurKapuk`, `BanBekas`, `EcengGondok`, `BatangPisang` (`+ BaledPlastic`), run `KALI > JC > Build All JC Prefabs`, and push `.fbx`, `.prefab`, `.meta`.
+- [ ] **Task 2B: Downstream Barrier Prop**: package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (`Waterline Y = 0` pivot).
+
+### Priority 2: Equipment & Lighting (Setelah Trash MVP)
+- [ ] **Task 2C: Vessels & Kampung Equipment**: `RakitGabus`, `PerahuSampan`, `TongSampahKampung`, `SpillBarrierFloat`, `PumpGenerator`.
+- [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**: create/push `KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour`, `VolumeProfile_MonsoonStorm`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`.
+
+### Priority 3: Character Silhouettes, Rig Animations & Unity Version Guardrail
+- [ ] `SK_VillagerNPC`, `Anim_PlayerToolSwing`.
+- [ ] **Unity 6 Guardrail**: if using Unity 6 locally, export/commit `.fbx`/`.prefab`/`.cs`/`.meta` only inside `Props/`, `Rigging/`, `Lighting/`. NEVER commit/push `ProjectSettings/ProjectVersion.txt` or `Library` unless the whole team upgrades together.
 
 ---
 

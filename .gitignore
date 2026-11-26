@@ -14,7 +14,9 @@ MemoryCaptures/
 UserSettings/
 unity/Build/
 unity/Builds/
+unity/Library
 unity/Library/
+unity/Temp
 unity/Temp/
 unity/Obj/
 unity/Logs/
