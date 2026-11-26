@@ -169,6 +169,7 @@ namespace KaliRiverSweeper.Core
                 {
                     float dotRate = Mathf.Min(12f, 2.5f + 1.5f * biohazardCargo);
                     ApplyPlayerDamage(dotRate * Time.deltaTime, notifyImmediate: false);
+                    if (activeEnding != GameEnding.None) return;
                 }
                 MarkStateDirty();
             }

@@ -60,9 +60,11 @@
   - [x] Push `docs/HUD_SPEC_NIKI.md` (`063ccad`, *Lembar Kalkir Zona Cahaya*).
   - [x] Add `OnWaterSplash(Vector3)` and `OnGunungTierBreached(Vector3)` to `RiverGameManager.cs` and triggers in `KaliPlayerController.cs` (`91fa930`).
   - [x] Verify Unity `2022.3.46f1 LTS` Play Mode (`MapJsonImporter.EnsureUrpPipelineAssigned()`, 54 greybox objects, 0 compile/runtime errors).
+- [x] **Task 4A: Main Scene, URP Assets, Auto-Wiring Hooks, Generated Prefabs & Core QA**:
+  - [x] Save `unity/Assets/_Project/Scenes/Main.unity` (`EditorBuildSettings` index 0) and push `URP_KaliPipeline.asset`, `URP_KaliRenderer.asset`, and 23 generated prefabs (`20 PF_Tool_*`, `PF_Trash_MedicalBag`, `PF_Trash_SyringeBox`, `PF_ExcavatorAmfibi`).
+  - [x] Add prefab/material/UI/VFX auto-wiring table (`MapJsonImporter.cs`), extract `GunungNodeController.cs` & `RiverWaterSurfaceFollower.cs` for clean `.unity` serialization, fix `KaliPlayerController` child-collider lookup & `RiverGameManager` single-ending DoT guard, and pass `7/7` Unity batchmode QA suites (`KaliCoreQaTests.cs`).
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
-- [ ] **Task 4A: Save Scene, URP Assets & Generated JC Prefabs**: save `unity/Assets/_Project/Scenes/Main.unity` from loaded greybox; commit/push `MapJsonImporter.cs` (`EnsureUrpPipelineAssigned()`), `Settings/URP_KaliPipeline.asset`, `URP_KaliRenderer.asset`, and locally generated `PF_Tool_*`, `PF_Trash_*`, `PF_ExcavatorAmfibi.prefab`.
 - [ ] **Task 4B: Review & Merge `origin/niki-vfx` + Wire Sludge Bubbles**: once Niki wires `OnWaterSplash`/`OnGunungTierBreached` and completes `Canvas_HUD` + `Canvas_SDGImpactReport`, merge `origin/niki-vfx` into `main` and wire `VFX_MethaneSludgeBubbles` spawning at `trash_pile`/`gunung_node` in `MapJsonImporter.cs`.
 - [ ] **Task 4C: Team Unity Security Lock & Git History Hygiene**: finalize team agreement on staying on `2022.3.46f1 LTS` for dev vs patching `CVE-2025-59489` (`2022.3.67f2` or `Unity 6`) before final build packaging, and scrub earlier AI bot / `Co-Authored-By` commits if approved.
 

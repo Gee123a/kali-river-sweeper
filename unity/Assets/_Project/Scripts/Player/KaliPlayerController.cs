@@ -234,39 +234,39 @@ namespace KaliRiverSweeper.Player
             foreach (Collider col in hits)
             {
                 if (col == null) continue;
-                string n = col.gameObject.name;
+                Transform t = col.transform;
                 bool matched = false;
                 DiscardStationType candidateType = DiscardStationType.BankSampah;
                 bool candidateSortir = false;
                 bool candidateToko = false;
 
-                if (n.Contains("Bank Sampah"))
+                if (HasHierarchyName(t, "Bank Sampah"))
                 {
                     candidateType = DiscardStationType.BankSampah;
                     matched = true;
                 }
-                else if (n.Contains("Pos Sortir"))
+                else if (HasHierarchyName(t, "Pos Sortir"))
                 {
                     candidateType = DiscardStationType.BankSampah;
                     candidateSortir = true;
                     matched = true;
                 }
-                else if (n.Contains("Pos Medis"))
+                else if (HasHierarchyName(t, "Pos Medis"))
                 {
                     candidateType = DiscardStationType.PosMedisB3;
                     matched = true;
                 }
-                else if (n.Contains("Karantina Biohazard"))
+                else if (HasHierarchyName(t, "Karantina Biohazard"))
                 {
                     candidateType = DiscardStationType.KarantinaBiohazard;
                     matched = true;
                 }
-                else if (n.Contains("Gudang Pengepul"))
+                else if (HasHierarchyName(t, "Gudang Pengepul"))
                 {
                     candidateType = DiscardStationType.GudangPengepul;
                     matched = true;
                 }
-                else if (n.Contains("Toko Alat"))
+                else if (HasHierarchyName(t, "Toko Alat"))
                 {
                     candidateToko = true;
                     matched = true;
@@ -410,21 +410,25 @@ namespace KaliRiverSweeper.Player
                 // Lower score = higher priority (centered in crosshair + closer)
                 float score = dist * (1.35f - dot);
 
-                RiverTrashItem trashItem = col.GetComponent<RiverTrashItem>();
-                if (trashItem == null && col.GetComponent<RiverFlowBuoyancy>() != null)
+                RiverTrashItem trashItem = col.GetComponentInParent<RiverTrashItem>();
+                if (trashItem == null)
                 {
-                    trashItem = col.gameObject.AddComponent<RiverTrashItem>();
+                    RiverFlowBuoyancy buoyancy = col.GetComponentInParent<RiverFlowBuoyancy>();
+                    if (buoyancy != null)
+                    {
+                        trashItem = buoyancy.gameObject.AddComponent<RiverTrashItem>();
+                    }
                 }
 
                 if (trashItem != null && !trashItem.isCollected)
                 {
                     trashCandidates.Add((col, trashItem, score, dist));
                 }
-                else if (col.gameObject.name.Contains("PintuAirPile"))
+                else if (HasHierarchyName(col.transform, "PintuAirPile"))
                 {
                     if (score < bestPileScore) { bestPileScore = score; bestPileCol = col; }
                 }
-                else if (col.gameObject.name.Contains("Gunung Sampah") || col.GetComponent<GunungNodeController>() != null)
+                else if (HasHierarchyName(col.transform, "Gunung Sampah") || col.GetComponentInParent<GunungNodeController>() != null)
                 {
                     if (score < bestGunungScore) { bestGunungScore = score; bestGunungDist = dist; bestGunungCol = col; }
                 }
@@ -434,7 +438,7 @@ namespace KaliRiverSweeper.Player
             if (Physics.Raycast(eyeOrigin, eyeForward, out RaycastHit directHit, reach, ~0, QueryTriggerInteraction.Ignore))
             {
                 Collider dCol = directHit.collider;
-                if (dCol != null && (dCol.gameObject.name.Contains("Gunung Sampah") || dCol.GetComponent<GunungNodeController>() != null))
+                if (dCol != null && (HasHierarchyName(dCol.transform, "Gunung Sampah") || dCol.GetComponentInParent<GunungNodeController>() != null))
                 {
                     float closestTrashDist = float.MaxValue;
                     for (int i = 0; i < trashCandidates.Count; i++)
@@ -506,7 +510,7 @@ namespace KaliRiverSweeper.Player
             }
 
             float dmg = gm.excavatorUnlocked ? Mathf.Max(0.20f, tool.GunungDamagePerSwing) : tool.GunungDamagePerSwing;
-            GunungNodeController nodeCtrl = col.GetComponent<GunungNodeController>();
+            GunungNodeController nodeCtrl = col.GetComponentInParent<GunungNodeController>();
             if (nodeCtrl != null)
             {
                 nodeCtrl.ApplyDamage(dmg * 1.5f);
@@ -569,6 +573,16 @@ namespace KaliRiverSweeper.Player
                     col.enabled = false;
                 }
             }
+        }
+
+        private static bool HasHierarchyName(Transform t, string token)
+        {
+            while (t != null)
+            {
+                if (t.name.Contains(token)) return true;
+                t = t.parent;
+            }
+            return false;
         }
 
         private enum KeyAction { E, Q, F, R, X, Space, Digit1, Digit2, Digit3, BracketLeft, BracketRight }
