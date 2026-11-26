@@ -9,35 +9,33 @@ namespace KaliRiverSweeper.UI
 {
     /// <summary>
     /// Drives Canvas_HUD from RiverGameManager events (OnStateChanged, OnToolUnlocked, OnWeatherChanged,
-    /// OnHazardOrAlert). Gameplay values are read inside handlers. The only timed work is the toast
-    /// timer and the map refresh at mapRefreshHz, which keeps the chevron on the player.
+    /// OnHazardOrAlert) and from KaliPlayerController.OnNearbyHubChanged for the station dock.
+    /// Gameplay values are read inside handlers. The only timed work is the toast timer, the map refresh
+    /// at 15 Hz, and the subscription retry (2 Hz) while the manager or player is not yet present.
     /// Child elements are found by name at Awake, so Canvas_HUD.prefab must keep the names from
-    /// docs/HUD_SPEC_NIKI.md section 3.
+    /// docs/HUD_SPEC_NIKI.md section 3. Map coordinates come from HudMapLayout.
     /// </summary>
     public sealed class KaliHudController : MonoBehaviour
     {
         private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
+        private const float MapRefreshHz = 15f;
 
-        // Filtration dot colors per docs/HUD_SPEC_NIKI.md section 4.
+        private static readonly Color Ink = new Color32(0x1E, 0x1F, 0x1D, 255);
+        private static readonly Color Vellum = new Color32(0xF4, 0xF2, 0xEC, 255);
+        private static readonly Color Zone0 = new Color32(0x11, 0x12, 0x11, 255);
+        private static readonly Color Track = new Color32(0xDC, 0xDA, 0xD2, 255);
+        private static readonly Color Alert = new Color32(0xB5, 0x0E, 0x6F, 255);
         private static readonly Color SiagaGreen = new Color32(0x15, 0x80, 0x3D, 255);
         private static readonly Color SiagaAmber = new Color32(0xC9, 0x7A, 0x0A, 255);
         private static readonly Color SiagaOrange = new Color32(0xEA, 0x58, 0x0C, 255);
         private static readonly Color SiagaRed = new Color32(0xE1, 0x1D, 0x8F, 255);
-        private static readonly Color Ink = new Color32(0x1E, 0x1F, 0x1D, 255);
-        private static readonly Color Alert = new Color32(0xB5, 0x0E, 0x6F, 255);
-        private static readonly Color Track = new Color32(0xDC, 0xDA, 0xD2, 255);
-
-        [Header("Map bounds (world X/Z), matched to the river extent")]
-        [SerializeField] private float mapMinX = -65f;
-        [SerializeField] private float mapMaxX = 65f;
-        [SerializeField] private float mapMinZ = -90f;
-        [SerializeField] private float mapMaxZ = 90f;
-        [SerializeField] private float mapRefreshHz = 15f;
+        private static readonly string[] KeyBaseLabels = { "[1] Normal", "[2] Medis B3", "[3] Biohazard", "[E] Setor Aman" };
 
         private RiverGameManager manager;
         private KaliPlayerController player;
         private float mapTimer;
         private float toastTimer;
+        private float subscribeRetryTimer;
 
         private Image[] rampCells;
         private Image filtrationDot;
@@ -45,6 +43,12 @@ namespace KaliRiverSweeper.UI
         private RectTransform clarityFill;
         private RectTransform contour;
         private RectTransform chevron;
+        private RectTransform damMarker;
+        private RectTransform damLabelRect;
+        private RectTransform pinB;
+        private RectTransform pinM;
+        private RectTransform pinK;
+        private RectTransform pinP;
         private TMP_Text damLabel;
         private TMP_Text hpValue;
         private TMP_Text siagaLevel;
@@ -64,6 +68,12 @@ namespace KaliRiverSweeper.UI
         private TMP_Text warga;
         private GameObject toast;
         private TMP_Text toastText;
+        private CanvasGroup dock;
+        private TMP_Text dockHeader;
+        private TMP_Text dockAccepted;
+        private Image[] keyBg;
+        private GameObject[] keyCrossHatch;
+        private TMP_Text[] keyLabel;
 
         private void Awake()
         {
@@ -78,7 +88,13 @@ namespace KaliRiverSweeper.UI
             clarityFill = Find<RectTransform>("TC_EcologicalHydroRail/Cell_Kejernihan/Img_ClarityFill");
             contour = Find<RectTransform>("BR_VellumHydroMap/Img_ContourCanalBase");
             chevron = Find<RectTransform>("BR_VellumHydroMap/Icon_PlayerSampan");
+            damMarker = Find<RectTransform>("BR_VellumHydroMap/Img_DamChokeCrossHatch");
+            damLabelRect = Find<RectTransform>("BR_VellumHydroMap/TMP_DamLabel");
             damLabel = Find<TMP_Text>("BR_VellumHydroMap/TMP_DamLabel");
+            pinB = Find<RectTransform>("BR_VellumHydroMap/Pin_B");
+            pinM = Find<RectTransform>("BR_VellumHydroMap/Pin_M");
+            pinK = Find<RectTransform>("BR_VellumHydroMap/Pin_K");
+            pinP = Find<RectTransform>("BR_VellumHydroMap/Pin_P");
 
             hpValue = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_HP/TMP_HPValue");
             siagaLevel = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_SiagaLevel");
@@ -99,44 +115,73 @@ namespace KaliRiverSweeper.UI
             toast = FindGo("TL_ToolUnlockToast");
             toastText = Find<TMP_Text>("TL_ToolUnlockToast/TMP_ToastText");
 
+            dock = Find<CanvasGroup>("BC_StationDockSheet");
+            dockHeader = Find<TMP_Text>("BC_StationDockSheet/Header_StationName");
+            dockAccepted = Find<TMP_Text>("BC_StationDockSheet/Header_AcceptedClass");
+            keyBg = new Image[4];
+            keyCrossHatch = new GameObject[4];
+            keyLabel = new TMP_Text[4];
+            for (int i = 0; i < 4; i++)
+            {
+                string slot = "BC_StationDockSheet/Row_ActionKeys/Key_" + i;
+                keyBg[i] = Find<Image>(slot);
+                keyCrossHatch[i] = FindGo(slot + "/Img_CrossHatch90");
+                keyLabel[i] = Find<TMP_Text>(slot + "/TMP_KeyLabel");
+            }
+
             if (toast != null) toast.SetActive(false);
+            SetDockVisible(false);
+            PlaceMarkers();
         }
 
         private void OnEnable()
         {
-            TrySubscribe();
+            TrySubscribeManager();
+            TrySubscribePlayer();
         }
 
         // Start runs after every Awake, so RiverGameManager.Instance is set by now.
         private void Start()
         {
-            TrySubscribe();
+            TrySubscribeManager();
+            TrySubscribePlayer();
         }
 
         private void OnDisable()
         {
-            if (manager == null) return;
+            if (manager != null)
+            {
+                manager.OnStateChanged -= Refresh;
+                manager.OnToolUnlocked -= HandleToolUnlocked;
+                manager.OnWeatherChanged -= HandleWeatherChanged;
+                manager.OnHazardOrAlert -= HandleHazardOrAlert;
+                manager = null;
+            }
 
-            manager.OnStateChanged -= Refresh;
-            manager.OnToolUnlocked -= HandleToolUnlocked;
-            manager.OnWeatherChanged -= HandleWeatherChanged;
-            manager.OnHazardOrAlert -= HandleHazardOrAlert;
-            manager = null;
+            if (player != null)
+            {
+                player.OnNearbyHubChanged -= HandleNearbyHubChanged;
+                player = null;
+            }
         }
 
         private void Update()
         {
-            // Subscription retry: covers a manager spawned after the HUD. Not a gameplay poll.
-            if (manager == null)
+            // Subscription retry covers a manager or player spawned after the HUD. Throttled to 2 Hz so the
+            // player lookup does not run every frame. Not a gameplay poll.
+            subscribeRetryTimer -= Time.unscaledDeltaTime;
+            if (subscribeRetryTimer <= 0f)
             {
-                TrySubscribe();
+                subscribeRetryTimer = 0.5f;
+                TrySubscribeManager();
+                TrySubscribePlayer();
             }
 
             UpdateToast();
             UpdateMap();
         }
 
-        private void TrySubscribe()
+        private void TrySubscribeManager()
         {
             if (manager != null || RiverGameManager.Instance == null) return;
 
@@ -146,6 +191,16 @@ namespace KaliRiverSweeper.UI
             manager.OnWeatherChanged += HandleWeatherChanged;
             manager.OnHazardOrAlert += HandleHazardOrAlert;
             Refresh();
+        }
+
+        private void TrySubscribePlayer()
+        {
+            if (player != null) return;
+
+            player = FindObjectOfType<KaliPlayerController>();
+            if (player == null) return;
+
+            player.OnNearbyHubChanged += HandleNearbyHubChanged;
         }
 
         private void HandleWeatherChanged(bool isMonsoonStorm)
@@ -158,6 +213,86 @@ namespace KaliRiverSweeper.UI
             Refresh();
         }
 
+        // Shows the dock sheet only while the player is inside a hub trigger.
+        private void HandleNearbyHubChanged(bool near, DiscardStationType station, bool isPosSortir, bool isTokoAlat, string hubName)
+        {
+            SetDockVisible(near);
+            if (!near) return;
+
+            bool isGudang = station == DiscardStationType.GudangPengepul;
+            // Toko Alat is a shop, not a discard hub, so it shows no discard keys.
+            bool isShop = isTokoAlat;
+            if (isShop)
+            {
+                SetText(dockHeader, "TOKO: " + (hubName ?? string.Empty).ToUpper(Invariant));
+                SetText(dockAccepted, "Belanja alat, bukan setor sampah");
+            }
+            else
+            {
+                SetText(dockHeader, "STASIUN: " + (hubName ?? string.Empty).ToUpper(Invariant) + " (" + StationLetter(station) + ")");
+                SetText(dockAccepted, AcceptedLabel(station));
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                bool legal = !isShop && IsLegalKey(station, i);
+                bool neutral = i == 3 || isGudang || isShop;
+                bool denda = !neutral && !legal;
+
+                if (keyBg[i] != null) keyBg[i].color = legal ? Zone0 : Color.clear;
+                if (keyCrossHatch[i] != null) keyCrossHatch[i].SetActive(denda);
+                if (keyLabel[i] != null)
+                {
+                    keyLabel[i].color = legal ? Vellum : Ink;
+                    string label = KeyBaseLabels[i];
+                    if (i == 3 && isGudang) label = "[E] JUAL SEMUA (MURAH · TURUN WARGA)";
+                    keyLabel[i].text = denda ? label + " · DENDA" : label;
+                }
+            }
+        }
+
+        // Key 0 is Normal at Bank Sampah, key 1 is Medis B3 at Pos Medis B3, key 2 is Biohazard at Karantina.
+        private static bool IsLegalKey(DiscardStationType station, int keyIndex)
+        {
+            switch (station)
+            {
+                case DiscardStationType.BankSampah: return keyIndex == 0;
+                case DiscardStationType.PosMedisB3: return keyIndex == 1;
+                case DiscardStationType.KarantinaBiohazard: return keyIndex == 2;
+                default: return false;
+            }
+        }
+
+        private static string StationLetter(DiscardStationType station)
+        {
+            switch (station)
+            {
+                case DiscardStationType.BankSampah: return "B";
+                case DiscardStationType.PosMedisB3: return "M";
+                case DiscardStationType.KarantinaBiohazard: return "K";
+                default: return "P";
+            }
+        }
+
+        private static string AcceptedLabel(DiscardStationType station)
+        {
+            switch (station)
+            {
+                case DiscardStationType.BankSampah: return "Terima: Normal";
+                case DiscardStationType.PosMedisB3: return "Terima: Medis B3";
+                case DiscardStationType.KarantinaBiohazard: return "Terima: Biohazard";
+                default: return "Terima: semua kelas (murah · turun warga)";
+            }
+        }
+
+        private void SetDockVisible(bool visible)
+        {
+            if (dock == null) return;
+            dock.alpha = visible ? 1f : 0f;
+            dock.blocksRaycasts = visible;
+            dock.interactable = visible;
+        }
+
         private void UpdateToast()
         {
             if (toast == null || !toast.activeSelf) return;
@@ -166,30 +301,44 @@ namespace KaliRiverSweeper.UI
             if (toastTimer <= 0f) toast.SetActive(false);
         }
 
-        // Throttled to mapRefreshHz. Map +Z points up; the chevron tip points along the player's heading.
+        // Throttled to MapRefreshHz. The chevron tip points along the player's heading; forward is world +Z,
+        // which points down the map at yaw 0.
         private void UpdateMap()
         {
-            if (chevron == null || contour == null) return;
+            if (chevron == null || contour == null || player == null) return;
 
             mapTimer -= Time.unscaledDeltaTime;
             if (mapTimer > 0f) return;
-            mapTimer = 1f / Mathf.Max(1f, mapRefreshHz);
+            mapTimer = 1f / Mathf.Max(1f, MapRefreshHz);
 
-            if (player == null)
-            {
-                player = FindObjectOfType<KaliPlayerController>();
-                if (player == null) return;
-            }
+            Vector2 playerMap = HudMapLayout.WorldToMap(player.transform.position);
+            chevron.anchoredPosition = MapToUi(playerMap);
 
-            Vector3 p = player.transform.position;
-            float nx = Mathf.Clamp01(Mathf.InverseLerp(mapMinX, mapMaxX, p.x));
-            float nz = Mathf.Clamp01(Mathf.InverseLerp(mapMinZ, mapMaxZ, p.z));
+            // Heading in UI space is (sin yaw, -cos yaw). The chevron's tip is up, so the angle is atan2(-x, y).
+            float yaw = player.transform.eulerAngles.y * Mathf.Deg2Rad;
+            float headingX = Mathf.Sin(yaw);
+            float headingY = -Mathf.Cos(yaw);
+            float angle = Mathf.Atan2(-headingX, headingY) * Mathf.Rad2Deg;
+            chevron.localRotation = Quaternion.Euler(0f, 0f, angle);
+        }
 
-            // Contour and chevron share the map's top-left anchor. Clamp the chevron inside the contour area.
-            Vector2 origin = contour.anchoredPosition;
-            Vector2 area = contour.sizeDelta;
-            chevron.anchoredPosition = new Vector2(origin.x + nx * area.x, origin.y - (1f - nz) * area.y);
-            chevron.localRotation = Quaternion.Euler(0f, 0f, -player.transform.eulerAngles.y);
+        private void PlaceMarkers()
+        {
+            if (contour == null) return;
+
+            HudMapLayout.PlaceAt(pinB, MapToUi(HudMapLayout.BankSampahPin));
+            HudMapLayout.PlaceAt(pinM, MapToUi(HudMapLayout.MedisB3Pin));
+            HudMapLayout.PlaceAt(pinK, MapToUi(HudMapLayout.KarantinaPin));
+            HudMapLayout.PlaceAt(pinP, MapToUi(HudMapLayout.PengepulPin));
+
+            Vector2 dam = MapToUi(HudMapLayout.DamPoint());
+            HudMapLayout.PlaceAt(damMarker, dam);
+            if (damLabelRect != null) damLabelRect.anchoredPosition = dam + new Vector2(-40f, -40f);
+        }
+
+        private Vector2 MapToUi(Vector2 mapPoint)
+        {
+            return HudMapLayout.MapToUi(mapPoint, contour.anchoredPosition, contour.sizeDelta);
         }
 
         private void Refresh()

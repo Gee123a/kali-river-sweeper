@@ -56,6 +56,70 @@ namespace KaliRiverSweeper.UI.Editor
             Debug.Log("Canvas_HUD prefab written to " + PrefabPath);
         }
 
+        /// <summary>
+        /// Builds Canvas_SDGImpactReport.prefab: the end-of-run modal for RiverGameManager.OnEndingTriggered.
+        /// Hidden at rest; SdgImpactReportController fills the copy and stats when an ending fires.
+        /// </summary>
+        [MenuItem("KALI/UI/Build Canvas_SDGImpactReport")]
+        public static void BuildSdgReport()
+        {
+            EnsureFolder("Assets/_Project/UI", "Prefabs");
+
+            GameObject root = new GameObject("Canvas_SDGImpactReport", typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup), typeof(SdgImpactReportController));
+            Canvas canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 30;
+
+            CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            CanvasGroup group = root.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
+
+            GameObject dim = Panel(root.transform, "Dim", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f), new Color(0.07f, 0.07f, 0.06f, 0.66f));
+            RectTransform dimRect = (RectTransform)dim.transform;
+            dimRect.anchorMin = Vector2.zero;
+            dimRect.anchorMax = Vector2.one;
+            dimRect.offsetMin = Vector2.zero;
+            dimRect.offsetMax = Vector2.zero;
+
+            GameObject card = Panel(root.transform, "Card", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880f, 600f), Vellum);
+            Text(card.transform, "TMP_Title", "LAPORAN DAMPAK SDG", 30f, Ink, new Vector2(40f, -30f), new Vector2(800f, 40f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_EndingHeadline", string.Empty, 26f, Ink, new Vector2(40f, -84f), new Vector2(800f, 36f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_EndingBody", string.Empty, 18f, InkSecondary, new Vector2(40f, -124f), new Vector2(800f, 60f), new Vector2(0f, 1f));
+
+            string[] labels = {
+                "Sampah didaur ulang",
+                "Sampah dibuang ke sungai",
+                "Medis B3 diamankan",
+                "Biohazard diamankan",
+                "Denda salah stasiun",
+                "Limbah berbahaya dibuang di Pengepul",
+                "Kepercayaan warga",
+            };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                float y = -200f - i * 36f;
+                Text(card.transform, "Stats/Row_" + i + "/TMP_Label", labels[i], 18f, InkSecondary, new Vector2(40f, y), new Vector2(420f, 28f), new Vector2(0f, 1f));
+                Text(card.transform, "Stats/Row_" + i + "/TMP_Value", "0", 20f, Ink, new Vector2(460f, y), new Vector2(380f, 28f), new Vector2(0f, 1f));
+            }
+
+            Text(card.transform, "TMP_Sdg63", string.Empty, 16f, Ink, new Vector2(40f, -446f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_Sdg115", string.Empty, 16f, Ink, new Vector2(40f, -474f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_Sdg141", string.Empty, 16f, Ink, new Vector2(40f, -502f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_Footer", "Permainan selesai. Terima kasih sudah menjaga sungai.", 16f, InkSecondary, new Vector2(40f, -548f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabFolder + "/Canvas_SDGImpactReport.prefab");
+            Object.DestroyImmediate(root);
+            AssetDatabase.Refresh();
+            Debug.Log("Canvas_SDGImpactReport prefab written to " + PrefabFolder + "/Canvas_SDGImpactReport.prefab");
+        }
+
         private static void BuildSurvivalSheet(Transform parent)
         {
             GameObject sheet = Panel(parent, "TL_SurvivalFloodSheet", new Vector2(0f, 1f), new Vector2(36f, -32f), new Vector2(342f, 134f), Vellum);
@@ -92,6 +156,8 @@ namespace KaliRiverSweeper.UI.Editor
 
             GameObject gunung = Panel(rail.transform, "Cell_GunungSampah", new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(240f, 56f), VellumSolid);
             Texture(gunung.transform, "Img_Hatch45Fill", "UI_Hatch45_Tile.png", new Vector2(240f, 56f), Vector2.zero, new Vector2(0f, 0f), 1f);
+            // Solid cleared box so the labels stay sharp over the hatch (spec section 1, rule 3).
+            Panel(gunung.transform, "Box_Cleared", new Vector2(0f, 1f), new Vector2(4f, -3f), new Vector2(132f, 50f), VellumSolid);
             Text(gunung.transform, "TMP_GunungLabel", "GUNUNG SAMPAH", 14f, InkSecondary, new Vector2(8f, -6f), new Vector2(220f, 20f), new Vector2(0f, 1f));
             Text(gunung.transform, "TMP_GunungPct", "100%", 28f, Ink, new Vector2(8f, -26f), new Vector2(220f, 34f), new Vector2(0f, 1f));
 
@@ -161,7 +227,11 @@ namespace KaliRiverSweeper.UI.Editor
             string[] keys = { "[1] Normal", "[2] Medis B3", "[3] Biohazard", "[E] Setor Aman" };
             for (int i = 0; i < keys.Length; i++)
             {
-                Text(row, "Key_" + i, keys[i], 14f, Ink, new Vector2(12f + i * 160f, -62f), new Vector2(150f, 22f), new Vector2(0f, 1f));
+                // Each slot: a background the controller can invert, a hidden magenta cross-hatch for DENDA, and the label.
+                GameObject slot = Panel(row, "Key_" + i, new Vector2(0f, 1f), new Vector2(12f + i * 160f, -62f), new Vector2(150f, 22f), Clear);
+                GameObject hatch = Texture(slot.transform, "Img_CrossHatch90", "UI_CrossHatch90_Magenta.png", new Vector2(150f, 22f), Vector2.zero, new Vector2(0f, 1f), 1f);
+                hatch.SetActive(false);
+                Text(slot.transform, "TMP_KeyLabel", keys[i], 14f, Ink, new Vector2(6f, -3f), new Vector2(140f, 18f), new Vector2(0f, 1f));
             }
 
             CanvasGroup group = dock.AddComponent<CanvasGroup>();
@@ -176,7 +246,9 @@ namespace KaliRiverSweeper.UI.Editor
             map.transform.localRotation = Quaternion.Euler(0f, 0f, 2.5f);
 
             Texture(map.transform, "Img_ContourCanalBase", "UI_Contour.png", new Vector2(340f, 220f), new Vector2(16f, -16f), new Vector2(0f, 1f), 1f);
-            Texture(map.transform, "Img_DamChokeCrossHatch", "UI_CrossHatch90_Magenta.png", new Vector2(84f, 56f), new Vector2(150f, -110f), new Vector2(0f, 1f), 1f);
+            // Dam marker is centered on its map point; the controller places it from kali-river-map.json coordinates.
+            GameObject dam = Texture(map.transform, "Img_DamChokeCrossHatch", "UI_CrossHatch90_Magenta.png", new Vector2(84f, 56f), new Vector2(150f, -110f), new Vector2(0f, 1f), 1f);
+            ((RectTransform)dam.transform).pivot = new Vector2(0.5f, 0.5f);
             Text(map.transform, "TMP_DamLabel", "DAM 0%", 14f, Ink, new Vector2(156f, -122f), new Vector2(80f, 20f), new Vector2(0f, 1f));
 
             // Chevron centered on its own position, so it rotates around its middle.
@@ -193,6 +265,18 @@ namespace KaliRiverSweeper.UI.Editor
                 GameObject pin = Panel(map.transform, "Pin_" + pins[i], new Vector2(0f, 1f), new Vector2(24f + i * 40f, -226f), new Vector2(28f, 28f), Ink);
                 Text(pin.transform, "TMP_PinLetter", pins[i], 16f, VellumSolid, new Vector2(8f, -4f), new Vector2(12f, 20f), new Vector2(0f, 1f));
             }
+
+            // Place pins and the dam from kali-river-map.json now, so the prefab is right without Play mode.
+            Vector2 origin = HudMapLayout.ContourOrigin;
+            Vector2 area = HudMapLayout.ContourArea;
+            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_B"), HudMapLayout.MapToUi(HudMapLayout.BankSampahPin, origin, area));
+            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_M"), HudMapLayout.MapToUi(HudMapLayout.MedisB3Pin, origin, area));
+            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_K"), HudMapLayout.MapToUi(HudMapLayout.KarantinaPin, origin, area));
+            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_P"), HudMapLayout.MapToUi(HudMapLayout.PengepulPin, origin, area));
+
+            Vector2 damCenter = HudMapLayout.MapToUi(HudMapLayout.DamPoint(), origin, area);
+            HudMapLayout.PlaceAt((RectTransform)dam.transform, damCenter);
+            ((RectTransform)map.transform.Find("TMP_DamLabel")).anchoredPosition = damCenter + new Vector2(-40f, -40f);
         }
 
         private static GameObject Panel(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color)
