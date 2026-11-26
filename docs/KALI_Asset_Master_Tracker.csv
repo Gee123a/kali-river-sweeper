@@ -46,10 +46,10 @@ SG_TrashTriplanar,Shaders,Heightfield Triplanar Trash Dam Shader,Wesley,Assets/_
 SK_ExcavatorAmfibi,Rigging & Animation,Rigged Amphibious Dredging Excavator,JC,Assets/_Project/Rigging/,"4,298 tris / 3-Joint IK + Damped Track",Base,FBX in main (Needs Unity Prefab + .meta),excavator (1 node),Rigged in blender/build_all.py (0 _end leaf bones; 3 PBR slots)
 SK_VillagerNPC,Rigging & Animation,Rigged Kampung Villager NPC,JC,Assets/_Project/Rigging/,1200-1800 tris,Base,To Do (Assigned to JC),Rumah Porches,"Idle, littering into river, carrying bins animations"
 Anim_PlayerToolSwing,Rigging & Animation,First-Person Tool Swing Animations,JC,Assets/_Project/Rigging/,Animation Clips,N/A,To Do (Assigned to JC),Main Camera,Serokan scoop and Ganco hook swing motions
-VFX_MonsoonRain,VFX,Tropical Monsoon Downpour & Fog Streaks,Niki,Assets/_Project/VFX/,URP VFX Graph / Shuriken,Camera Follow,To Do,Environment Weather,Driven by isMonsoonStorm during Act 3 Siaga 1
-VFX_WaterSplashMuddy,VFX,Muddy River Scoop & Boat Wake Splashes,Niki,Assets/_Project/VFX/,Particle System,Impact Point,To Do,Player Boat & Net,Visual feedback on scoop and boat movement
-VFX_MethaneSludgeBubbles,VFX,Anaerobic Riverbed Methane Gas Bubbles,Niki,Assets/_Project/VFX/,Particle System,Water Surface,To Do,Trash Piles & Sludge,Atmospheric river pollution indicator
-VFX_TrashAvalanche,VFX,Debris Collapse Avalanche Particles,Niki,Assets/_Project/VFX/,Particle System,Gunung Sampah,Triggers when excavator breaches lower tier,,
+VFX_MonsoonRain,VFX,Tropical Monsoon Downpour & Fog Streaks,Niki,Assets/_Project/VFX/,URP VFX Graph / Shuriken,Camera Follow,DONE in Branch (niki-vfx),Environment Weather,Driven by isMonsoonStorm during Act 3 Siaga 1
+VFX_WaterSplashMuddy,VFX,Muddy River Scoop & Boat Wake Splashes,Niki,Assets/_Project/VFX/,Particle System,Impact Point,DONE in Branch (niki-vfx),Player Boat & Net,Visual feedback on scoop and boat movement
+VFX_MethaneSludgeBubbles,VFX,Anaerobic Riverbed Methane Gas Bubbles,Niki,Assets/_Project/VFX/,Particle System,Water Surface,DONE in Branch (niki-vfx),Trash Piles & Sludge,Atmospheric river pollution indicator
+VFX_TrashAvalanche,VFX,Debris Collapse Avalanche Particles,Niki,Assets/_Project/VFX/,Particle System,Gunung Sampah,DONE in Branch (niki-vfx),,
 Canvas_HUD,UI & Audio,"Player Gauges, Cargo, Flood Siaga & Balance",Niki,Assets/_Project/UI/,Unity UI Canvas,Screen Overlay,To Do,Player Rig,"Displays Cargo 0/10, Flood Meter, Rupiah Cash"
 Canvas_ShopBankSampah,UI & Audio,Choice A/B Upgrade & Trading Shop UI,Niki,Assets/_Project/UI/,Unity UI Canvas,Screen Overlay,Bank Sampah & Toko,"Choice A burn vs sort, boat upgrades, bins purchase",
 Canvas_SDGImpactReport,UI & Audio,End-Run Academic SDG Impact Report,Niki,Assets/_Project/UI/,Unity UI Canvas,Screen Overlay,Victory Screen,"Direct proof for SDGs 6.3, 14.1, 11.5 rubric grade",
@@ -83,3 +83,6 @@ SM_Env_GudangPengepul,Environment,Informal Bulk Scrap Collector Warehouse,Wesley
 RiverTrashItem.cs,Core Code,RiverTrashItem,Ivan (Lead),Assets/_Project/Scripts/Core/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/Scripts/Core/RiverTrashItem.cs
 RiverTrashSpawner.cs,Core Code,RiverTrashSpawner,Ivan (Lead),Assets/_Project/Scripts/Core/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/Scripts/Core/RiverTrashSpawner.cs
 ToolCatalog.cs,Core Code,ToolCatalog,Ivan (Lead),Assets/_Project/Scripts/Core/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/Scripts/Core/ToolCatalog.cs
+MonsoonRainToggle.cs,Core Code,MonsoonRainToggle,Ivan (Lead),Assets/_Project/VFX/Scripts/,CS,Auto,In Branch (niki-vfx) — Scripted Ready,Auto-Discovered,Detected at unity/Assets/_Project/VFX/Scripts/MonsoonRainToggle.cs
+TrashAvalancheEffect.cs,Core Code,TrashAvalancheEffect,Ivan (Lead),Assets/_Project/VFX/Scripts/,CS,Auto,In Branch (niki-vfx) — Scripted Ready,Auto-Discovered,Detected at unity/Assets/_Project/VFX/Scripts/TrashAvalancheEffect.cs
+WaterSplashEffect.cs,Core Code,WaterSplashEffect,Ivan (Lead),Assets/_Project/VFX/Scripts/,CS,Auto,In Branch (niki-vfx) — Scripted Ready,Auto-Discovered,Detected at unity/Assets/_Project/VFX/Scripts/WaterSplashEffect.cs
