@@ -37,3 +37,8 @@ unity/UserSettings/
 /tools/
 docs/*.jpg
 docs/*.png
+
+# Python bytecode from the Blender build scripts
+__pycache__/
+*.pyc
+blender/build_report.json
