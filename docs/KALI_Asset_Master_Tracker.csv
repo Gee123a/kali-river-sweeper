@@ -41,7 +41,7 @@ SM_Env_JembatanUtama,Environment,Concrete Road Bridge over River,Wesley,Assets/_
 SM_Env_PintuAirSiaga1,Environment,Massive Concrete Dam & Sluice Gate,Wesley,Assets/_Project/Environment/Meshes/,2000-3000 tris,Base,To Do (Greybox in Map),sluice_gate (1 node),Downstream floodgate with manual winch towers
 SM_Env_Dermaga,Environment,Wooden Boat Pier & Mooring Posts,Wesley,Assets/_Project/Environment/Meshes/,400-800 tris,Waterline,To Do (Greybox in Map),dermaga (2 nodes),"Boarding planks, tied ropes, tyre bumpers"
 SM_Env_GunungSampah_3Tiers,Environment,3-Tier Monumental Trash Mountain Dam,Wesley,Assets/_Project/Environment/Meshes/,2500-4000 tris,Base,To Do (Greybox in Map),gunung_node (3 nodes),Destructible plastic dam clogging Pintu Air
-SM_Env_RiverValleyTerrain,Environment,Curved Riverbed & Embankments,Wesley,Assets/_Project/Environment/Meshes/,3000-5000 tris,Base,To Do (Reverted from Branch),Terrain Root,Curved valley matching RiverMath splines
+SM_Env_RiverValleyTerrain,Environment,Curved Riverbed & Embankments,Wesley,Assets/_Project/Environment/Meshes/,3000-5000 tris,Base,In Branch (wesley-env-shaders) - FBX Ready (Needs Prefab),Terrain Root,Curved valley matching RiverMath splines
 SG_KaliWater,Shaders,Stylized Dynamic River Water Shader,Wesley,Assets/_Project/Shaders/,URP Shader Graph,N/A,To Do,River Surface,"Dual-flow normal panning, Beer-Lambert clarity lerp"
 SG_TrashTriplanar,Shaders,Heightfield Triplanar Trash Dam Shader,Wesley,Assets/_Project/Shaders/,URP Shader Graph,N/A,To Do,Gunung Sampah,"Blends silt mud, tangled kapok, and plastic specs"
 SK_ExcavatorAmfibi,Rigging & Animation,Rigged Amphibious Dredging Excavator,JC,Assets/_Project/Rigging/,"4,298 tris / 3-Joint IK + Damped Track",Base,DONE (Prefab + .meta in main),excavator (1 node),Rigged in blender/build_all.py (0 _end leaf bones; 3 PBR slots)
@@ -104,3 +104,4 @@ KaliCoreQaTests.cs,Core Code,KaliCoreQaTests,Ivan (Lead),Assets/_Project/Scripts
 KaliHudSpriteBuilder.cs,UI & Audio,KaliHudSpriteBuilder,Niki,Assets/_Project/UI/Editor/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/UI/Editor/KaliHudSpriteBuilder.cs
 HudMapLayout.cs,UI & Audio,HudMapLayout,Niki,Assets/_Project/UI/Scripts/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/UI/Scripts/HudMapLayout.cs
 SdgImpactReportController.cs,UI & Audio,SdgImpactReportController,Niki,Assets/_Project/UI/Scripts/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/UI/Scripts/SdgImpactReportController.cs
+KaliWaterClarityPreview.cs,Shaders,KaliWaterClarityPreview,Wesley,Assets/_Project/Shaders/Editor/,CS,Auto,In Branch (wesley-env-shaders) - Scripted Ready,Auto-Discovered,Detected at unity/Assets/_Project/Shaders/Editor/KaliWaterClarityPreview.cs
