@@ -1,0 +1,190 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71c1514a6bd24e1e882cebbe1904ce04, type: 3}
+  m_Name: IBMPlexMono-SemiBold SDF
+  m_EditorClassIdentifier: 
+  hashCode: 1812698447
+  material: {fileID: 0}
+  materialHashCode: -1275939313
+  m_Version: 1.1.0
+  m_SourceFontFileGUID: 2ead581fd80344f169ad79c2ff8dabea
+  m_SourceFontFile_EditorRef: {fileID: 12800000, guid: 2ead581fd80344f169ad79c2ff8dabea, type: 3}
+  m_SourceFontFile: {fileID: 12800000, guid: 2ead581fd80344f169ad79c2ff8dabea, type: 3}
+  m_AtlasPopulationMode: 1
+  m_FaceInfo:
+    m_FaceIndex: 0
+    m_FamilyName: IBM Plex Mono
+    m_StyleName: SemiBold
+    m_PointSize: 90
+    m_Scale: 1
+    m_UnitsPerEM: 1000
+    m_LineHeight: 117.00001
+    m_AscentLine: 92.25
+    m_CapLine: 63
+    m_MeanLine: 46
+    m_Baseline: 0
+    m_DescentLine: -24.75
+    m_SuperscriptOffset: 92.25
+    m_SuperscriptSize: 0.5
+    m_SubscriptOffset: -24.75
+    m_SubscriptSize: 0.5
+    m_UnderlineOffset: -14.040001
+    m_UnderlineThickness: 7.92
+    m_StrikethroughOffset: 18.4
+    m_StrikethroughThickness: 7.92
+    m_TabWidth: 54
+  m_GlyphTable:
+  - m_Index: 76
+    m_Metrics:
+      m_Width: 47.875
+      m_Height: 13.234375
+      m_HorizontalBearingX: 3.0625
+      m_HorizontalBearingY: 12.6875
+      m_HorizontalAdvance: 54
+    m_GlyphRect:
+      m_X: 10
+      m_Y: 10
+      m_Width: 48
+      m_Height: 14
+    m_Scale: 1
+    m_AtlasIndex: 0
+    m_ClassDefinitionType: 0
+  - m_Index: 74
+    m_Metrics:
+      m_Width: 43.1875
+      m_Height: 9.640625
+      m_HorizontalBearingX: 5.40625
+      m_HorizontalBearingY: -7.015625
+      m_HorizontalAdvance: 54
+    m_GlyphRect:
+      m_X: 77
+      m_Y: 10
+      m_Width: 44
+      m_Height: 10
+    m_Scale: 1
+    m_AtlasIndex: 0
+    m_ClassDefinitionType: 0
+  m_CharacterTable:
+  - m_ElementType: 1
+    m_Unicode: 8230
+    m_GlyphIndex: 76
+    m_Scale: 1
+  - m_ElementType: 1
+    m_Unicode: 95
+    m_GlyphIndex: 74
+    m_Scale: 1
+  m_AtlasTextures:
+  - {fileID: 0}
+  m_AtlasTextureIndex: 0
+  m_IsMultiAtlasTexturesEnabled: 1
+  m_ClearDynamicDataOnBuild: 0
+  m_UsedGlyphRects:
+  - m_X: 0
+    m_Y: 0
+    m_Width: 67
+    m_Height: 33
+  - m_X: 67
+    m_Y: 0
+    m_Width: 63
+    m_Height: 29
+  m_FreeGlyphRects:
+  - m_X: 0
+    m_Y: 33
+    m_Width: 2047
+    m_Height: 2014
+  - m_X: 67
+    m_Y: 29
+    m_Width: 1980
+    m_Height: 2018
+  - m_X: 130
+    m_Y: 0
+    m_Width: 1917
+    m_Height: 2047
+  m_fontInfo:
+    Name: 
+    PointSize: 0
+    Scale: 0
+    CharacterCount: 0
+    LineHeight: 0
+    Baseline: 0
+    Ascender: 0
+    CapHeight: 0
+    Descender: 0
+    CenterLine: 0
+    SuperscriptOffset: 0
+    SubscriptOffset: 0
+    SubSize: 0
+    Underline: 0
+    UnderlineThickness: 0
+    strikethrough: 0
+    strikethroughThickness: 0
+    TabWidth: 0
+    Padding: 0
+    AtlasWidth: 0
+    AtlasHeight: 0
+  atlas: {fileID: 0}
+  m_AtlasWidth: 2048
+  m_AtlasHeight: 2048
+  m_AtlasPadding: 9
+  m_AtlasRenderMode: 4165
+  m_glyphInfoList: []
+  m_KerningTable:
+    kerningPairs: []
+  m_FontFeatureTable:
+    m_GlyphPairAdjustmentRecords: []
+  fallbackFontAssets: []
+  m_FallbackFontAssetTable: []
+  m_CreationSettings:
+    sourceFontFileName: 
+    sourceFontFileGUID: 
+    pointSizeSamplingMode: 0
+    pointSize: 0
+    padding: 0
+    packingMode: 0
+    atlasWidth: 0
+    atlasHeight: 0
+    characterSetSelectionMode: 0
+    characterSequence: 
+    referencedFontAssetGUID: 
+    referencedTextAssetGUID: 
+    fontStyle: 0
+    fontStyleModifier: 0
+    renderMode: 0
+    includeFontFeatures: 0
+  m_FontWeightTable:
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  - regularTypeface: {fileID: 0}
+    italicTypeface: {fileID: 0}
+  fontWeights: []
+  normalStyle: 0
+  normalSpacingOffset: 0
+  boldStyle: 0.75
+  boldSpacing: 7
+  italicStyle: 35
+  tabSize: 10
