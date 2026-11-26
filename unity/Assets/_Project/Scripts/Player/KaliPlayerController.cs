@@ -28,6 +28,15 @@ namespace KaliRiverSweeper.Player
         public bool isInBoat;
         public bool isFreeCam;
 
+        public event Action<bool, DiscardStationType, bool, bool, string> OnNearbyHubChanged;
+        public bool HasNearbyHub { get; private set; }
+        public DiscardStationType NearbyStationType { get; private set; }
+        public bool NearbyIsPosSortir { get; private set; }
+        public bool NearbyIsTokoAlat { get; private set; }
+        public string NearbyHubName { get; private set; } = string.Empty;
+
+        private const float HubPollInterval = 0.1f;
+
         private CharacterController controller;
         private Camera cam;
         private float yaw;
@@ -35,6 +44,7 @@ namespace KaliRiverSweeper.Player
         private float verticalVel;
         private float nextScoopTime;
         private float nextPaddleSplashTime;
+        private float nextHubPollTime;
         private int lastEquippedVisualIndex = -1;
         private GameObject activeToolVisual;
         private Quaternion toolSocketBaseRot = Quaternion.identity;
@@ -59,6 +69,7 @@ namespace KaliRiverSweeper.Player
                 RiverGameManager.Instance.OnEquippedToolChanged += OnEquippedToolChanged;
                 OnEquippedToolChanged(RiverGameManager.Instance.EquippedTool);
             }
+            RefreshNearbyHub();
         }
 
         private void OnDestroy()
@@ -85,6 +96,11 @@ namespace KaliRiverSweeper.Player
             HandleLook();
             HandleActions();
             HandleMove();
+            if (Time.unscaledTime >= nextHubPollTime)
+            {
+                nextHubPollTime = Time.unscaledTime + HubPollInterval;
+                RefreshNearbyHub();
+            }
         }
 
         private void HandleLook()
@@ -221,11 +237,48 @@ namespace KaliRiverSweeper.Player
             }
         }
 
+        /// <summary>
+        /// Refreshes nearby hub proximity state and emits OnNearbyHubChanged when the active hub changes.
+        /// </summary>
+        public void RefreshNearbyHub()
+        {
+            bool found = TryFindNearestHub(out DiscardStationType station, out bool isPosSortir, out bool isTokoAlat, out string hubName);
+            string resolvedName = found ? (hubName ?? string.Empty) : string.Empty;
+            if (found == HasNearbyHub &&
+                (!found || (station == NearbyStationType && isPosSortir == NearbyIsPosSortir && isTokoAlat == NearbyIsTokoAlat && resolvedName == NearbyHubName)))
+            {
+                return;
+            }
+
+            HasNearbyHub = found;
+            NearbyStationType = station;
+            NearbyIsPosSortir = isPosSortir;
+            NearbyIsTokoAlat = isTokoAlat;
+            NearbyHubName = resolvedName;
+            OnNearbyHubChanged?.Invoke(found, station, isPosSortir, isTokoAlat, resolvedName);
+        }
+
+        private static readonly (string token, DiscardStationType station, bool isSortir, bool isToko)[] HubRules =
+        {
+            ("Bank Sampah", DiscardStationType.BankSampah, false, false),
+            ("Pos Sortir", DiscardStationType.BankSampah, true, false),
+            ("Pos Medis", DiscardStationType.PosMedisB3, false, false),
+            ("Karantina Biohazard", DiscardStationType.KarantinaBiohazard, false, false),
+            ("Gudang Pengepul", DiscardStationType.GudangPengepul, false, false),
+            ("Toko Alat", DiscardStationType.BankSampah, false, true)
+        };
+
         private bool TryFindNearestHub(out DiscardStationType stationType, out bool isPosSortir, out bool isTokoAlat)
+        {
+            return TryFindNearestHub(out stationType, out isPosSortir, out isTokoAlat, out _);
+        }
+
+        private bool TryFindNearestHub(out DiscardStationType stationType, out bool isPosSortir, out bool isTokoAlat, out string hubName)
         {
             stationType = DiscardStationType.BankSampah;
             isPosSortir = false;
             isTokoAlat = false;
+            hubName = string.Empty;
 
             Collider[] hits = Physics.OverlapSphere(transform.position, interactRange);
             float bestDistSq = float.MaxValue;
@@ -234,45 +287,25 @@ namespace KaliRiverSweeper.Player
             foreach (Collider col in hits)
             {
                 if (col == null) continue;
-                Transform t = col.transform;
-                bool matched = false;
+
+                Transform match = null;
                 DiscardStationType candidateType = DiscardStationType.BankSampah;
                 bool candidateSortir = false;
                 bool candidateToko = false;
 
-                if (HasHierarchyName(t, "Bank Sampah"))
+                for (int i = 0; i < HubRules.Length; i++)
                 {
-                    candidateType = DiscardStationType.BankSampah;
-                    matched = true;
-                }
-                else if (HasHierarchyName(t, "Pos Sortir"))
-                {
-                    candidateType = DiscardStationType.BankSampah;
-                    candidateSortir = true;
-                    matched = true;
-                }
-                else if (HasHierarchyName(t, "Pos Medis"))
-                {
-                    candidateType = DiscardStationType.PosMedisB3;
-                    matched = true;
-                }
-                else if (HasHierarchyName(t, "Karantina Biohazard"))
-                {
-                    candidateType = DiscardStationType.KarantinaBiohazard;
-                    matched = true;
-                }
-                else if (HasHierarchyName(t, "Gudang Pengepul"))
-                {
-                    candidateType = DiscardStationType.GudangPengepul;
-                    matched = true;
-                }
-                else if (HasHierarchyName(t, "Toko Alat"))
-                {
-                    candidateToko = true;
-                    matched = true;
+                    match = FindHierarchyMatch(col.transform, HubRules[i].token);
+                    if (match != null)
+                    {
+                        candidateType = HubRules[i].station;
+                        candidateSortir = HubRules[i].isSortir;
+                        candidateToko = HubRules[i].isToko;
+                        break;
+                    }
                 }
 
-                if (!matched) continue;
+                if (match == null) continue;
 
                 float dSq = (col.ClosestPoint(transform.position) - transform.position).sqrMagnitude;
                 if (dSq < bestDistSq)
@@ -281,6 +314,7 @@ namespace KaliRiverSweeper.Player
                     stationType = candidateType;
                     isPosSortir = candidateSortir;
                     isTokoAlat = candidateToko;
+                    hubName = match.name;
                     found = true;
                 }
             }
@@ -575,14 +609,16 @@ namespace KaliRiverSweeper.Player
             }
         }
 
-        private static bool HasHierarchyName(Transform t, string token)
+        private static bool HasHierarchyName(Transform t, string token) => FindHierarchyMatch(t, token) != null;
+
+        private static Transform FindHierarchyMatch(Transform t, string token)
         {
             while (t != null)
             {
-                if (t.name.Contains(token)) return true;
+                if (t.name.Contains(token)) return t;
                 t = t.parent;
             }
-            return false;
+            return null;
         }
 
         private enum KeyAction { E, Q, F, R, X, Space, Digit1, Digit2, Digit3, BracketLeft, BracketRight }

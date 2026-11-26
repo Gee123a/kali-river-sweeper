@@ -87,7 +87,9 @@ namespace KaliRiverSweeper.Editor
             "Assets/_Project/UI/Prefabs/Canvas_HUD.prefab",
             "Assets/_Project/UI/Prefabs/Canvas_ShopBankSampah.prefab",
             "Assets/_Project/UI/Prefabs/Canvas_SDGImpactReport.prefab",
-            "Assets/_Project/VFX/VFX_MonsoonRain.prefab"
+            "Assets/_Project/VFX/VFX_MonsoonRain.prefab",
+            "Assets/_Project/VFX/VFX_WaterSplashMuddy.prefab",
+            "Assets/_Project/VFX/VFX_TrashAvalanche.prefab"
         };
 
         private static string[] EnvPaths(string baseName) => new[]

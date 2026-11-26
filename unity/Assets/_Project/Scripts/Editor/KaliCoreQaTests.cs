@@ -369,6 +369,10 @@ namespace KaliRiverSweeper.Editor
 
         private static void VerifyRiverMathSpawnerAndComponents()
         {
+            AssertApprox(-65f, RiverMath.MinWorldX, 0.001f, "RiverMath MinWorldX");
+            AssertApprox(65f, RiverMath.MaxWorldX, 0.001f, "RiverMath MaxWorldX");
+            AssertApprox(-90f, RiverMath.MinWorldZ, 0.001f, "RiverMath MinWorldZ");
+            AssertApprox(90f, RiverMath.MaxWorldZ, 0.001f, "RiverMath MaxWorldZ");
             AssertApprox(0f, RiverMath.ToWorld3D(520f, 720f).x, 0.001f, "RiverMath center X");
             AssertApprox(0f, RiverMath.ToWorld3D(520f, 720f).z, 0.001f, "RiverMath center Z");
             Vector3 midChannel = RiverMath.ToWorld3D(RiverMath.RiverCenterMapX(720f), 720f);
@@ -441,11 +445,24 @@ namespace KaliRiverSweeper.Editor
 
                 Physics.SyncTransforms();
 
-                MethodInfo findHub = typeof(KaliPlayerController).GetMethod("TryFindNearestHub", BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo findHub = typeof(KaliPlayerController).GetMethod("TryFindNearestHub", BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(DiscardStationType).MakeByRefType(), typeof(bool).MakeByRefType(), typeof(bool).MakeByRefType() }, null);
                 if (findHub == null) throw new InvalidOperationException("Missing KaliPlayerController.TryFindNearestHub");
                 object[] hubArgs = new object[] { DiscardStationType.GudangPengepul, false, false };
                 bool foundHub = (bool)findHub.Invoke(player, hubArgs);
                 Assert(foundHub && (DiscardStationType)hubArgs[0] == DiscardStationType.BankSampah, "Child collider matches parent Bank Sampah hub");
+
+                int hubEvents = 0;
+                bool lastNear = false;
+                string lastHubName = string.Empty;
+                player.OnNearbyHubChanged += (near, st, sortir, toko, hubName) => { hubEvents++; lastNear = near; lastHubName = hubName; };
+                player.RefreshNearbyHub();
+                Assert(hubEvents == 1 && lastNear && player.HasNearbyHub && lastHubName == "Bank Sampah Berkah", "OnNearbyHubChanged emits on hub enter");
+                player.RefreshNearbyHub();
+                Assert(hubEvents == 1, "OnNearbyHubChanged does not spam when unchanged");
+                playerGo.transform.position = isolatedPos + new Vector3(100f, 0f, 0f);
+                Physics.SyncTransforms();
+                player.RefreshNearbyHub();
+                Assert(hubEvents == 2 && !lastNear && !player.HasNearbyHub && lastHubName == string.Empty, "OnNearbyHubChanged emits on hub exit");
 
                 MethodInfo dmgGunung = typeof(KaliPlayerController).GetMethod("TryDamageGunungCollider", BindingFlags.Static | BindingFlags.NonPublic);
                 if (dmgGunung == null) throw new InvalidOperationException("Missing KaliPlayerController.TryDamageGunungCollider");

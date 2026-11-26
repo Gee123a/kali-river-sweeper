@@ -115,12 +115,13 @@ def compute_status(asset_id: str, current_status: str, head_files: set[str], loc
         head_src, _ = find_matches(sources, head_files)
         head_pf, head_pf_meta = find_matches(prefabs, head_files) if prefabs else ([], False)
         in_main = bool((head_pf and head_pf_meta) or head_src)
-        if not in_main:
-            niki_files = branch_files.get("niki-vfx", set())
-            b_src, _ = find_matches(sources, niki_files)
-            b_pf, b_pf_meta = find_matches(prefabs, niki_files) if prefabs else ([], False)
-            if b_pf or b_src:
-                return "In Progress in Branch (niki-vfx)"
+        if in_main:
+            return "In Progress in main (Needs Dock & 720p QA)"
+        niki_files = branch_files.get("niki-vfx", set())
+        b_src, _ = find_matches(sources, niki_files)
+        b_pf, b_pf_meta = find_matches(prefabs, niki_files) if prefabs else ([], False)
+        if b_pf or b_src:
+            return "In Progress in Branch (niki-vfx)"
 
     head_src, head_src_meta = find_matches(sources, head_files)
     head_pf, head_pf_meta = find_matches(prefabs, head_files) if prefabs else ([], False)
@@ -266,8 +267,11 @@ def sync_tracker() -> tuple[list[list[str]], int]:
         old_status = row[7]
         new_status = compute_status(row[0], old_status, head_files, local_files, branch_files)
 
-        if row[0] == "Canvas_HUD" and new_status == "In Progress in Branch (niki-vfx)":
-            row[9] = "Prototype Canvas_HUD.prefab on niki-vfx; needs vellum/hatch sprites, contour minimap, [1][2][3][E] dock & 1280x720 QA"
+        if row[0] == "Canvas_HUD":
+            if new_status == "In Progress in main (Needs Dock & 720p QA)":
+                row[9] = "Sprites, contour map & chevron in main; wire BC_StationDockSheet to OnNearbyHubChanged & verify 1280x720"
+            elif new_status == "In Progress in Branch (niki-vfx)":
+                row[9] = "Prototype Canvas_HUD.prefab on niki-vfx; needs vellum/hatch sprites, contour minimap, [1][2][3][E] dock & 1280x720 QA"
 
         if row[8] == "Auto-Discovered":
             m = re.search(r"Detected at (.+)", row[9])

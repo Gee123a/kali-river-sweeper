@@ -7,6 +7,10 @@ namespace KaliRiverSweeper.Core
         public const float MapScale = 0.125f;
         public const float WorldW = 1040f;
         public const float WorldH = 1440f;
+        public const float MinWorldX = -WorldW * MapScale * 0.5f;
+        public const float MaxWorldX = WorldW * MapScale * 0.5f;
+        public const float MinWorldZ = -WorldH * MapScale * 0.5f;
+        public const float MaxWorldZ = WorldH * MapScale * 0.5f;
 
         public static Vector3 ToWorld3D(float mapX, float mapY, float elevation = 0f)
         {
