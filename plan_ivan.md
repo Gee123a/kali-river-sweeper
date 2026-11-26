@@ -9,6 +9,8 @@
 - **Owner**: Stevanus Ivan Santoso (Ivan)
 - **Student ID**: `0706012410029` | **Email**: `ssantoso04@student.ciputra.ac.id` | **GitHub**: [@Gee123a](https://github.com/Gee123a)
 - **Track**: Coordinator, Core C# Systems, Buoyancy/Flow Physics, Level Data & Integration
+- **Unity Version Alignment**: Current workspace operates on Unity `2022.3.46f1 LTS`. To address `CVE-2025-59489` security vulnerabilities, team will coordinate either upgrading to patched Unity `2022.3.67f2` or migrating to patched Unity 6 (`6000.0.58f2+` / `6000.3.29f1 LTS`) prior to final build packaging.
+- **Git Contributor Hygiene**: Local personal git author commits only. Zero AI bot author attribution, zero `Co-Authored-By` trailers.
 - **Primary Deliverables**:
   1. Core state machine (`RiverGameManager.cs`, throttled ~10 Hz `NotifyState()`), linear `waterLevelY = f(trashInRiver)`, Overflow/Sell-Lock/`Q` high-ground dump, 3-class waste hazards (`Normal`, `Medical` prick, `Biohazard` DoT), 3 dedicated stations (`Bank Sampah`, `Pos Medis B3`, `Karantina Biohazard`) + fines vs `Gudang Pengepul`, Monsoon countdown, 20-tool auto-unlocks (`ToolCatalog.cs`), 4 endings (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`), and `F9` Stage Jumps.
   2. River math, `+Z` buoyancy & downstream `Pintu Air` barrier pileup (`RiverFlowBuoyancy.cs`, `RiverTrashItem.cs`, `RiverTrashSpawner.cs`).
@@ -37,30 +39,38 @@
 
 ---
 
-## 2. Step-by-Step Task Checklist
+## 2. Roadmap & Milestone Tasks (Prioritized)
 
+- **Timeline Overview**: **Completed (`main`)** -> **Fase 1: MVP Blockers (Sekarang)** -> **Fase 2: Env/Trash/Shop Wiring (Setelah Prefab Tim Masuk)** -> **Fase 3: Sidang F9 & Final Build**.
+
+### Completed Core Systems (main)
 - [x] **Task 1: Core C# State Machine, 20-Tool Milestones & Linear Flood (`Scripts/Core/`)**
   - [x] Implement `ToolCatalog.cs` (all 20 official `SM_Tool_*` tools auto-unlocked by cumulative Rupiah), `RiverTrashItem.cs`, and `RiverTrashSpawner.cs`.
   - [x] Implement linear `currentWaterLevelY = -0.25f + TotalTrashInRiver * 0.020f`, Overflow (`1.40m`), Sell-Lock (`1.85m`), `DumpCargoOnHighGround()`, Fatal Flood (`2.45m` -> `FloodFail`), `playerHealth` (`HealthFail`), Monsoon countdown win & `0%` Gunung Sampah win, and ~10 Hz throttled `NotifyState()`.
   - [x] Broadcast `Shader.SetGlobalFloat("_WaterClarity", waterClarity)` for Wesley's `SG_KaliWater`.
   - [x] Implement 3-class pickup (`Normal`, `Medical` prick mitigated by `#10 Capitan Ular`, `Biohazard` cargo DoT), 3 dedicated stations (`DiscardWasteAtStation` / `DiscardAllAtStation` with wrong-station fines) vs `SellAllAtPengepul`, `BuyKampungBins()`, `BuyUpgrade()`, `TriggerEmergencyFlush()`, and `F9 + 1..4` Stage Jumps.
-
 - [x] **Task 2: River Math & `+Z` Downstream Buoyancy (`Scripts/Core/RiverFlowBuoyancy.cs`)**
   - [x] Define `RiverMath` (`WorldW = 1040`, `WorldH = 1440`, `MapScale = 0.125` = `130m × 180m`).
   - [x] Flip drift toward **`+Z`** from upstream `-Z` `Gunung Sampah` toward downstream `+Z` `Pintu Air` barrier, dynamically tracking `currentWaterLevelY` + `GunungNodeController` bottom-anchored scaling.
-
 - [x] **Task 3: Player Controller, Level Spawner & 3D Prototype (`KaliPlayerController.cs`, `MapJsonImporter.cs`, `tools/play-3d.html`)**
   - [x] Implement dual Input System / Legacy fallback, camera-aimed nearest-target scoop, dynamic boat Y tracking, `1/2/3/E` station quick-discard, `Q` high-ground dump, and `Scroll / [ ]` tool switching.
   - [x] Split left/right `Ground_Daratan` banks, elevate `Jembatan Utama`, move `Pintu Air` to `+Z` & `Gudang Pengepul` near Spawn, add `Pos Medis B3` & `Karantina Biohazard`, attach `RiverTrashSpawner`, and include `PF_Trash_MedicalBag` / `PF_Trash_SyringeBox`.
   - [x] Sync `tools/play-3d.html` with full playable `+Z` loop, 3 waste classes, 3 stations + fines vs Pengepul, linear flood / Sell-Lock / `Q` dump, 20 tools, Monsoon timer, and End-Run SDG Report.
+- [x] **Task 3b: Visual Spec, VFX Event Contracts & Unity 2022.3.46f1 Verification**
+  - [x] Push `docs/HUD_SPEC_NIKI.md` (`063ccad`, *Lembar Kalkir Zona Cahaya*).
+  - [x] Add `OnWaterSplash(Vector3)` and `OnGunungTierBreached(Vector3)` to `RiverGameManager.cs` and triggers in `KaliPlayerController.cs` (`91fa930`).
+  - [x] Verify Unity `2022.3.46f1 LTS` Play Mode (`MapJsonImporter.EnsureUrpPipelineAssigned()`, 54 greybox objects, 0 compile/runtime errors).
 
-- [ ] **Task 4: Prefab Integration (`Scripts/`) — *Awaiting Remaining Art Drops***
-  - [ ] Swap remaining greybox buildings/water in `MapJsonImporter.cs` with Wesley's `SM_Env_*` prefabs + `SG_KaliWater` material, and attach Niki's `Canvas_HUD`, `Canvas_ShopBankSampah`, `Canvas_SDGImpactReport`, and `VFX_MonsoonRain`.
-  - [ ] Build Playable Scene inside `unity/Assets/_Project/Scenes/` once all prefabs land.
+### Priority 1: MVP Blockers (Kerjakan Sekarang)
+- [ ] **Task 4A: Save Scene, URP Assets & Generated JC Prefabs**: save `unity/Assets/_Project/Scenes/Main.unity` from loaded greybox; commit/push `MapJsonImporter.cs` (`EnsureUrpPipelineAssigned()`), `Settings/URP_KaliPipeline.asset`, `URP_KaliRenderer.asset`, and locally generated `PF_Tool_*`, `PF_Trash_*`, `PF_ExcavatorAmfibi.prefab`.
+- [ ] **Task 4B: Review & Merge `origin/niki-vfx` + Wire Sludge Bubbles**: once Niki wires `OnWaterSplash`/`OnGunungTierBreached` and completes `Canvas_HUD` + `Canvas_SDGImpactReport`, merge `origin/niki-vfx` into `main` and wire `VFX_MethaneSludgeBubbles` spawning at `trash_pile`/`gunung_node` in `MapJsonImporter.cs`.
+- [ ] **Task 4C: Team Unity Security Lock & Git History Hygiene**: finalize team agreement on staying on `2022.3.46f1 LTS` for dev vs patching `CVE-2025-59489` (`2022.3.67f2` or `Unity 6`) before final build packaging, and scrub earlier AI bot / `Co-Authored-By` commits if approved.
 
-- [ ] **Task 5: Academic ALP Report & Sidang Defense Prep**
-  - [ ] Export screenshots from `F9` stages (`1..4`) and WebGL preview (`tools/play-3d.html`).
-  - [ ] Finalize Academic ALP Report (SDG 6.3/11.5/14.1, Beer-Lambert + `RiverMath` equations, team split).
+### Priority 2: Environment, Trash & Shop Integration (Setelah Prefab Tim Masuk)
+- [ ] **Task 5: Prefab & Shader Wiring (`MapJsonImporter.cs`, `Main.unity`)**: wire Wesley's `SM_Env_*` + `SG_KaliWater` + 3 Station colliders, JC's 9 Normal trash + `SM_Trash_BiohazardDrum` + `PF_LightingRig`, and Niki's `Canvas_ShopBankSampah`.
+
+### Priority 3: Sidang F9 Verification, Build & ALP Report
+- [ ] **Task 6: Academic ALP Report & Sidang Defense Prep**: `F9` stage screenshots (`1..4`), WebGL/PlayMode verification, and final ALP Report.
 
 ---
 

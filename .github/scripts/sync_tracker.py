@@ -53,13 +53,18 @@ def run_git(args: list[str]) -> str:
     return subprocess.check_output(["git", *args], cwd=REPO_ROOT, text=True)
 
 
-def list_tree_files() -> tuple[set[str], dict[str, set[str]]]:
-    """Returns (main_files, {branch_name: set_of_files}) relative to repo root."""
-    main_files = {
+def list_tree_files() -> tuple[set[str], set[str], dict[str, set[str]]]:
+    """Returns (head_files, local_files, {branch_name: set_of_files}) relative to repo root."""
+    head_out = run_git(["ls-tree", "-r", "--name-only", "HEAD", "--", UNITY_PROJECT_REL])
+    head_files = set(head_out.splitlines())
+
+    local_all = {
         str(p.relative_to(REPO_ROOT)).replace("\\", "/")
         for p in (REPO_ROOT / "unity" / "Assets" / "_Project").rglob("*")
         if p.is_file()
     }
+    local_files = local_all - head_files
+
     branch_files: dict[str, set[str]] = {}
     refs = run_git(["for-each-ref", "--format=%(refname:short)", "refs/remotes/origin"]).splitlines()
     for ref in refs:
@@ -68,7 +73,7 @@ def list_tree_files() -> tuple[set[str], dict[str, set[str]]]:
         short = ref.removeprefix("origin/")
         out = run_git(["ls-tree", "-r", "--name-only", ref, "--", UNITY_PROJECT_REL])
         branch_files[short] = set(out.splitlines())
-    return main_files, branch_files
+    return head_files, local_files, branch_files
 
 
 def asset_variants(asset_id: str) -> tuple[list[str], list[str]]:
@@ -102,45 +107,83 @@ def find_matches(candidates: list[str], file_set: set[str]) -> tuple[list[str], 
     return matched, has_meta
 
 
-def compute_status(asset_id: str, current_status: str, main_files: set[str], branch_files: dict[str, set[str]]) -> str:
+def compute_status(asset_id: str, current_status: str, head_files: set[str], local_files: set[str], branch_files: dict[str, set[str]]) -> str:
     sources, prefabs = asset_variants(asset_id)
 
-    main_src, main_src_meta = find_matches(sources, main_files)
-    main_pf, main_pf_meta = find_matches(prefabs, main_files) if prefabs else ([], False)
+    # Canvas_HUD override
+    if asset_id == "Canvas_HUD":
+        head_src, _ = find_matches(sources, head_files)
+        head_pf, head_pf_meta = find_matches(prefabs, head_files) if prefabs else ([], False)
+        in_main = bool((head_pf and head_pf_meta) or head_src)
+        if not in_main:
+            niki_files = branch_files.get("niki-vfx", set())
+            b_src, _ = find_matches(sources, niki_files)
+            b_pf, b_pf_meta = find_matches(prefabs, niki_files) if prefabs else ([], False)
+            if b_pf or b_src:
+                return "In Progress in Branch (niki-vfx)"
 
-    if main_pf and main_pf_meta:
+    head_src, head_src_meta = find_matches(sources, head_files)
+    head_pf, head_pf_meta = find_matches(prefabs, head_files) if prefabs else ([], False)
+
+    if head_pf and head_pf_meta:
         return "DONE (Prefab + .meta in main)"
-    if main_pf:
+    if head_pf:
         return "Prefab in main (Missing .meta)"
-    if main_src:
-        ext = Path(main_src[0]).suffix.lower()
-        if ext in (".cs", ".json", ".shadergraph"):
+    if head_src:
+        ext = Path(head_src[0]).suffix.lower()
+        if ext in (".cs", ".json", ".shadergraph", ".unity"):
             return "DONE (In main)"
         if ext == ".fbx":
+            local_pf, local_pf_meta = find_matches(prefabs, local_files) if prefabs else ([], False)
+            if local_pf and local_pf_meta:
+                return "FBX in main (Local Prefab Pending Commit)"
             return "FBX in main (Needs Unity Prefab + .meta)"
         return "In main"
 
-    # Check remote feature branches (e.g., jc-excavator-tools)
+    # Check local disk untracked/uncommitted
+    local_src, local_src_meta = find_matches(sources, local_files)
+    local_pf, local_pf_meta = find_matches(prefabs, local_files) if prefabs else ([], False)
+
+    if local_pf and local_pf_meta:
+        return "Generated Locally (Pending Commit to main)"
+    if local_src:
+        ext = Path(local_src[0]).suffix.lower()
+        if ext in (".cs", ".json", ".asset", ".shadergraph", ".unity"):
+            return "Local Uncommitted (Pending Commit)"
+        if ext == ".fbx":
+            return "Local FBX (Pending Prefab & Commit)"
+
+    # Check remote feature branches
     for branch, bfiles in sorted(branch_files.items()):
         b_src, _ = find_matches(sources, bfiles)
         b_pf, b_pf_meta = find_matches(prefabs, bfiles) if prefabs else ([], False)
         if b_pf and b_pf_meta:
             return f"DONE in Branch ({branch})"
         if b_pf:
-            return f"Prefab in Branch ({branch} — Needs .meta)"
+            return f"Prefab in Branch ({branch} - Needs .meta)"
         if b_src:
             ext = Path(b_src[0]).suffix.lower()
             if ext == ".fbx":
-                return f"In Branch ({branch}) — FBX Ready (Needs Prefab)"
-            return f"In Branch ({branch}) — Scripted Ready"
+                return f"In Branch ({branch}) - FBX Ready (Needs Prefab)"
+            return f"In Branch ({branch}) - Scripted Ready"
+
+    # Handle reverted branches
+    if current_status.startswith(("In Branch (", "DONE in Branch (", "Prefab in Branch (", "In Progress in Branch (")):
+        return "To Do (Reverted from Branch)"
 
     return current_status
 
 
 def infer_owner_and_cat(rel_path: str) -> tuple[str, str]:
     p = rel_path.lower()
-    if "/scripts/" in p or "/data/" in p:
-        return "Ivan (Lead)", "Core Code"
+    if "/vfx/" in p:
+        return "Niki", "VFX"
+    if "/ui/" in p or "/audio/" in p:
+        return "Niki", "UI & Audio"
+    if "/environment/" in p:
+        return "Wesley", "Environment"
+    if "/shaders/" in p:
+        return "Wesley", "Shaders"
     if "/props/" in p:
         if "/tools/" in p:
             return "JC", "Props - Tools"
@@ -153,16 +196,8 @@ def infer_owner_and_cat(rel_path: str) -> tuple[str, str]:
         return "JC", "Rigging & Animation"
     if "/lighting/" in p:
         return "JC", "Lighting"
-    if "/environment/" in p:
-        return "Wesley", "Environment"
-    if "/shaders/" in p:
-        return "Wesley", "Shaders"
-    if "/vfx/" in p:
-        return "Niki", "VFX"
-    if "/ui/" in p:
-        return "Niki", "UI & Audio"
-    if "/audio/" in p:
-        return "Niki", "Audio"
+    if "/scripts/" in p or "/data/" in p:
+        return "Ivan (Lead)", "Core Code"
     return "Team", "Asset"
 
 
@@ -187,11 +222,27 @@ def sync_tracker() -> tuple[list[list[str]], int]:
             seen_ids[aid] = len(norm_rows)
             norm_rows.append(list(add))
 
-    main_files, branch_files = list_tree_files()
+    head_files, local_files, branch_files = list_tree_files()
+    all_remote_files = set().union(*branch_files.values()) if branch_files else set()
 
-    # Auto-discover unknown primary assets (.fbx, .shadergraph, .vfx, .cs outside Editor prefabs? keep meaningful assets)
+    # Prune stale Auto-Discovered rows whose source no longer exists anywhere
+    pruned_rows = []
+    for row in norm_rows:
+        if row[8] == "Auto-Discovered":
+            notes = row[9]
+            match = re.search(r"Detected at (.+)", notes)
+            if match:
+                rel_path = match.group(1).strip()
+                exists = (rel_path in head_files) or (rel_path in local_files) or (rel_path in all_remote_files)
+                if not exists:
+                    continue
+        pruned_rows.append(row)
+    norm_rows = pruned_rows
+    seen_ids = {r[0]: idx for idx, r in enumerate(norm_rows)}
+
+    # Auto-discover unknown primary assets
     ignored_names = {"UnityEngine", "README.md", ".gitkeep"}
-    all_asset_files = sorted(main_files.union(*branch_files.values()))
+    all_asset_files = sorted(head_files.union(local_files, all_remote_files))
     for rel in all_asset_files:
         if rel.endswith((".meta", ".png", ".mat", ".md", ".blend", ".blend1")):
             continue
@@ -199,7 +250,6 @@ def sync_tracker() -> tuple[list[list[str]], int]:
         stem = Path(rel).stem
         if name in ignored_names or stem in seen_ids or name in seen_ids:
             continue
-        # Avoid duplicate row when PF_Foo corresponds to tracked SM_Foo / SK_Foo
         if stem.startswith("PF_") and (("SM_" + stem[3:]) in seen_ids or ("SK_" + stem[3:]) in seen_ids):
             continue
         if stem.startswith("PF_VFX_") and (stem[3:] in seen_ids):
@@ -214,7 +264,19 @@ def sync_tracker() -> tuple[list[list[str]], int]:
     updated_count = 0
     for row in norm_rows:
         old_status = row[7]
-        new_status = compute_status(row[0], old_status, main_files, branch_files)
+        new_status = compute_status(row[0], old_status, head_files, local_files, branch_files)
+
+        if row[0] == "Canvas_HUD" and new_status == "In Progress in Branch (niki-vfx)":
+            row[9] = "Prototype Canvas_HUD.prefab on niki-vfx; needs vellum/hatch sprites, contour minimap, [1][2][3][E] dock & 1280x720 QA"
+
+        if row[8] == "Auto-Discovered":
+            m = re.search(r"Detected at (.+)", row[9])
+            if m:
+                p_rel = m.group(1).strip()
+                o_inf, c_inf = infer_owner_and_cat(p_rel)
+                row[3] = o_inf
+                row[1] = c_inf
+
         if row[0] == "SK_ExcavatorAmfibi" and "jc-excavator-tools" in new_status:
             row[5] = "4,298 tris / 3-Joint IK + Damped Track"
             row[9] = "Rigged in blender/build_all.py (0 _end leaf bones; 3 PBR slots)"
@@ -241,6 +303,8 @@ def sync_tracker() -> tuple[list[list[str]], int]:
 
 def status_style_hex(status: str) -> str:
     s = status.lower()
+    if s.startswith("to do") or "not in repo" in s:
+        return "FEE2E2"
     if s.startswith("done"):
         return "DCFCE7"
     if "branch" in s or "fbx in main" in s or "scripted" in s or "prefab" in s:
@@ -290,7 +354,7 @@ def maybe_write_xlsx(title_rows: list[list[str]], header: list[str], rows: list[
 
     # Executive Summary sheet
     ws2 = wb.create_sheet("Executive Summary")
-    ws2.cell(1, 1, "KALI: Indonesian River Sweeper — Asset Production Scorecard").font = Font(bold=True, size=14, color="0F172A")
+    ws2.cell(1, 1, "KALI: Indonesian River Sweeper - Asset Production Scorecard").font = Font(bold=True, size=14, color="0F172A")
     ws2.cell(2, 1, "Auto-calculated from Git repository files & branches").font = Font(size=10, color="64748B")
 
     sum_headers = ["Team Member", "Domain Ownership", "Total Assets", "DONE (In main)", "Active / In Branch", "To Do / Pending", "Progress %"]
@@ -310,7 +374,7 @@ def maybe_write_xlsx(title_rows: list[list[str]], header: list[str], rows: list[
         orows = [r for r in rows if r[3].lower().startswith(owner_key.split()[0].lower())]
         total = len(orows)
         done = sum(1 for r in orows if r[7].lower().startswith("done"))
-        active = sum(1 for r in orows if not r[7].lower().startswith("done") and ("branch" in r[7].lower() or "modeled" in r[7].lower() or "scripted" in r[7].lower() or "fbx" in r[7].lower()))
+        active = sum(1 for r in orows if (s := r[7].lower()) and not s.startswith("done") and not s.startswith("to do") and "not in repo" not in s and ("branch" in s or "modeled" in s or "scripted" in s or "fbx" in s or "local" in s or "progress" in s))
         todo = total - done - active
         pct = f"{round(((done + active * 0.6) / total) * 100)}%" if total else "0%"
         for c_idx, val in enumerate([owner_key, domain, total, done, active, todo, pct], 1):
