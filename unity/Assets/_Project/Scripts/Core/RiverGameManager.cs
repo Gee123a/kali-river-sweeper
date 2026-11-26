@@ -99,6 +99,8 @@ namespace KaliRiverSweeper.Core
         // Backwards-compatible events for Niki's UI & VFX
         public event Action OnStateChanged;
         public event Action<bool> OnWeatherChanged;
+        public event Action<Vector3> OnWaterSplash;
+        public event Action<Vector3> OnGunungTierBreached;
         public event Action<GameEnding> OnEndingTriggered;
 
         // Extended events for 20-tool milestones & hazard/station feedback
@@ -586,10 +588,17 @@ namespace KaliRiverSweeper.Core
             SelectTool(next);
         }
 
-        public void DamageGunungSampah(float amount)
+        public void NotifyWaterSplash(Vector3 worldPos)
+        {
+            OnWaterSplash?.Invoke(worldPos);
+        }
+
+        public void DamageGunungSampah(float amount, Vector3? impactPos = null)
         {
             bool canDredge = excavatorUnlocked || EquippedTool.GunungDamagePerSwing > 0f;
             if (!canDredge || gunungSampahHealth <= 0f || activeEnding != GameEnding.None) return;
+
+            int prevTier = Mathf.CeilToInt(gunungSampahHealth * 4f);
 
             GunungNodeController[] nodes = FindObjectsOfType<GunungNodeController>(true);
             if (nodes != null && nodes.Length > 0)
@@ -601,6 +610,13 @@ namespace KaliRiverSweeper.Core
             else
             {
                 gunungSampahHealth = Mathf.Clamp01(gunungSampahHealth - amount);
+            }
+
+            int nextTier = Mathf.CeilToInt(gunungSampahHealth * 4f);
+            if (nextTier < prevTier)
+            {
+                Vector3 breachPos = impactPos.HasValue ? impactPos.Value : (nodes != null && nodes.Length > 0 ? nodes[0].transform.position : new Vector3(0f, currentWaterLevelY, 0f));
+                OnGunungTierBreached?.Invoke(breachPos);
             }
 
             RecalculateWaterMetrics();
