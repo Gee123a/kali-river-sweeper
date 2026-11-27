@@ -9,6 +9,8 @@ Rules every tool follows (checked by validate_tool):
   * One material, M_Tools_Atlas, sharing one 2048x2048 atlas. The atlas is a 5x4 grid of
     cells (one per tool, index 1..20); each cell is a 4x4 grid of colour swatches
     (SPEC["palette"], up to 16 entries). Every part's UVs are box-projected into its swatch.
+    A SPEC with "label_art" (branded trash) gives the bottom swatch rows of its cell to a printed
+    label (labels.py); parts tagged "kali_label" keep their own label-space UVs (label_uv_rect).
 
 Tool module contract (blender/kali_blender/tools/tool_XX_name.py):
     SPEC = {"index": 7, "name": "SM_Tool_SapuLidi", "label": "...", "head_dir": "+Z",
@@ -80,6 +82,30 @@ def swatch_rect(index, swatch, margin=True):
     return (rect[0] + mu, rect[1] + mv, rect[2] - mu, rect[3] - mv)
 
 
+def label_box(index, rows):
+    """Pixel box (x0, y0, x1, y1), end-exclusive, of a label region: the bottom `rows` swatch rows of the
+    cell (swatches 0..4*(4-rows)-1 keep the rows above it)."""
+    u0, v0, u1, v1 = cell_rect(index)
+    top = v0 + (v1 - v0) * rows / SWATCH_GRID
+    n = ATLAS_SIZE
+    return (math.ceil(u0 * n - 1e-6), math.ceil(v0 * n - 1e-6), math.floor(u1 * n + 1e-6), math.floor(top * n + 1e-6))
+
+
+def label_uv_rect(index, rows):
+    """UV rect of the label region's pixel centres (label-space 0..1 maps onto it)."""
+    x0, y0, x1, y1 = label_box(index, rows)
+    n = ATLAS_SIZE
+    return ((x0 + 0.5) / n, (y0 + 0.5) / n, (x1 - 0.5) / n, (y1 - 0.5) / n)
+
+
+def _fit_label_uvs(obj, rect):
+    """Part UVs were authored in label space (0..1): move them into the label region of the atlas cell."""
+    u0, v0, u1, v1 = rect
+    for d in obj.data.uv_layers.active.data:
+        s, t = min(max(d.uv.x, 0.0), 1.0), min(max(d.uv.y, 0.0), 1.0)
+        d.uv = (u0 + (u1 - u0) * s, v0 + (v1 - v0) * t)
+
+
 # ---------------------------------------------------------------- parts
 def tag(obj, swatch):
     """Mark a part object with the palette swatch it uses. Returns obj for chaining."""
@@ -127,6 +153,10 @@ def assemble(spec, parts, material_name=MATERIAL_NAME):
     if not parts:
         raise ValueError(f"{spec['name']}: build() returned no parts")
     for p in parts:
+        if "kali_label" in p:       # printed part: its own UVs, in label space (trash_shapes)
+            if not spec.get("label_art"):
+                raise ValueError(f"{spec['name']}: part {p.name} is a label part but SPEC has no label_art")
+            continue
         if "kali_swatch" not in p:
             raise ValueError(f"{spec['name']}: part {p.name} not tagged with a swatch")
         if p["kali_swatch"] >= len(spec["palette"]):
@@ -139,7 +169,10 @@ def assemble(spec, parts, material_name=MATERIAL_NAME):
         bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
         p.select_set(False)
         p.data.materials.clear()
-        _box_project_into(p, swatch_rect(spec["index"], p["kali_swatch"]))
+        if "kali_label" in p:
+            _fit_label_uvs(p, label_uv_rect(spec["index"], spec["label_art"]["rows"]))
+        else:
+            _box_project_into(p, swatch_rect(spec["index"], p["kali_swatch"]))
     for p in parts:
         p.select_set(True)
     bpy.context.view_layer.objects.active = parts[0]
@@ -261,6 +294,17 @@ def write_atlas_images(specs, out_dir, files=ATLAS_FILES):
             y0, y1 = int(math.floor(v0 * n)), int(math.ceil(v1 * n))   # numpy row 0 = bottom (Blender)
             albedo[y0:y1, x0:x1, :3] = _srgb(hexstr)
             mask[y0:y1, x0:x1] = (metal, 1.0, 0.0, smooth)
+        art = spec.get("label_art")
+        if art:   # printed label (brand art + wear) in the bottom rows of the cell
+            from kali_blender import labels
+            x0, y0, x1, y1 = label_box(spec["index"], art["rows"])
+            lab = labels.render_label(art["name"], x1 - x0, y1 - y0, dirty=art.get("dirty", True))
+            albedo[y0:y1, x0:x1, :3] = lab["albedo"]
+            normal[y0:y1, x0:x1, :3] = lab["normal"]
+            mask[y0:y1, x0:x1, 0] = 0.0
+            mask[y0:y1, x0:x1, 1] = 1.0
+            mask[y0:y1, x0:x1, 2] = 0.0
+            mask[y0:y1, x0:x1, 3] = lab["smooth"]
     paths = {}
     for key, arr, colorspace in (("albedo", albedo, "sRGB"), ("normal", normal, "Non-Color"),
                                  ("mask", mask, "Non-Color")):

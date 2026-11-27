@@ -171,8 +171,9 @@ namespace Kali.Props.EditorTools
             AssetDatabase.StartAssetEditing();
             try
             {
-                ConfigureAtlasTextures(TrashTextureFolder, TrashAtlasBaseName);
-                ConfigureAtlasTextures(ToolTextureFolder, ToolAtlasBaseName);
+                // Trash atlas carries painted brand labels: smooth filtering + mipmaps so they read at distance.
+                ConfigureAtlasTextures(TrashTextureFolder, TrashAtlasBaseName, smoothAlbedo: true);
+                ConfigureAtlasTextures(ToolTextureFolder, ToolAtlasBaseName, smoothAlbedo: false);
             }
             finally
             {
@@ -188,11 +189,11 @@ namespace Kali.Props.EditorTools
             return ok;
         }
 
-        private static void ConfigureAtlasTextures(string textureFolder, string baseName)
+        private static void ConfigureAtlasTextures(string textureFolder, string baseName, bool smoothAlbedo)
         {
-            // Albedo: sRGB colour, point filter (flat colour swatches).
+            // Albedo: sRGB colour, point filter for flat colour swatches, bilinear + mipmaps for painted labels.
             ConfigureTextureImporter(textureFolder + "/" + baseName + "_Albedo.png",
-                TextureImporterType.Default, true, true);
+                TextureImporterType.Default, true, !smoothAlbedo);
             // Normal: NormalMap import type (linear).
             ConfigureTextureImporter(textureFolder + "/" + baseName + "_Normal.png",
                 TextureImporterType.NormalMap, false, false);
@@ -218,6 +219,12 @@ namespace Kali.Props.EditorTools
                 importer.filterMode = FilterMode.Point;
                 // Atlas swatch colours must not bleed into far mip levels.
                 importer.mipmapEnabled = false;
+            }
+            else if (type == TextureImporterType.Default)
+            {
+                // Reset in case an earlier run imported this texture with point filter / no mipmaps.
+                importer.filterMode = FilterMode.Bilinear;
+                importer.mipmapEnabled = true;
             }
 
             importer.SaveAndReimport();
