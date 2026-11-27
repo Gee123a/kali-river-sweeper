@@ -428,7 +428,21 @@ namespace KaliRiverSweeper.Editor
             {
                 GameObject rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab, parent);
                 rig.name = "PF_LightingRig";
-                Debug.Log("[KALI] Successfully instantiated JC's PF_LightingRig.");
+
+                Light rigLight = rig.GetComponentInChildren<Light>(true);
+                if (rigLight != null) RenderSettings.sun = rigLight;
+
+                Material skyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Project/Lighting/Materials/M_KaliSky.mat");
+                if (skyMat != null) RenderSettings.skybox = skyMat;
+
+                RenderSettings.ambientMode = AmbientMode.Trilight;
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+
+                KaliDayNightCycle cycle = rig.GetComponent<KaliDayNightCycle>();
+                if (cycle != null) cycle.SetHour(cycle.startHour);
+
+                Debug.Log("[KALI] Successfully instantiated PF_LightingRig + M_KaliSky.");
                 return;
             }
 
@@ -564,6 +578,11 @@ namespace KaliRiverSweeper.Editor
             mainCam.transform.SetParent(player.transform);
             mainCam.transform.localPosition = new Vector3(0f, 0.7f, 0f);
             mainCam.transform.localRotation = Quaternion.identity;
+            mainCam.clearFlags = CameraClearFlags.Skybox;
+            mainCam.fieldOfView = 60f;
+            UniversalAdditionalCameraData camData = mainCam.GetComponent<UniversalAdditionalCameraData>();
+            if (camData == null) camData = mainCam.gameObject.AddComponent<UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = true;
 
             GameObject socket = new GameObject("ToolSocket");
             socket.transform.SetParent(mainCam.transform);

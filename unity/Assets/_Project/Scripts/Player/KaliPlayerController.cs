@@ -378,6 +378,13 @@ namespace KaliRiverSweeper.Player
                 gm?.NotifyInfo(isFreeCam ? "Free-Cam Demo aktif (dibatasi di area sungai)." : "Kembali ke kamera gameplay.");
             }
 
+            if (WasKeyPressed(KeyAction.T) && KaliDayNightCycle.Instance != null)
+            {
+                KaliDayNightCycle cycle = KaliDayNightCycle.Instance;
+                cycle.SkipToNextPhase();
+                gm?.NotifyInfo($"WAKTU: {cycle.CurrentPhaseName} ({cycle.ClockText})");
+            }
+
             // Tool switching via Mouse Scroll or [ / ]
             if (gm != null)
             {
@@ -1057,7 +1064,7 @@ namespace KaliRiverSweeper.Player
             }
         }
 
-        private enum KeyAction { E, Q, F, R, X, Space, Digit1, Digit2, Digit3, Digit4, BracketLeft, BracketRight }
+        private enum KeyAction { E, Q, F, R, T, X, Space, Digit1, Digit2, Digit3, Digit4, BracketLeft, BracketRight }
 
         private static Vector2 GetMoveAxis()
         {
@@ -1189,6 +1196,7 @@ namespace KaliRiverSweeper.Player
                     KeyAction.Q => Keyboard.current.qKey.wasPressedThisFrame,
                     KeyAction.F => Keyboard.current.fKey.wasPressedThisFrame,
                     KeyAction.R => Keyboard.current.rKey.wasPressedThisFrame,
+                    KeyAction.T => Keyboard.current.tKey.wasPressedThisFrame,
                     KeyAction.X => Keyboard.current.xKey.wasPressedThisFrame,
                     KeyAction.Space => Keyboard.current.spaceKey.wasPressedThisFrame,
                     KeyAction.Digit1 => Keyboard.current.digit1Key.wasPressedThisFrame,
@@ -1209,6 +1217,7 @@ namespace KaliRiverSweeper.Player
                 KeyAction.Q => KeyCode.Q,
                 KeyAction.F => KeyCode.F,
                 KeyAction.R => KeyCode.R,
+                KeyAction.T => KeyCode.T,
                 KeyAction.X => KeyCode.X,
                 KeyAction.Space => KeyCode.Space,
                 KeyAction.Digit1 => KeyCode.Alpha1,

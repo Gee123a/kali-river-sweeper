@@ -59,7 +59,7 @@
 
 ### Priority 2: Equipment & Lighting (Setelah Trash MVP)
 - [ ] **Task 2C: Vessels & Kampung Equipment**: `RakitGabus`, `PerahuSampan`, `TongSampahKampung`, `SpillBarrierFloat`, `PumpGenerator`.
-- [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**: create/push `KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour`, `VolumeProfile_MonsoonStorm`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`.
+- [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**: procedural skybox & 12-min day/night rig (`KaliSky.shader`, `M_KaliSky.mat`, `VP_KaliSky.asset`, `KaliLightingBuilder.cs`, `PF_LightingRig.prefab`) built by Ivan (`Scripts/Core/KaliDayNightCycle.cs`); **`PF_Lantern_Warung` and `PF_WarningBeacon_PintuAir`** remain JC's deliverables.
 
 ### Priority 3: Character Silhouettes, Rig Animations & Unity Version Guardrail
 - [ ] `SK_VillagerNPC`, `Anim_PlayerToolSwing`.

@@ -86,7 +86,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyPrefabHitboxProportions,
                 VerifyDermagaRiverPortLimits,
                 VerifyTask4dAnd4fUxContracts,
-                VerifySwimmingStaminaAndDrowning
+                VerifySwimmingStaminaAndDrowning,
+                VerifyDayNightCycle
             };
 
             assertCount = 0;
@@ -925,6 +926,88 @@ namespace KaliRiverSweeper.Editor
                 gm.RestartRun();
                 AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "RestartRun restores full swimStamina");
                 Assert(!gm.IsSwimming && !gm.IsDrowning, "RestartRun clears swimming and drowning state");
+            }
+        }
+
+        private static void VerifyDayNightCycle()
+        {
+            KaliDayNightCycle prevCycle = KaliDayNightCycle.Instance;
+            PropertyInfo cycleInstProp = typeof(KaliDayNightCycle).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            cycleInstProp?.SetValue(null, null);
+
+            try
+            {
+                using (QaContext ctx = new QaContext())
+                {
+                    RiverGameManager gm = ctx.Manager;
+                    GameObject rig = ctx.Track(new GameObject("QA_DayNightRig"));
+                    GameObject sunGo = ctx.Track(new GameObject("Sun"));
+                    sunGo.transform.SetParent(rig.transform, false);
+                    sunGo.AddComponent<Light>().type = LightType.Directional;
+                    KaliDayNightCycle cycle = rig.AddComponent<KaliDayNightCycle>();
+                    InvokeNonPublic(cycle, "Awake");
+
+                    // 1. Sunrise (+Z) and Noon elevation
+                    cycle.SetHour(6f);
+                    Assert(Mathf.Abs(cycle.SunDirection.y) < 0.1f && cycle.SunDirection.z > 0.9f,
+                        "Hour 6 sun sits near horizon toward +Z (Pintu Air)");
+
+                    cycle.SetHour(12f);
+                    Assert(cycle.SunDirection.y > 0.9f * Mathf.Sin(72f * Mathf.Deg2Rad),
+                        "Hour 12 sun reaches high noon elevation");
+
+                    // 2. StartHour (evening golden hour) toward -Z at 3.5-7.5 deg
+                    cycle.SetHour(cycle.startHour);
+                    float elevDeg = Mathf.Asin(Mathf.Clamp(cycle.SunDirection.y, -1f, 1f)) * Mathf.Rad2Deg;
+                    Assert(cycle.SunDirection.z < 0f && elevDeg >= 3.5f && elevDeg <= 7.5f,
+                        $"StartHour {cycle.startHour:F2} sun sits toward -Z at 3.5-7.5 deg (got {elevDeg:F2} deg)");
+
+                    // 3. Night moonlit sky & stars
+                    cycle.SetHour(23f);
+                    Assert(cycle.MoonDirection.y > 0.1f && cycle.CurrentStars > 0.5f,
+                        "Hour 23 moon is above horizon and stars are visible");
+
+                    // 4. ClockText formatting & proportional Step + 24h wrap
+                    cycle.SetHour(17.4f);
+                    Assert(cycle.ClockText == "17:24", $"Expected ClockText 17:24, got {cycle.ClockText}");
+
+                    cycle.Step(cycle.dayLengthSeconds * 0.25f);
+                    AssertApprox(23.4f, cycle.CurrentHour, 0.01f, "Step(0.25 day) advances +6h");
+                    cycle.Step(cycle.dayLengthSeconds);
+                    AssertApprox(23.4f, cycle.CurrentHour, 0.02f, "Step(1.0 day) wraps cleanly modulo 24h");
+
+                    // 5. SkipToNextPhase sequence from startHour: Dusk -> Night -> Dawn -> Noon -> Golden Hour
+                    cycle.SetHour(cycle.startHour);
+                    cycle.SkipToNextPhase();
+                    AssertApprox(18f + 40f / 60f, cycle.CurrentHour, 0.02f, "Skip 1 -> Dusk 18:40");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(22f, cycle.CurrentHour, 0.02f, "Skip 2 -> Night 22:00");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(5f + 50f / 60f, cycle.CurrentHour, 0.02f, "Skip 3 -> Dawn 05:50");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(12f, cycle.CurrentHour, 0.02f, "Skip 4 -> Noon 12:00");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(cycle.startHour, cycle.CurrentHour, 0.02f, "Skip 5 -> Golden Hour");
+
+                    // 6. Storm blend (~6s smoothing -> ~1 within 10s) and Smog curve
+                    gm.isMonsoonStorm = true;
+                    cycle.Step(10f);
+                    Assert(cycle.StormBlend >= 0.99f, $"StormBlend reaches ~1 after 10s (got {cycle.StormBlend:F3})");
+                    gm.isMonsoonStorm = false;
+                    cycle.Step(10f);
+                    Assert(cycle.StormBlend <= 0.01f, $"StormBlend clears after 10s (got {cycle.StormBlend:F3})");
+
+                    gm.waterClarity = 0.65f;
+                    cycle.Step(0.1f);
+                    AssertApprox(0f, cycle.SmogFactor, 0.001f, "Smog is 0 at waterClarity 0.65");
+                    gm.waterClarity = 0.12f;
+                    cycle.Step(0.1f);
+                    Assert(cycle.SmogFactor > 0.8f, $"Smog > 0.8 at waterClarity 0.12 (got {cycle.SmogFactor:F3})");
+                }
+            }
+            finally
+            {
+                cycleInstProp?.SetValue(null, prevCycle);
             }
         }
 

@@ -167,7 +167,9 @@ namespace KaliRiverSweeper.UI.Editor
             Text(clarity.transform, "TMP_KejernihanPct", "12%", 28f, Ink, new Vector2(8f, -26f), new Vector2(220f, 34f), new Vector2(0f, 1f));
 
             GameObject monsun = Panel(rail.transform, "Cell_MonsunTimer", new Vector2(0f, 0.5f), new Vector2(516f, 0f), new Vector2(252f, 56f), VellumSolid);
-            Text(monsun.transform, "TMP_MonsunLabel", "MONSUN", 14f, InkSecondary, new Vector2(8f, -6f), new Vector2(230f, 20f), new Vector2(0f, 1f));
+            Text(monsun.transform, "TMP_MonsunLabel", "MONSUN", 14f, InkSecondary, new Vector2(8f, -6f), new Vector2(115f, 20f), new Vector2(0f, 1f));
+            GameObject clockGo = Text(monsun.transform, "TMP_ClockTime", "17:36", 14f, InkSecondary, new Vector2(130f, -6f), new Vector2(114f, 20f), new Vector2(0f, 1f));
+            clockGo.GetComponent<TextMeshProUGUI>().alignment = TextAlignmentOptions.Right;
             Text(monsun.transform, "TMP_MonsunTimer", "05:00", 28f, Ink, new Vector2(8f, -26f), new Vector2(230f, 34f), new Vector2(0f, 1f));
         }
 
