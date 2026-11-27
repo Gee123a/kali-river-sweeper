@@ -15,7 +15,7 @@ kali-river-sweeper/
 ├── README.md                                # [Shared] Overview, team split & quick start
 ├── plan_ivan.md                             # [Ivan] Isolated implementation plan (Core C#, Map, Report)
 ├── plan_jc.md                               # [JC] Isolated implementation plan (Props, Tools, IK Rig, Lighting)
-├── plan_wesley.md                           # [Wesley] Isolated implementation plan (13 Env Meshes, Shaders)
+├── plan_wesley.md                           # [Wesley] Isolated implementation plan (12 Env Meshes, Shaders)
 ├── plan_niki.md                             # [Niki] Isolated implementation plan (VFX, UI Canvases, Audio)
 ├── docs/
 │   ├── PLAYBOOK.md                          # Master AI-assisted production playbook & rubric scorecard
@@ -33,7 +33,7 @@ kali-river-sweeper/
     ├── Packages/manifest.json               # URP 14.0.11, ShaderGraph, VFX Graph, AnimationRigging
     └── Assets/_Project/
         ├── Scripts/                         # [Ivan ONLY] Core/ (incl. ToolCatalog, RiverTrashItem, RiverTrashSpawner), Player/, Editor/
-        ├── Data/kali-river-map.json         # [Ivan ONLY] 54 spatial river nodes, +Z flow & 3 stations + Pengepul
+        ├── Data/kali-river-map.json         # [Ivan ONLY] 53 spatial river nodes, +Z flow & 3 stations + Pengepul
         ├── Props/                           # [JC ONLY] Trash/ (Normal, Medical, Biohazard), Tools/ (20 PF_Tool_*), Equipment/
         ├── Rigging/                         # [JC ONLY] SK_ExcavatorAmfibi.fbx & Animator controllers
         ├── Lighting/                        # [JC ONLY] KaliLightingBuilder.cs, PF_LightingRig, Profiles
@@ -56,7 +56,7 @@ Defined in `unity/Assets/_Project/Scripts/Core/RiverFlowBuoyancy.cs` and mirrore
 | `WorldW` / `WorldH` / `MapScale` | `1040f` / `1440f` / `0.125f` | **Wesley's Terrain Footprint** MUST equal **`130m (X) × 180m (Z)`**, centered at `(0, 0, 0)`. |
 | `ToWorld3D(mapX, mapY, elev)` | `((mapX - 520) * 0.125, elev, (mapY - 720) * 0.125)` | Converts `kali-river-map.json` nodes into Unity meters. |
 | `RiverCenterMapX(mapY)` | `520 + sin((mapY / 1440) * PI * 1.6) * 58` | Exact S-curve centerline Wesley's `SM_Env_RiverValleyTerrain` riverbed must follow. |
-| `RiverHalfWidthMap(mapY)` | Base width `22.5m`, narrows at `mapY = 740` (Bridge), widens at `mapY < 320` & `mapY = 1220` | Houses/warungs (`+0.8m` elev) must stay clear of channel banks (`IsInRiver()`). |
+| `RiverHalfWidthMap(mapY)` | Base width `22.5m`, narrows at `mapY = 740` (Bridge), widens at `mapY < 320` & `mapY = 1220` | Houses/warung madura (`+0.8m` elev) must stay clear of channel banks (`IsInRiver()`). |
 | Current Vector & Linear Water Y | `waterLevelY = -0.25f + TotalTrashInRiver * 0.020f` (`Overflow 1.40m`, `Sell-Lock 1.85m`, `Fatal 2.45m`), drift toward **`+Z` downstream** (`Gunung Sampah` `-Z` upstream $\to$ `Pintu Air` `+Z` downstream barrier) | Floating trash (`JC`), water flow UV pan (`Wesley`, **`+V`**), and foam (`Wesley`/`Niki`) align on **`+Z`**. |
 
 ---
@@ -73,10 +73,11 @@ All subsystems integrate via these verified symbols in `Scripts/`:
 ### B. Collider & Name Hooks (`KaliPlayerController.cs` $\leftrightarrow$ `Wesley` & `JC`)
 - `TryFindNearestHub()` scans `Physics.OverlapSphere(pos, 7.5f)` for **`1 / 2 / 3 / E`** station interactions:
   - GameObject containing **`"Bank Sampah"`** with Collider $\rightarrow$ `Normal` waste station.
-  - GameObject containing **`"Pos Sortir"`** with Collider $\rightarrow$ `Normal` waste baling bonus station.
   - GameObject containing **`"Pos Medis"`** with Collider $\rightarrow$ `Medical` B3 waste clinic.
   - GameObject containing **`"Karantina Biohazard"`** with Collider $\rightarrow$ `Biohazard` quarantine bunker.
   - GameObject containing **`"Gudang Pengepul"`** with Collider (near Spawn) $\rightarrow$ cheap all-in-one bulk dump (`SellAllAtPengepul()`).
+  - GameObject containing **`"Koperasi Desa"`** or **`"Kopdes"`** with Collider $\rightarrow$ upgrade & river gear shop (`OnShopRequested`; `MapJsonImporter` remaps legacy `"toko_alat"` JSON types to `KoperasiDesa`).
+  - GameObject containing **`"Dermaga"`** with Collider $\rightarrow$ exclusive embark/disembark port (`OnNearbyDermagaChanged`); `ResolvePermittedMoveOnFoot` blocks walking/jumping off dry bank into `RiverMath.IsInRiver` outside `Jembatan` and `Dermaga`.
   - Wrong-station discards trigger Rupiah fines; during `IsSellLocked` (`waterLevelY >= 1.85m`), hubs lock and player presses **`Q`** to dump cargo on high ground.
 - `TryScoopOrDredge()` uses camera-aimed nearest-target selection on **`Left Click`**:
   - GameObject with **`RiverFlowBuoyancy`** + **`RiverTrashItem`** + Collider $\rightarrow$ scoops `Normal`, `Medical` (prick risk mitigated to `0%` by `#10 Capitan Ular`), or `Biohazard` (DoT in cargo past 10s).
@@ -85,7 +86,7 @@ All subsystems integrate via these verified symbols in `Scripts/`:
   - **Equipped Tool Colliders**: `PF_Tool_*` `BoxCollider` must be **`isTrigger = true` or disabled while equipped** (`KaliPlayerController` forces this on equip).
 
 ### C. Prefab Auto-Spawner Hooks (`MapJsonImporter.cs` $\leftrightarrow$ `JC` & `Wesley`)
-Menu item **`KALI > Load Default Purpose-Built Map`** splits West/East `Ground_Daratan` banks (open water channel down to `-2.0m`), elevates `Jembatan Utama` (`Y = +3.6m`), attaches `RiverTrashSpawner` to `Managers`, parses all **54 nodes** in `kali-river-map.json` (`11` rumah, `7` warung, `11` pohon, `8` trash_pile, `3` gunung_node, `2` dermaga, `1` sluice_gate at `+Z`, `1` jembatan, `1` bank_sampah, `1` pos_medis, `1` karantina_biohazard, `1` pengepul near Spawn, `1` toko_alat, `1` sorting_yard, `1` trash_boom, `1` excavator, `1` interceptor, `1` spawn), and auto-loads:
+Menu item **`KALI > Load Default Purpose-Built Map`** splits West/East `Ground_Daratan` banks (open water channel down to `-2.0m`), elevates `Jembatan Utama` (`Y = +3.6m`), attaches `RiverTrashSpawner` to `Managers`, parses all **53 nodes** in `kali-river-map.json` (`11` rumah, `7` warung (`Warung Madura`), `11` pohon, `8` trash_pile, `3` gunung_node, `2` dermaga (`Dermaga Awal` & `Dermaga Tengah`), `1` sluice_gate at `+Z`, `1` jembatan, `1` bank_sampah, `1` pos_medis, `1` karantina_biohazard, `1` pengepul near Spawn, `1` kopdes (`Koperasi Desa (Kopdes)`), `1` trash_boom, `1` excavator, `1` interceptor, `1` spawn), and auto-loads:
 - `Assets/_Project/Lighting/Prefabs/PF_LightingRig.prefab`
 - `Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab` (attached above `warung` nodes)
 - `Assets/_Project/Lighting/Prefabs/PF_WarningBeacon_PintuAir.prefab` (attached atop `+Z` downstream `sluice_gate`)

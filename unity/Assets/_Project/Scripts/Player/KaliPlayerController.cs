@@ -19,6 +19,7 @@ namespace KaliRiverSweeper.Player
         public float freeCamSpeed = 18f;
         public float mouseSensitivity = 2.2f;
         public float interactRange = 7.5f;
+        public float dockInteractRange = 8.5f;
 
         [Header("Tool Socket (Optional)")]
         public Transform toolSocket;
@@ -28,12 +29,16 @@ namespace KaliRiverSweeper.Player
         public bool isInBoat;
         public bool isFreeCam;
 
-        public event Action<bool, DiscardStationType, bool, bool, string> OnNearbyHubChanged;
+        public event Action<bool, DiscardStationType, bool, string> OnNearbyHubChanged;
+        public event Action<bool, bool, string> OnNearbyDermagaChanged;
+        public event Action OnShopRequested;
         public bool HasNearbyHub { get; private set; }
         public DiscardStationType NearbyStationType { get; private set; }
-        public bool NearbyIsPosSortir { get; private set; }
-        public bool NearbyIsTokoAlat { get; private set; }
+        public bool NearbyIsKopdes { get; private set; }
         public string NearbyHubName { get; private set; } = string.Empty;
+        public bool HasNearbyDermaga { get; private set; }
+        public bool NearbyDermagaIsInBoat { get; private set; }
+        public string NearbyDermagaName { get; private set; } = string.Empty;
 
         private const float HubPollInterval = 0.1f;
 
@@ -45,6 +50,7 @@ namespace KaliRiverSweeper.Player
         private float nextScoopTime;
         private float nextPaddleSplashTime;
         private float nextHubPollTime;
+        private float nextRiverGuardAlertTime;
         private int lastEquippedVisualIndex = -1;
         private GameObject activeToolVisual;
         private Quaternion toolSocketBaseRot = Quaternion.identity;
@@ -136,6 +142,7 @@ namespace KaliRiverSweeper.Player
             float waterY = gm != null ? gm.currentWaterLevelY : 0f;
             float speed = isInBoat ? boatSpeed : (IsShiftHeld() ? sprintSpeed : walkSpeed);
 
+            Vector3 horizMove;
             if (!isInBoat)
             {
                 if (transform.position.y < waterY - 0.35f)
@@ -151,21 +158,21 @@ namespace KaliRiverSweeper.Player
                 {
                     verticalVel -= 18f * Time.deltaTime;
                 }
+
+                Vector3 rawStep = dir * (speed * Time.deltaTime);
+                horizMove = ResolvePermittedMoveOnFoot(transform.position, rawStep, gm);
             }
             else
             {
                 float targetBoatY = waterY + boatRideHeight;
                 verticalVel = (targetBoatY - transform.position.y) * 5.0f;
-            }
-
-            Vector3 move = dir * speed + Vector3.up * verticalVel;
-            if (isInBoat)
-            {
                 float stormMult = gm != null && gm.isMonsoonStorm ? 2.2f : 1f;
-                move += Vector3.forward * (0.45f * stormMult); // Gentle +Z downstream current
+                Vector3 rawStep = (dir * speed + Vector3.forward * (0.45f * stormMult)) * Time.deltaTime;
+                horizMove = ResolvePermittedMoveInBoat(transform.position, rawStep, gm);
             }
 
-            controller.Move(move * Time.deltaTime);
+            Vector3 move = horizMove + Vector3.up * (verticalVel * Time.deltaTime);
+            controller.Move(move);
 
             if (isInBoat && gm != null && dir.sqrMagnitude > 0.05f && Time.time >= nextPaddleSplashTime)
             {
@@ -180,7 +187,7 @@ namespace KaliRiverSweeper.Player
 
             if (WasKeyPressed(KeyAction.F)) isFreeCam = !isFreeCam;
 
-            if (WasKeyPressed(KeyAction.R) && gm != null)
+            if (WasKeyPressed(KeyAction.R) && gm != null && gm.demoHotkeysArmed)
             {
                 gm.SetWeather(!gm.isMonsoonStorm);
             }
@@ -206,20 +213,20 @@ namespace KaliRiverSweeper.Player
             }
 
             // Emergency Flush hotkey (Shift + X) during flood crisis
-            if (IsShiftHeld() && WasKeyPressed(KeyAction.X) && gm != null)
+            if (!isFreeCam && IsShiftHeld() && WasKeyPressed(KeyAction.X) && gm != null)
             {
                 gm.TriggerEmergencyFlush();
             }
 
             // Station Quick-Discard (1/2/3) & All-Discard / Boat Toggle (E)
-            if (gm != null && !gm.IsDemoHotkeyBusy)
+            if (gm != null && !isFreeCam && !gm.IsDemoHotkeyBusy)
             {
-                bool nearStation = TryFindNearestHub(out DiscardStationType station, out bool isPosSortir, out bool isTokoAlat);
-                if (nearStation && !isTokoAlat)
+                bool nearStation = TryFindNearestHub(out DiscardStationType station, out bool isKopdes);
+                if (nearStation && !isKopdes)
                 {
-                    if (WasKeyPressed(KeyAction.Digit1)) gm.DiscardWasteAtStation(station, WasteClass.Normal, isPosSortir);
-                    else if (WasKeyPressed(KeyAction.Digit2)) gm.DiscardWasteAtStation(station, WasteClass.Medical, isPosSortir);
-                    else if (WasKeyPressed(KeyAction.Digit3)) gm.DiscardWasteAtStation(station, WasteClass.Biohazard, isPosSortir);
+                    if (WasKeyPressed(KeyAction.Digit1)) gm.DiscardWasteAtStation(station, WasteClass.Normal);
+                    else if (WasKeyPressed(KeyAction.Digit2)) gm.DiscardWasteAtStation(station, WasteClass.Medical);
+                    else if (WasKeyPressed(KeyAction.Digit3)) gm.DiscardWasteAtStation(station, WasteClass.Biohazard);
                 }
             }
 
@@ -238,46 +245,53 @@ namespace KaliRiverSweeper.Player
         }
 
         /// <summary>
-        /// Refreshes nearby hub proximity state and emits OnNearbyHubChanged when the active hub changes.
+        /// Refreshes nearby hub and Dermaga port proximity state, emitting change events only on transitions.
         /// </summary>
         public void RefreshNearbyHub()
         {
-            bool found = TryFindNearestHub(out DiscardStationType station, out bool isPosSortir, out bool isTokoAlat, out string hubName);
+            bool found = TryFindNearestHub(out DiscardStationType station, out bool isKopdes, out string hubName);
             string resolvedName = found ? (hubName ?? string.Empty) : string.Empty;
-            if (found == HasNearbyHub &&
-                (!found || (station == NearbyStationType && isPosSortir == NearbyIsPosSortir && isTokoAlat == NearbyIsTokoAlat && resolvedName == NearbyHubName)))
+            if (found != HasNearbyHub ||
+                (found && (station != NearbyStationType || isKopdes != NearbyIsKopdes || resolvedName != NearbyHubName)))
             {
-                return;
+                HasNearbyHub = found;
+                NearbyStationType = station;
+                NearbyIsKopdes = isKopdes;
+                NearbyHubName = resolvedName;
+                OnNearbyHubChanged?.Invoke(found, station, isKopdes, resolvedName);
             }
 
-            HasNearbyHub = found;
-            NearbyStationType = station;
-            NearbyIsPosSortir = isPosSortir;
-            NearbyIsTokoAlat = isTokoAlat;
-            NearbyHubName = resolvedName;
-            OnNearbyHubChanged?.Invoke(found, station, isPosSortir, isTokoAlat, resolvedName);
+            bool foundDock = TryFindNearestDermaga(transform.position, dockInteractRange, out _, out Transform dockRoot);
+            string resolvedDock = foundDock && dockRoot != null ? dockRoot.name : string.Empty;
+            if (foundDock != HasNearbyDermaga ||
+                (foundDock && (isInBoat != NearbyDermagaIsInBoat || resolvedDock != NearbyDermagaName)))
+            {
+                HasNearbyDermaga = foundDock;
+                NearbyDermagaIsInBoat = foundDock && isInBoat;
+                NearbyDermagaName = resolvedDock;
+                OnNearbyDermagaChanged?.Invoke(foundDock, isInBoat, resolvedDock);
+            }
         }
 
-        private static readonly (string token, DiscardStationType station, bool isSortir, bool isToko)[] HubRules =
+        private static readonly (string token, DiscardStationType station, bool isShop)[] HubRules =
         {
-            ("Bank Sampah", DiscardStationType.BankSampah, false, false),
-            ("Pos Sortir", DiscardStationType.BankSampah, true, false),
-            ("Pos Medis", DiscardStationType.PosMedisB3, false, false),
-            ("Karantina Biohazard", DiscardStationType.KarantinaBiohazard, false, false),
-            ("Gudang Pengepul", DiscardStationType.GudangPengepul, false, false),
-            ("Toko Alat", DiscardStationType.BankSampah, false, true)
+            ("Bank Sampah", DiscardStationType.BankSampah, false),
+            ("Pos Medis", DiscardStationType.PosMedisB3, false),
+            ("Karantina Biohazard", DiscardStationType.KarantinaBiohazard, false),
+            ("Gudang Pengepul", DiscardStationType.GudangPengepul, false),
+            ("Koperasi Desa", DiscardStationType.BankSampah, true),
+            ("Kopdes", DiscardStationType.BankSampah, true)
         };
 
-        private bool TryFindNearestHub(out DiscardStationType stationType, out bool isPosSortir, out bool isTokoAlat)
+        private bool TryFindNearestHub(out DiscardStationType stationType, out bool isKopdes)
         {
-            return TryFindNearestHub(out stationType, out isPosSortir, out isTokoAlat, out _);
+            return TryFindNearestHub(out stationType, out isKopdes, out _);
         }
 
-        private bool TryFindNearestHub(out DiscardStationType stationType, out bool isPosSortir, out bool isTokoAlat, out string hubName)
+        private bool TryFindNearestHub(out DiscardStationType stationType, out bool isKopdes, out string hubName)
         {
             stationType = DiscardStationType.BankSampah;
-            isPosSortir = false;
-            isTokoAlat = false;
+            isKopdes = false;
             hubName = string.Empty;
 
             Collider[] hits = Physics.OverlapSphere(transform.position, interactRange);
@@ -290,8 +304,7 @@ namespace KaliRiverSweeper.Player
 
                 Transform match = null;
                 DiscardStationType candidateType = DiscardStationType.BankSampah;
-                bool candidateSortir = false;
-                bool candidateToko = false;
+                bool candidateShop = false;
 
                 for (int i = 0; i < HubRules.Length; i++)
                 {
@@ -299,8 +312,7 @@ namespace KaliRiverSweeper.Player
                     if (match != null)
                     {
                         candidateType = HubRules[i].station;
-                        candidateSortir = HubRules[i].isSortir;
-                        candidateToko = HubRules[i].isToko;
+                        candidateShop = HubRules[i].isShop;
                         break;
                     }
                 }
@@ -312,8 +324,7 @@ namespace KaliRiverSweeper.Player
                 {
                     bestDistSq = dSq;
                     stationType = candidateType;
-                    isPosSortir = candidateSortir;
-                    isTokoAlat = candidateToko;
+                    isKopdes = candidateShop;
                     hubName = match.name;
                     found = true;
                 }
@@ -327,23 +338,24 @@ namespace KaliRiverSweeper.Player
             RiverGameManager gm = RiverGameManager.Instance;
             if (gm == null) return false;
 
-            if (!TryFindNearestHub(out DiscardStationType station, out bool isPosSortir, out bool isTokoAlat))
+            if (!TryFindNearestHub(out DiscardStationType station, out bool isKopdes))
             {
                 return false;
             }
 
-            if (isTokoAlat)
+            if (isKopdes)
             {
-                // Fallback quick-upgrade progression if Niki's shop modal is not open
+                if (OnShopRequested != null) { OnShopRequested.Invoke(); return true; }
+                // Fallback quick-upgrade progression, used only when no shop UI subscribes to OnShopRequested
                 if (!gm.kampungBinsInstalled && gm.BuyKampungBins()) return true;
                 if (!gm.sampanUnlocked && gm.BuyUpgrade(UpgradeTier.WoodenSampan))
                 {
-                    gm.NotifyInfo("Perahu Sampan Kayu dibeli! (Kapasitas 22)");
+                    gm.NotifyInfo("Perahu Sampan Kayu dibeli di Kopdes! (Kapasitas 22)");
                     return true;
                 }
-                if (!gm.trashBoomActive && gm.BuyUpgrade(UpgradeTier.TrashBoomAndPosSortir))
+                if (!gm.trashBoomActive && gm.BuyUpgrade(UpgradeTier.TrashBoom))
                 {
-                    gm.NotifyInfo("Trash Boom & Pos Sortir aktif! (+Rp 2.500/4s)");
+                    gm.NotifyInfo("Trash Boom aktif! (+Rp 2.500/4s)");
                     return true;
                 }
                 if (!gm.excavatorUnlocked && gm.BuyUpgrade(UpgradeTier.AmphibiousExcavator))
@@ -351,52 +363,186 @@ namespace KaliRiverSweeper.Player
                     gm.NotifyInfo("Pindad Amphibious Excavator terbuka! Keruk Gunung Sampah!");
                     return true;
                 }
-                gm.NotifyInfo("Toko Alat: Kumpulkan lebih banyak Rupiah (Bins 30k / Sampan 40k / Boom 75k / Excavator 120k).", true);
+                gm.NotifyInfo("Koperasi Desa (Kopdes): Kumpulkan lebih banyak Rupiah (Bins 30k / Sampan 40k / Boom 75k / Excavator 120k).", true);
                 return true;
             }
 
-            gm.DiscardAllAtStation(station, isPosSortir);
+            gm.DiscardAllAtStation(station);
             return true;
         }
 
-        private void TryToggleBoat(RiverGameManager gm)
+        private bool TryToggleBoat(RiverGameManager gm)
         {
-            float mapX = transform.position.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
-            float mapY = Mathf.Clamp(transform.position.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f, 110f, RiverMath.WorldH);
-            float cx = RiverMath.RiverCenterMapX(mapY);
-            float hw = RiverMath.RiverHalfWidthMap(mapY);
+            if (!TryFindNearestDermaga(transform.position, dockInteractRange, out Collider dockCol, out Transform dockRoot))
+            {
+                gm?.NotifyInfo(
+                    isInBoat
+                        ? "Hanya bisa naik ke darat di Dermaga! (Dekati Dermaga Awal / Dermaga Tengah)"
+                        : "Hanya bisa turun ke sungai & naik perahu di Dermaga!",
+                    true);
+                return false;
+            }
+
             float waterY = gm != null ? gm.currentWaterLevelY : 0f;
-            bool flooded = gm != null && gm.IsBankOverflowing;
+            Bounds dockBounds = dockCol.bounds;
+            float dockMapX = dockBounds.center.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+            float dockMapY = Mathf.Clamp(dockBounds.center.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f, 110f, RiverMath.WorldH);
+            float cx = RiverMath.RiverCenterMapX(dockMapY);
+            float hw = RiverMath.RiverHalfWidthMap(dockMapY);
+            float cxWorld = (cx - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+            float hwWorld = hw * RiverMath.MapScale;
+            bool dockOnEastSide = dockMapX >= cx;
 
             if (!isInBoat)
             {
-                // Allow boarding when near river channel / dock (within ~8m of bank edge) or when banks are flooded
-                if (!flooded && Mathf.Abs(mapX - cx) > hw + 64f)
-                {
-                    gm?.NotifyInfo("Dekati tepi sungai atau dermaga untuk naik perahu.", true);
-                    return;
-                }
+                float waterX = dockOnEastSide ? dockBounds.min.x - 1.6f : dockBounds.max.x + 1.6f;
+                float minRiverX = cxWorld - Mathf.Max(0.5f, hwWorld - 1.0f);
+                float maxRiverX = cxWorld + Mathf.Max(0.5f, hwWorld - 1.0f);
+                waterX = Mathf.Clamp(waterX, minRiverX, maxRiverX);
+
                 isInBoat = true;
                 verticalVel = 0f;
-                if (!RiverMath.IsInRiver(transform.position))
-                {
-                    float insideMapX = cx + Mathf.Sign(mapX - cx) * Mathf.Max(0f, hw - 18f);
-                    Vector3 waterPos = RiverMath.ToWorld3D(insideMapX, mapY, waterY + boatRideHeight);
-                    TeleportPlayer(waterPos);
-                }
-                return;
+                TeleportPlayer(new Vector3(waterX, waterY + boatRideHeight, dockBounds.center.z));
+                RefreshNearbyHub();
+                gm?.NotifyInfo($"Naik perahu dari {dockRoot.name}.");
+                return true;
             }
 
-            // Disembarking: lift cleanly onto nearest bank above BankTopY (+1.40m) so player is never trapped in -2.0m trench
+            float bankEdgeWorldX = dockOnEastSide ? (cxWorld + hwWorld + 1.2f) : (cxWorld - hwWorld - 1.2f);
+            float landX = dockOnEastSide
+                ? Mathf.Max(dockBounds.center.x + 1.5f, bankEdgeWorldX)
+                : Mathf.Min(dockBounds.center.x - 1.5f, bankEdgeWorldX);
+            float bankSurfaceY = Mathf.Max(dockBounds.max.y, 1.40f, waterY) + 1.0f;
+
             isInBoat = false;
             verticalVel = 0f;
-            if (RiverMath.IsInRiver(transform.position))
+            TeleportPlayer(new Vector3(landX, bankSurfaceY, dockBounds.center.z));
+            RefreshNearbyHub();
+            gm?.NotifyInfo($"Naik ke darat lewat {dockRoot.name}.");
+            return true;
+        }
+
+        private Vector3 ResolvePermittedMoveOnFoot(Vector3 curPos, Vector3 rawStep, RiverGameManager gm)
+        {
+            if (rawStep.sqrMagnitude < 0.000001f) return rawStep;
+
+            bool currentlyAllowed = IsFootPositionPermitted(curPos);
+            Vector3 nextPos = new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z + rawStep.z);
+            if (IsFootPositionPermitted(nextPos)) return rawStep;
+
+            if (!currentlyAllowed)
             {
-                float bankMapX = cx + (mapX >= cx ? 1f : -1f) * (hw + 22f);
-                float bankSurfaceY = Mathf.Max(1.40f, waterY) + 1.1f;
-                Vector3 bankPos = RiverMath.ToWorld3D(bankMapX, mapY, bankSurfaceY);
-                TeleportPlayer(bankPos);
+                // Already in river on foot (edge recovery): allow moves moving out toward bank or Dermaga
+                float curMapX = curPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+                float curMapY = curPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+                float nextMapX = nextPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+                float nextMapY = nextPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+                if (Mathf.Abs(nextMapX - RiverMath.RiverCenterMapX(nextMapY)) >= Mathf.Abs(curMapX - RiverMath.RiverCenterMapX(curMapY)))
+                {
+                    return rawStep;
+                }
             }
+
+            // Slide smoothly along the riverbank without falling into the river channel
+            Vector3 tryX = new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z);
+            Vector3 tryZ = new Vector3(curPos.x, curPos.y, curPos.z + rawStep.z);
+            Vector3 resolved = Vector3.zero;
+            if (IsFootPositionPermitted(tryX)) resolved.x = rawStep.x;
+            if (IsFootPositionPermitted(tryZ)) resolved.z = rawStep.z;
+
+            if (resolved.sqrMagnitude < rawStep.sqrMagnitude * 0.25f && Time.unscaledTime >= nextRiverGuardAlertTime)
+            {
+                nextRiverGuardAlertTime = Time.unscaledTime + 3.0f;
+                gm?.NotifyInfo("Naik & turun sungai hanya melalui Dermaga (tekan [E] di Dermaga)!", true);
+            }
+
+            return resolved;
+        }
+
+        private static Vector3 ResolvePermittedMoveInBoat(Vector3 curPos, Vector3 rawStep, RiverGameManager gm)
+        {
+            if (rawStep.sqrMagnitude < 0.000001f || (gm != null && gm.IsBankOverflowing)) return rawStep;
+            if (!RiverMath.IsInRiver(curPos)) return rawStep;
+
+            Vector3 nextPos = new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z + rawStep.z);
+            if (RiverMath.IsInRiver(nextPos)) return rawStep;
+
+            Vector3 resolved = Vector3.zero;
+            if (RiverMath.IsInRiver(new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z))) resolved.x = rawStep.x;
+            if (RiverMath.IsInRiver(new Vector3(curPos.x, curPos.y, curPos.z + rawStep.z))) resolved.z = rawStep.z;
+            return resolved;
+        }
+
+        private static bool IsFootPositionPermitted(Vector3 pos)
+        {
+            if (!RiverMath.IsInRiver(pos)) return true;
+            return IsPointOnBridge(pos) || IsPointOnDermaga(pos);
+        }
+
+        private static bool IsPointOnBridge(Vector3 pos)
+        {
+            if (pos.y < 1.8f) return false;
+            Collider[] hits = Physics.OverlapCapsule(
+                new Vector3(pos.x, pos.y - 3.0f, pos.z),
+                new Vector3(pos.x, pos.y + 1.5f, pos.z),
+                0.6f);
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i] != null && (HasHierarchyName(hits[i].transform, "Jembatan") || HasHierarchyName(hits[i].transform, "Bridge")))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool IsPointOnDermaga(Vector3 pos)
+        {
+            Collider[] hits = Physics.OverlapCapsule(
+                new Vector3(pos.x, -2.0f, pos.z),
+                new Vector3(pos.x, 5.0f, pos.z),
+                0.45f);
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i] != null && HasHierarchyName(hits[i].transform, "Dermaga"))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryFindNearestDermaga(Vector3 pos, float range, out Collider bestCol, out Transform bestRoot)
+        {
+            bestCol = null;
+            bestRoot = null;
+
+            Collider[] hits = Physics.OverlapCapsule(
+                new Vector3(pos.x, -2.5f, pos.z),
+                new Vector3(pos.x, 6.0f, pos.z),
+                range);
+
+            float bestDistSq = float.MaxValue;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                Collider col = hits[i];
+                if (col == null) continue;
+                Transform match = FindHierarchyMatch(col.transform, "Dermaga");
+                if (match == null) continue;
+
+                Vector3 cp = col.ClosestPoint(new Vector3(pos.x, col.bounds.center.y, pos.z));
+                float dx = cp.x - pos.x;
+                float dz = cp.z - pos.z;
+                float dSq = dx * dx + dz * dz;
+                if (dSq < bestDistSq)
+                {
+                    bestDistSq = dSq;
+                    bestCol = col;
+                    bestRoot = match;
+                }
+            }
+
+            return bestCol != null;
         }
 
         private void TeleportPlayer(Vector3 worldPos)
@@ -512,8 +658,9 @@ namespace KaliRiverSweeper.Player
                 if (scooped > 0)
                 {
                     gm.NotifyWaterSplash(new Vector3(lastScoopPos.x, gm.currentWaterLevelY, lastScoopPos.z));
+                    return;
                 }
-                return;
+                // Nothing scooped (e.g. cargo full): fall through to pile / Gunung branches
             }
 
             // 3. Fallback: scoop piled barrier trash at downstream Pintu Air

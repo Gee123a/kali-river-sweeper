@@ -177,12 +177,12 @@
       "elev": 8,
       "rot": 22,
       "color": "#f97316",
-      "note": "Angled barrier funneling mid-river debris into Pos Sortir"
+      "note": "Angled barrier slowing and gathering mid-river debris upstream of Jembatan Utama"
     },
     {
       "id": "item_14",
       "type": "dermaga",
-      "name": "Dermaga Sortir",
+      "name": "Dermaga Tengah",
       "x": 645,
       "y": 615,
       "w": 64,
@@ -190,20 +190,7 @@
       "elev": 10,
       "rot": 0,
       "color": "#a17a54",
-      "note": "Mid-river offload pier saving players from paddling all the way south"
-    },
-    {
-      "id": "item_15",
-      "type": "sorting_yard",
-      "name": "Pos Sortir & Baling",
-      "x": 735,
-      "y": 615,
-      "w": 96,
-      "h": 68,
-      "elev": 26,
-      "rot": 0,
-      "color": "#14b8a6",
-      "note": "Automation & baling yard for high-volume harvests"
+      "note": "Mid-river east bank port to embark/disembark boats near Jembatan Utama & Karantina Biohazard"
     },
     {
       "id": "item_16",
@@ -260,7 +247,7 @@
     {
       "id": "item_20",
       "type": "warung",
-      "name": "Kios Kopi Jembatan",
+      "name": "Warung Madura Jembatan Barat",
       "x": 225,
       "y": 620,
       "w": 62,
@@ -268,7 +255,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "Warung Madura 24-jam kiosk near West Bridge approach"
     },
     {
       "id": "item_21",
@@ -286,7 +273,7 @@
     {
       "id": "item_22",
       "type": "warung",
-      "name": "Warung Tepi Jembatan",
+      "name": "Warung Madura Tepi Jembatan",
       "x": 222,
       "y": 815,
       "w": 62,
@@ -294,7 +281,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "Warung Madura 24-jam kiosk on West riverbank"
     },
     {
       "id": "item_23",
@@ -351,7 +338,7 @@
     {
       "id": "item_27",
       "type": "warung",
-      "name": "Warung Pelabuhan Timur",
+      "name": "Warung Madura Timur",
       "x": 928,
       "y": 615,
       "w": 62,
@@ -359,7 +346,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": "East bank warung near Pos Sortir"
+      "note": "Warung Madura 24-jam on East bank near Dermaga Tengah"
     },
     {
       "id": "item_28",
@@ -377,7 +364,7 @@
     {
       "id": "item_29",
       "type": "warung",
-      "name": "Warung Sate Timur",
+      "name": "Warung Madura Seberang",
       "x": 920,
       "y": 855,
       "w": 62,
@@ -385,7 +372,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "Warung Madura 24-jam kiosk on East mid-river road"
     },
     {
       "id": "item_30",
@@ -437,7 +424,7 @@
       "elev": 10,
       "rot": 0,
       "color": "#a17a54",
-      "note": "Starter raft & scoop net dock jutting into calm southern bay"
+      "note": "Zona 1 river port near Spawn & Kopdes — embark/disembark boats to/from the river"
     },
     {
       "id": "item_34",
@@ -480,8 +467,8 @@
     },
     {
       "id": "item_37",
-      "type": "toko_alat",
-      "name": "Toko Alat & Bengkel",
+      "type": "kopdes",
+      "name": "Koperasi Desa (Kopdes)",
       "x": 195,
       "y": 1085,
       "w": 78,
@@ -489,7 +476,7 @@
       "elev": 36,
       "rot": 0,
       "color": "#f59e0b",
-      "note": "Upgrade serokan, raft hull & motor after first IDR payout"
+      "note": "Koperasi Desa (Kopdes): upgrade kapal, tempat sampah kampung, Trash Boom & peralatan"
     },
     {
       "id": "item_38",
@@ -507,7 +494,7 @@
     {
       "id": "item_39",
       "type": "warung",
-      "name": "Warung Kopi Hulu",
+      "name": "Warung Madura Hulu",
       "x": 92,
       "y": 1155,
       "w": 62,
@@ -515,7 +502,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "Warung Madura 24-jam in Zona 1 Kampung Hulu"
     },
     {
       "id": "item_40",
@@ -585,7 +572,7 @@
     {
       "id": "item_45",
       "type": "warung",
-      "name": "Warung Bakso Kali",
+      "name": "Warung Madura Kali Timur",
       "x": 870,
       "y": 1055,
       "w": 62,
@@ -593,7 +580,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "Warung Madura 24-jam on East lower village bank"
     },
     {
       "id": "item_46",
@@ -624,7 +611,7 @@
     {
       "id": "item_48",
       "type": "warung",
-      "name": "Toko Kelontong Hilir",
+      "name": "Warung Madura Hilir",
       "x": 765,
       "y": 1300,
       "w": 62,
@@ -632,7 +619,7 @@
       "elev": 32,
       "rot": 0,
       "color": "#d99b38",
-      "note": ""
+      "note": "Warung Madura 24-jam near East Pintu Air road"
     },
     {
       "id": "item_49",
@@ -718,7 +705,7 @@
       "id": "zone_1",
       "name": "Zona 1: Kampung, Bank Sampah & Pintu Air (+Z)",
       "color": "#22c55e",
-      "note": "Act 1 downstream loop: Spawn -> Dermaga -> Bank Sampah / Gudang Pengepul -> Toko Alat -> Pintu Air (+Z).",
+      "note": "Act 1 downstream loop: Spawn -> Dermaga Awal -> Bank Sampah / Gudang Pengepul -> Koperasi Desa (Kopdes) -> Pintu Air (+Z).",
       "points": [
         {
           "x": 48,
@@ -742,7 +729,7 @@
       "id": "zone_2",
       "name": "Zona 2: Jembatan, Pos Medis B3 & Karantina",
       "color": "#38bdf8",
-      "note": "Act 2 mid-river hubs: Jembatan Utama, Pos Medis B3, Trash Boom, Pos Sortir & Karantina Biohazard.",
+      "note": "Act 2 mid-river hubs: Jembatan Utama, Pos Medis B3, Trash Boom, Dermaga Tengah & Karantina Biohazard.",
       "points": [
         {
           "x": 48,
@@ -930,7 +917,7 @@
     },
     {
       "num": 3,
-      "label": "Toko Alat",
+      "label": "Koperasi Desa",
       "x": 195,
       "y": 1030,
       "cx": 330,
@@ -946,7 +933,7 @@
     },
     {
       "num": 5,
-      "label": "Pos Sortir",
+      "label": "Dermaga & Karantina",
       "x": 735,
       "y": 556,
       "cx": 635,

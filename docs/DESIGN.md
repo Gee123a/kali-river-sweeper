@@ -56,7 +56,7 @@ Every flood alert badge pairs color with an explicit uppercase label (`SIAGA 4 -
 
 | Station | Waste Accepted | Sign / Accent Color | Wrong-Class Penalty |
 | :--- | :--- | :---: | :--- |
-| **`Bank Sampah Berkah` / `Pos Sortir`** | `Normal` plastics & organic | `#22C55E` / `#14B8A6` | Fines `Medical` (`Rp 5,000`) & `Biohazard` (`Rp 8,000`) |
+| **`Bank Sampah Berkah`** | `Normal` plastics & organic | `#22C55E` | Fines `Medical` (`Rp 5,000`) & `Biohazard` (`Rp 8,000`) |
 | **`Pos Medis B3`** | `Medical` (`MedicalBag`, `SyringeBox`) | `#EAB308` + Red Cross `#DC2626` | Fines `Normal` (`Rp 2,500`) & `Biohazard` (`Rp 8,000`) |
 | **`Karantina Biohazard`** | `Biohazard` / Radioactive | `#A855F7` + `#84CC16` | Fines `Normal` (`Rp 2,500`) & `Medical` (`Rp 5,000`) |
 | **`Gudang Pengepul`** *(Near Spawn)* | All 3 classes in 1 go | `#A87018` (Amber Rust) | Cheap payout (`2k/3k/4.5k`), **0 fine**, **Trust penalty** for `Medical`/`Biohazard` |
@@ -69,6 +69,6 @@ Every flood alert badge pairs color with an explicit uppercase label (`SIAGA 4 -
 2. **Uniform Pivot Rules**:
    - **20 Scavenging Tools (`JC`)**: Pivot `(0, 0, 0)` placed directly at the player hand grip, shaft extending cleanly along `+Z` / `+Y`.
    - **Kampung Buildings (`Wesley`)**: Pivot `(0, 0, 0)` at bottom-center ground plane; stilts extend slightly below `Y = 0` (`-0.5m`) so slope margins never float.
-   - **Boat Pier `SM_Env_Dermaga` (`Wesley`)**: Pivot `(0, 0, 0)` at exact waterline height (`Y = 0.0m`).
+   - **Boat Pier `SM_Env_Dermaga` (`Wesley`)**: Pivot `(0, 0, 0)` at exact waterline height (`Y = 0.0m`); acts as the exclusive embark/disembark port between land and river.
 3. **Typography & HUD Layout (`Niki`)**:
    - Clean sans-serif for Rupiah / capacity numbers (`TextMeshPro` bold tabular digits) + dark translucent glass cards (`#0F172A` at 85% opacity, `2px` accent border) pinned cleanly to corners (`18px` safe margins) leaving the central `70%` viewport completely unobstructed for river sweeping.

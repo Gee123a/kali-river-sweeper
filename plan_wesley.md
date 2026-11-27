@@ -13,7 +13,7 @@
 - **Git Contributor Hygiene**: Local personal git author commits only. Zero AI bot author attribution, zero `Co-Authored-By` trailers.
 - **Primary Deliverables**:
   1. Curved riverbed & kampung embankment terrain (`SM_Env_RiverValleyTerrain`) synced **100% identically** to `RiverMath` (`130m x 180m`, dry banks `+1.40m`, sunken riverbed `-2.0m`).
-  2. Indonesian riverbank structures, 3 dedicated waste station hubs (`Bank Sampah` / `Pos Sortir` for Normal, `Pos Medis B3` for Medical, `Karantina Biohazard` for Biohazard), `Gudang Pengepul` (near Spawn), elevated `Jembatan Utama`, upstream `Gunung Sampah` (`-Z`), & downstream **`+Z` `Pintu Air Siaga 1`** inside `Assets/_Project/Environment/`.
+  2. Indonesian riverbank structures, 3 dedicated waste station hubs (`Bank Sampah` for Normal, `Pos Medis B3` for Medical, `Karantina Biohazard` for Biohazard), `Gudang Pengepul` (near Spawn), `Koperasi Desa (Kopdes)`, `Warung Madura` (x7), `Dermaga` (exclusive embark/disembark river ports x2), elevated `Jembatan Utama`, upstream `Gunung Sampah` (`-Z`), & downstream **`+Z` `Pintu Air Siaga 1`** inside `Assets/_Project/Environment/`.
   3. Dynamic river water shader `SG_KaliWater.shadergraph` driven globally by Ivan's C# **`_WaterClarity`** float (`0.05` muddy brown -> `1.00` clean emerald teal) scrolling **`+V`** (`+Z` downstream).
   4. Height-blended world triplanar shader `SG_TrashTriplanar.shadergraph` for `SM_Env_GunungSampah_3Tiers`.
 
@@ -41,13 +41,14 @@
 - **Current Flow Axis**: Debris & water flow toward **`+Z` downstream** (from upstream **`-Z` `Gunung Sampah`** straight down to downstream **`+Z` `Pintu Air Siaga 1`**). Baseline water starts near `Y = 0.0m` and rises linearly (`Overflow >= +1.40m`, `Sell-Lock >= +1.85m`); walkable village embankments sit at **`Y = +1.40m`** with stilts extending down to `-0.5m` so banks look natural as water rises and overflows!
 - **Required Prefab Names & Colliders**:
   - `Bank Sampah` prefab GameObject name must contain `"Bank Sampah"` + Collider (Normal waste station).
-  - `Pos Sortir` prefab GameObject name must contain `"Pos Sortir"` + Collider (Normal waste baling bonus station).
+  - **`Koperasi Desa (Kopdes)`** prefab GameObject name must contain **`"Koperasi Desa"`** or **`"Kopdes"`** + Collider (upgrade/gear shop).
+  - **`Dermaga`** (`SM_Env_Dermaga`) prefab GameObject name must contain **`"Dermaga"`** + solid Collider (exclusive river port for entering/exiting the river and boarding/disembarking boats).
   - **`Pos Medis B3`** prefab GameObject name must contain **`"Pos Medis"`** + Collider (dedicated Medical B3 waste clinic near `Jembatan Utama` West approach).
   - **`Karantina Biohazard`** prefab GameObject name must contain **`"Karantina Biohazard"`** + Collider (dedicated Biohazard/Radioactive containment bunker on East bank).
   - **`Gudang Pengepul`** prefab GameObject name must contain **`"Gudang Pengepul"`** + Collider (located near Spawn / `Bank Sampah` on West bank; cheap all-in-one bulk collector).
   - `Gunung Sampah` tiers must have `"Gunung Sampah"` in their name + Collider + bottom-anchored pivot (`Y = 0`) so scaling/dredging never leaves the mound floating!
   - `Jembatan Utama` deck MUST sit at **`Y >= +3.60m`** with center `>= 12m` channel clear of bridge piers so boats pass underneath cleanly.
-- **Roof / Tower Clearances**: Leave top roof overhangs on `SM_Env_Warung` and top tower pad on **`SM_Env_PintuAirSiaga1` (`+Z` downstream)** clear so JC's `PF_Lantern_Warung` & `PF_WarningBeacon_PintuAir` attach without clipping.
+- **Roof / Tower Clearances**: Leave top roof overhangs on `SM_Env_WarungMadura` and top tower pad on **`SM_Env_PintuAirSiaga1` (`+Z` downstream)** clear so JC's `PF_Lantern_Warung` & `PF_WarningBeacon_PintuAir` attach without clipping.
 
 ---
 
@@ -57,17 +58,17 @@
 Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPreview.cs`) was reverted in `a04d46c`, so `origin/wesley-env-shaders` currently has 0 pushed environment assets. **Unity 6 Guardrail**: If working locally in Unity 6, only commit/push assets inside `Environment/` & `Shaders/` (plus their `.meta`s) - NEVER push `ProjectSettings/ProjectVersion.txt` alone without team-wide migration.
 
 ### Completed Onboarding
-- [x] **Step 0: Onboarding & Greybox Inspection** (`git pull origin main`, inspect 54-node greybox via `KALI > Load Default Purpose-Built Map`).
+- [x] **Step 0: Onboarding & Greybox Inspection** (`git pull origin main`, inspect 53-node greybox via `KALI > Load Default Purpose-Built Map`).
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
 - [ ] **Step 1A: Terrain & Hero Water Shader (`SM_Env_RiverValleyTerrain` + `SG_KaliWater`)**: model/export `SM_Env_RiverValleyTerrain.fbx` (`130m x 180m`, riverbed `-2.0m`, banks `+1.40m`) + prefab, and build `SG_KaliWater.shadergraph` (`_WaterClarity`, Beer-Lambert depth tint `#3B2818` -> `#1B6B63`, `+V` dual-flow normals, shoreline foam, `0.05m` sine wave).
-- [ ] **Step 1B: Core Interactive Station Hubs + Pengepul (`Environment/Prefabs/`)**: build & push collider-ready prefabs matching C# string hooks for `Bank Sampah` (`SM_Env_BankSampah`), `Pos Sortir` (`SM_Env_PosSortir`), `Pos Medis` (`SM_Env_PosMedisB3`), `Karantina Biohazard` (`SM_Env_KarantinaBiohazard`), and `Gudang Pengepul` (`SM_Env_GudangPengepul`).
+- [ ] **Step 1B: Core Interactive Station Hubs + Pengepul (`Environment/Prefabs/`)**: build & push collider-ready prefabs matching C# string hooks for `Bank Sampah` (`SM_Env_BankSampah`), `Pos Medis` (`SM_Env_PosMedisB3`), `Karantina Biohazard` (`SM_Env_KarantinaBiohazard`), and `Gudang Pengepul` (`SM_Env_GudangPengepul`).
 
 ### Priority 2: Climax Landmarks, Triplanar Shader & Bridge (Setelah Terrain & Stations)
 - [ ] **Step 2: Landmarks & Bridge**: `SM_Env_PintuAirSiaga1.fbx` (`+Z` sluice gate, clear tower pad for JC beacon), `SM_Env_GunungSampah_3Tiers.fbx` (`-Z` upstream, bottom-anchored `Y = 0` pivot), `SG_TrashTriplanar.shadergraph`, and `SM_Env_JembatanUtama.fbx` (`Y >= +3.60m` deck, `>= 12m` center channel clear).
 
 ### Priority 3: Kampung Dressing, Prefab Packaging & Sidang Q&A
-- [ ] **Step 3: Kampung Structures**: `SM_Env_TokoAlat`, `SM_Env_RumahPanggung` (stilts to `-0.5m`, x11 nodes), `SM_Env_Warung` (clear roof overhang for lantern, x7 nodes), `SM_Env_Dermaga` (`Y = 0.0m` waterline pivot, x2 nodes).
+- [ ] **Step 3: Kampung Structures**: `SM_Env_KoperasiDesa` (`Koperasi Desa / Kopdes`), `SM_Env_RumahPanggung` (stilts to `-0.5m`, x11 nodes), `SM_Env_WarungMadura` (24-jam Warung Madura kiosk w/ clear roof overhang for lantern, x7 nodes), `SM_Env_Dermaga` (`Y = 0.0m` waterline pivot, exclusive river port, x2 nodes).
 - [ ] **Step 4: Blender `Ctrl + A -> All Transforms` (`-Z Forward`, `Y Up`, Lightmap UV2) & `Environment/Prefabs/` Verification**.
 
 ---

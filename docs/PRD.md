@@ -36,9 +36,9 @@
 
 1. **Dynamic `+Z` Current & Linear Water Level (`RiverFlowBuoyancy.cs`, `RiverGameManager.cs`)**: Floating waste sheds from upstream `Gunung Sampah` (`-Z`) and drifts **`+Z` downstream** toward `Pintu Air` (`2.2x` faster in monsoon). `waterLevelY = -0.25f + TotalTrashInRiver * 0.020f` reacts immediately to every item scooped (`Overflow >= 1.40m`, `Sell-Lock >= 1.85m`, `Fatal Flood >= 2.45m`).
 2. **20 Auto-Unlocking Scavenging Tools + 3-Class Waste Hazards (`ToolCatalog.cs`)**: Any tool can scoop all 3 classes (`Normal`, `Medical`, `Biohazard`). Tools `#01..#20` unlock automatically by cumulative Rupiah milestones. `Medical` waste risks needle-prick HP damage (`-18 HP`) mitigated to `0%` by **`#10 Capitan Ular`**. `Biohazard`/Radioactive waste inflicts Cargo DoT after a 10s grace period (`0 HP` triggers `HealthFail`).
-3. **3 Dedicated Stations (+ Fines) vs `Gudang Pengepul` (`1 / 2 / 3 / E`)**: Sort `Normal` at `Bank Sampah` (`4,000` / `7,500` at `Pos Sortir`), `Medical` at `Pos Medis B3` (`9,000` + `+10 HP`), and `Biohazard` at `Karantina Biohazard` (`14,000`). Discarding at the wrong station incurs a Rupiah fine + Trust loss! Alternatively, `Gudang Pengepul` (near Spawn) buys all classes in one go cheaply (`2k/3k/4.5k`) with SDG/Trust penalties for hazardous waste.
-4. **Sell-Lock & High-Ground Dump Anti-Deadlock (`Q` key)**: Past `+1.85m`, stations flood (`Sell-Lock`) and reject sales. Players press **`Q`** to dump cargo safely onto high ground (preventing cargo deadlock) or trigger Emergency Ocean Flush.
-5. **Root-Cause Prevention & River Automation (`Toko Alat`)**: Buying **Kampung Trash Bins** (`30,000 IDR`) cuts upstream shedding by **60%**, while **Trash Boom** slows downstream pileup & passively harvests.
+3. **3 Dedicated Stations (+ Fines) vs `Gudang Pengepul` (`1 / 2 / 3 / E`)**: Sort `Normal` at `Bank Sampah` (`4,000` IDR), `Medical` at `Pos Medis B3` (`9,000` + `+10 HP`), and `Biohazard` at `Karantina Biohazard` (`14,000`). Discarding at the wrong station incurs a Rupiah fine + Trust loss! Alternatively, `Gudang Pengepul` (near Spawn) buys all classes in one go cheaply (`2k/3k/4.5k`) with SDG/Trust penalties for hazardous waste.
+4. **Sell-Lock, High-Ground Dump (`Q`) & Exclusive Dermaga Port**: Past `+1.85m`, stations flood (`Sell-Lock`) and reject sales. Players press **`Q`** to dump cargo safely onto high ground (preventing cargo deadlock) or trigger Emergency Ocean Flush. Entering/exiting the river and boarding/disembarking boats is strictly limited to **`Dermaga Awal`** and **`Dermaga Tengah`**.
+5. **Root-Cause Prevention & River Automation (`Koperasi Desa / Kopdes`)**: Buying **Kampung Trash Bins** (`30,000 IDR`) cuts upstream shedding by **60%**, while **Trash Boom Timur** (`75,000 IDR`) slows downstream drift and earns passive income.
 
 ---
 
@@ -69,7 +69,7 @@ Tools unlock automatically as **Cumulative Rupiah (`cumulativeEarnings`)** cross
 | **19** | `SM_Tool_PenebasGergajiGanda` | *Penebas Gergaji Ganda* | `324,000` | `12.2m / 5` | `5%` prick — Twin-saw weed slasher |
 | **20** | `SM_Tool_GarukSkimmerHidrolik` | *Garuk Skimmer Hidrolik* | `360,000` | `13.0m / 6` | `3%` prick — Hydraulic bow skimmer |
 
-**Vessel Upgrades (`Toko Alat`)**: *Rakit Gabus* (8 cap) $\to$ *Perahu Sampan Kayu* (22 cap, `40k`) $\to$ *Trash Boom & Pos Sortir* (`75k`) $\to$ **Amphibious Excavator (`SK_ExcavatorAmfibi`)** (60 cap + fast `DamageGunungSampah()`, `120k`).
+**Vessel Upgrades (`Koperasi Desa / Kopdes`)**: *Rakit Gabus* (8 cap) $\to$ *Perahu Sampan Kayu* (22 cap, `40k`) $\to$ *Trash Boom Timur* (`75k`) $\to$ **Amphibious Excavator (`SK_ExcavatorAmfibi`)** (60 cap + fast `DamageGunungSampah()`, `120k`). River embark/disembark is strictly gated through `Dermaga Awal` and `Dermaga Tengah`.
 
 ---
 
@@ -77,7 +77,7 @@ Tools unlock automatically as **Cumulative Rupiah (`cumulativeEarnings`)** cross
 
 | Class | Assets | Hazard & Station Contract |
 | :--- | :--- | :--- |
-| **`Normal`** | `PF_Trash_SandalSwallow`, `AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `KasurKapuk`, `BanBekas`, `EcengGondok`, `BatangPisang` | Safe to scoop; sort at **`Bank Sampah Berkah`** (`4,000 IDR`) or **`Pos Sortir`** (`7,500 IDR` w/ Boom). |
+| **`Normal`** | `PF_Trash_SandalSwallow`, `AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `KasurKapuk`, `BanBekas`, `EcengGondok`, `BatangPisang` | Safe to scoop; sort at **`Bank Sampah Berkah`** (`4,000 IDR`). |
 | **`Medical`** | `PF_Trash_MedicalBag`, `PF_Trash_SyringeBox` (yellow + red B3 markings) | **Pickup Prick Hazard**: Any tool can scoop, but lower tools risk `-18 HP` needle pricks (`0%` with **`#10 Capitan Ular`**). Sort at **`Pos Medis B3`** (`9,000 IDR` + `+10 HP`). |
 | **`Biohazard`** | `PF_Trash_BiohazardDrum` / Radioactive containment barrels (purple/lime glow) | **Cargo DoT Hazard**: Deals escalating Damage Over Time if held past `10s` grace period. Sort at **`Karantina Biohazard`** (`14,000 IDR`). |
 
@@ -89,7 +89,7 @@ Tools unlock automatically as **Cumulative Rupiah (`cumulativeEarnings`)** cross
    - Routing `Normal` $\to$ `Bank Sampah`, `Medical` $\to$ `Pos Medis B3`, and `Biohazard` $\to$ `Karantina Biohazard` (`1/2/3/E`) pays full Rupiah and builds Trust (wrong-station discards incur Rupiah fines!).
    - Dumping everything in one go at **`Gudang Pengepul`** (near Spawn) pays cheaper rates (`2k/3k/4.5k`) with **no fine**, but inflicts severe Community Trust / SDG penalties if hazardous cargo is mixed in.
 2. **Choice B — Personal Vessel vs. Upstream `Kampung Bins` (`30,000 IDR`)**:
-   - Skipping prevention keeps upstream shedding relentless; buying `Kampung Bins` + `Trash Boom` cuts shedding by **60%** and slows downstream barrier pileup.
+   - Skipping prevention keeps upstream shedding relentless; buying `Kampung Bins` cuts upstream shedding ~60% (spawn interval x2.5) and the `Trash Boom` slows downstream drift along `Trash Boom Timur` and pays passive Rp 2.500 / 4 s.
 3. **Choice C — Monsoon `Sell-Lock` Crisis & 4 Endings**:
    - **`TrueSdgVictory`**: Reach **`0% Gunung Sampah`** (`CompleteCleanBreach()`) OR **survive the 5-minute Monsoon Countdown** without fatal flood or `0 HP` death.
    - **`CompromisedOceanFlush`**: Panic-open the floodgate (`TriggerEmergencyFlush()`). Saves Kampung from flooding, but flags **SDG 14.1 Failed**.

@@ -42,7 +42,7 @@ Before modeling, shading, wiring prefabs, or prompting an AI coding/3D assistant
 Each teammate has an isolated implementation checklist built for direct AI execution:
 - **Ivan (Core Code)**: **[plan_ivan.md](./plan_ivan.md)** — C# state machine, medical waste handling, prefab wire-up in `MapJsonImporter`, WebGL prototype, Academic ALP Report & release.
 - **JC (Props, Rigging & Lighting)**: **[plan_jc.md](./plan_jc.md)** — Trash, Medical B3 & Biohazard library, 20 scavenging tools (`PF_Tool_*` trigger/disabled collider rule), vessels, `SK_ExcavatorAmfibi` IK + dual `Damped Track` pistons, `KaliLightingBuilder` rigs.
-- **Wesley (Environment & Shaders)**: **[plan_wesley.md](./plan_wesley.md)** — Beginner-proof Unity/Blender setup, 13 `SM_Env_*` terrain & architectural meshes (`130m × 180m`), `SG_KaliWater` (`_WaterClarity`, `+V` flow), `SG_TrashTriplanar`.
+- **Wesley (Environment & Shaders)**: **[plan_wesley.md](./plan_wesley.md)** — Beginner-proof Unity/Blender setup, 12 `SM_Env_*` terrain & architectural meshes (`130m × 180m`), `SG_KaliWater` (`_WaterClarity`, `+V` flow), `SG_TrashTriplanar`.
 - **Niki (VFX, UI & Audio)**: **[plan_niki.md](./plan_niki.md)** — Monsoon & splash VFX, `Canvas_HUD`, `Canvas_ShopBankSampah`, `Canvas_SDGImpactReport`, SFX triggers, Sidang rehearsal.
 
 *Asset Master Tracking Matrix*: [docs/KALI_Asset_Master_Tracker.xlsx](./docs/KALI_Asset_Master_Tracker.xlsx) / [docs/KALI_Asset_Master_Tracker.tsv](./docs/KALI_Asset_Master_Tracker.tsv)

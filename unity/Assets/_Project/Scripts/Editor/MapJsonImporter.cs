@@ -101,18 +101,32 @@ namespace KaliRiverSweeper.Editor
         private static readonly Dictionary<string, string[]> ItemAssetTable = new Dictionary<string, string[]>
         {
             ["bank_sampah"] = EnvPaths("BankSampah"),
-            ["sorting_yard"] = new[]
-            {
-                "Assets/_Project/Environment/Prefabs/PF_Env_PosSortir.prefab",
-                "Assets/_Project/Environment/Meshes/SM_Env_PosSortir.fbx",
-                "Assets/_Project/Props/Equipment/Prefabs/PF_Prop_PosSortir.prefab"
-            },
             ["pos_medis"] = EnvPaths("PosMedisB3"),
             ["karantina_biohazard"] = EnvPaths("KarantinaBiohazard"),
             ["pengepul"] = EnvPaths("GudangPengepul"),
-            ["toko_alat"] = EnvPaths("TokoAlat"),
+            ["kopdes"] = new[]
+            {
+                "Assets/_Project/Environment/Prefabs/PF_Env_KoperasiDesa.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_KoperasiDesa.fbx",
+                "Assets/_Project/Environment/Prefabs/PF_Env_Kopdes.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_Kopdes.fbx"
+            },
+            ["toko_alat"] = new[]
+            {
+                "Assets/_Project/Environment/Prefabs/PF_Env_KoperasiDesa.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_KoperasiDesa.fbx",
+                "Assets/_Project/Environment/Prefabs/PF_Env_TokoAlat.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_TokoAlat.fbx"
+            },
             ["rumah"] = EnvPaths("RumahPanggung"),
-            ["warung"] = EnvPaths("Warung"),
+            ["warung"] = new[]
+            {
+                "Assets/_Project/Environment/Prefabs/PF_Env_WarungMadura.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_WarungMadura.fbx",
+                "Assets/_Project/Environment/Prefabs/PF_Env_Warung.prefab",
+                "Assets/_Project/Environment/Meshes/SM_Env_Warung.fbx"
+            },
+            ["warung_madura"] = EnvPaths("WarungMadura"),
             ["dermaga"] = EnvPaths("Dermaga"),
             ["gunung_node"] = EnvPaths("GunungSampah_3Tiers"),
             ["jembatan"] = EnvPaths("JembatanUtama"),
@@ -290,6 +304,16 @@ namespace KaliRiverSweeper.Editor
             {
                 GameObject valley = (GameObject)PrefabUtility.InstantiatePrefab(valleyPrefab, parent);
                 valley.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                // Static terrain: non-convex MeshCollider on every mesh that lacks a collider (no Rigidbody)
+                foreach (MeshFilter mf in valley.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    if (mf.sharedMesh != null && mf.GetComponent<Collider>() == null)
+                    {
+                        MeshCollider mc = mf.gameObject.AddComponent<MeshCollider>();
+                        mc.convex = false;
+                        mc.sharedMesh = mf.sharedMesh;
+                    }
+                }
                 EnsureCollider(valley, concaveMesh: true, ensureRootCollider: false, solidRootCollider: false);
             }
             else
@@ -417,7 +441,7 @@ namespace KaliRiverSweeper.Editor
             Transform targetParent = item.type switch
             {
                 "gunung_node" => gunung,
-                "dermaga" or "trash_boom" or "excavator" or "interceptor" or "sorting_yard" or "jembatan" or "sluice_gate" => infra,
+                "dermaga" or "trash_boom" or "excavator" or "interceptor" or "jembatan" or "sluice_gate" => infra,
                 _ => buildings
             };
 
@@ -433,7 +457,7 @@ namespace KaliRiverSweeper.Editor
                 gCtrl.scaleFromCenterPrimitive = !usedPrefab;
                 AttachPrefabIfPresent(gunung, MethaneBubblesPrefabPath, RiverMath.ToWorld3D(item.x, item.y, 0f), $"VFX_MethaneSludgeBubbles_{item.name}");
             }
-            else if (item.type == "warung")
+            else if (item.type is "warung" or "warung_madura")
             {
                 AttachOnTopIfPresent(go.transform, "Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab");
             }
@@ -456,8 +480,9 @@ namespace KaliRiverSweeper.Editor
 
                 bool concave = item.type is "jembatan" or "sluice_gate";
                 bool isGunung = item.type == "gunung_node";
-                bool needRoot = isGunung || item.type is "bank_sampah" or "sorting_yard" or "pos_medis" or "karantina_biohazard" or "pengepul" or "toko_alat";
-                EnsureCollider(inst, concave, needRoot, isGunung);
+                bool needRoot = isGunung || item.type is "bank_sampah" or "pos_medis" or "karantina_biohazard" or "pengepul" or "kopdes" or "toko_alat" or "dermaga";
+                bool solidRoot = isGunung || item.type == "dermaga";
+                EnsureCollider(inst, concave, needRoot, solidRoot);
                 return inst;
             }
 
@@ -578,8 +603,12 @@ namespace KaliRiverSweeper.Editor
             GameObject pileZone = GameObject.CreatePrimitive(PrimitiveType.Cube);
             pileZone.name = "PintuAirPile_Zone";
             pileZone.transform.SetParent(parent);
-            pileZone.transform.position = new Vector3(center.x, 0.25f, center.z - 7.5f);
-            pileZone.transform.localScale = new Vector3(sx * 0.55f, 1.2f, 4.5f);
+            // Column spanning the full water range so the trigger stays reachable as water rises
+            const float floodWaterY = 2.45f; // ponytail: mirrors RiverGameManager.fatalFloodWaterY default (instance field, not const)
+            float bottomY = RiverGameManager.BaseWaterLevelY - 0.5f;
+            float topY = floodWaterY + 0.5f;
+            pileZone.transform.position = new Vector3(center.x, (bottomY + topY) * 0.5f, center.z - 7.5f);
+            pileZone.transform.localScale = new Vector3(sx * 0.55f, topY - bottomY, 4.5f);
             BoxCollider bc = pileZone.GetComponent<BoxCollider>();
             if (bc != null) bc.isTrigger = true;
             ApplyTint(pileZone, new Color(0.47f, 0.35f, 0.24f));
@@ -589,6 +618,17 @@ namespace KaliRiverSweeper.Editor
         {
             Vector3 center = RiverMath.ToWorld3D(item.x, item.y, 0f);
             const int count = 5;
+
+            // Stable FNV-1a hash of item.id so cluster layout is identical across imports
+            uint hash = 2166136261u;
+            foreach (char ch in item.id ?? string.Empty)
+            {
+                hash ^= ch;
+                hash *= 16777619u;
+            }
+            var rng = new System.Random((int)(hash & 0x7FFFFFFF));
+            float spread = Mathf.Clamp(Mathf.Max(item.w, item.h) * RiverMath.MapScale * 0.5f, 1.5f, 6f);
+            float Jitter() => (float)(rng.NextDouble() * 2.0 * spread - spread);
 
             for (int i = 0; i < count; i++)
             {
@@ -600,15 +640,14 @@ namespace KaliRiverSweeper.Editor
                     WasteClass.Biohazard => BiohazardTrashNames,
                     _ => NormalTrashNames
                 });
-                int seed = i + Mathf.Abs(item.name.GetHashCode());
-                GameObject prefab = pool.Length > 0 ? pool[seed % pool.Length] : null;
+                GameObject prefab = pool.Length > 0 ? pool[rng.Next(pool.Length)] : null;
 
-                Vector3 offset = new Vector3(UnityEngine.Random.Range(-2.2f, 2.2f), 0f, UnityEngine.Random.Range(-2.2f, 2.2f));
+                Vector3 offset = new Vector3(Jitter(), 0f, Jitter());
                 GameObject trashObj;
                 if (prefab != null)
                 {
                     trashObj = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
-                    trashObj.transform.SetPositionAndRotation(center + offset, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+                    trashObj.transform.SetPositionAndRotation(center + offset, Quaternion.Euler(0f, (float)(rng.NextDouble() * 360.0), 0f));
                 }
                 else
                 {
@@ -638,7 +677,11 @@ namespace KaliRiverSweeper.Editor
         private static GameObject AttachPrefabIfPresent(Transform parent, string path, Vector3? worldPos = null, string nameOverride = null)
         {
             GameObject prefab = LoadFirstPrefab(path);
-            if (prefab == null) return null;
+            if (prefab == null)
+            {
+                Debug.Log("[KALI] Optional prefab not found (greybox/skip): " + path);
+                return null;
+            }
 
             GameObject inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
             if (worldPos.HasValue) inst.transform.position = worldPos.Value;
@@ -648,13 +691,14 @@ namespace KaliRiverSweeper.Editor
 
         private static void AttachOnTopIfPresent(Transform parent, string path)
         {
+            // Measure the building before instantiating so the attachment does not inflate its own bounds
+            bool hasBounds = TryGetLocalBounds(parent.gameObject, out Bounds b);
             GameObject inst = AttachPrefabIfPresent(parent, path);
             if (inst == null) return;
 
-            Vector3 localPos = TryGetLocalBounds(parent.gameObject, out Bounds b)
+            inst.transform.localPosition = hasBounds
                 ? new Vector3(b.center.x, b.max.y + 0.05f, b.center.z)
                 : new Vector3(0f, 0.55f, 0f);
-            inst.transform.localPosition = localPos;
         }
 
         private static void EnsureCollider(GameObject go, bool concaveMesh, bool ensureRootCollider, bool solidRootCollider)

@@ -95,7 +95,7 @@ def asset_variants(asset_id: str) -> tuple[list[str], list[str]]:
 def find_matches(candidates: list[str], file_set: set[str]) -> tuple[list[str], bool]:
     matched = []
     has_meta = False
-    for path in file_set:
+    for path in sorted(file_set):
         if path.endswith(".meta"):
             continue
         name = Path(path).name
@@ -104,6 +104,9 @@ def find_matches(candidates: list[str], file_set: set[str]) -> tuple[list[str], 
             matched.append(path)
             if (path + ".meta") in file_set:
                 has_meta = True
+    # Deterministic priority so .fbx wins over .blend/.py when both match the same stem
+    ext_rank = {".prefab": 0, ".fbx": 1, ".cs": 2, ".shadergraph": 3, ".unity": 4, ".json": 5, ".asset": 6}
+    matched.sort(key=lambda p: (ext_rank.get(Path(p).suffix.lower(), 99), p))
     return matched, has_meta
 
 
@@ -370,7 +373,7 @@ def maybe_write_xlsx(title_rows: list[list[str]], header: list[str], rows: list[
     owners_meta = [
         ("Ivan (Lead)", "Game Logic, C# Architecture, Buoyancy & Importer"),
         ("JC", "Props (Trash, 20 Tools, Medical B3), Rigging (Excavator IK), Lighting"),
-        ("Wesley", "Environment Architecture (10 SM_Env_*) & URP Shaders"),
+        ("Wesley", "Environment Architecture (12 SM_Env_*) & URP Shaders"),
         ("Niki", "VFX Systems (4), UI Canvases (3) & Audio"),
     ]
     r_idx = 5

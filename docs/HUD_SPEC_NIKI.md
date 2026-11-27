@@ -80,13 +80,13 @@ Canvas_HUD (CanvasScaler: 1920x1080, Match 0.5)
 │   └── Row_WargaTrust           [TMP "KEPERCAYAAN WARGA" + TMP "68"]
 ├── C_CrosshairReticle           [Anchor: Center (0.5,0.5), Size 24x24, 4x 7x2 ticks + 4px center dot]
 ├── BC_StationDockSheet          [Anchor: Bottom-Center (0.5,0), Pivot (0.5,0), Pos (0, 34), Size 660x104, HIDDEN AT REST]
-│   ├── Header_StationName       [TMP "STASIUN: BANK SAMPAH BERKAH (B)" + Accepted Class Subtitle]
-│   └── Row_ActionKeys           [4-Col Grid: [1] Normal | [2] Medis B3 | [3] Biohazard | [E] Setor Aman]
+│   ├── Header_StationName       [TMP "STASIUN: BANK SAMPAH BERKAH (B)" / "DERMAGA: ..." + Accepted Subtitle]
+│   └── Row_ActionKeys           [4-Col Grid: [1] Normal | [2] Medis B3 | [3] Biohazard | [E] Setor Aman / Naik-Turun Sungai]
 └── BR_VellumHydroMap            [Anchor: Bottom-Right (1,0), Pivot (1,0), Pos (-44, 38), Size 372x276, Rot Z +2.5deg]
     ├── TapePin_TL / TapePin_BR  [Translucent masking tape strips rotated 38deg]
     ├── Img_ContourCanalBase     [Static high-res sprite of river contour lines + "+Z" arrow]
     ├── Img_DamChokeCrossHatch   [Magenta 90-deg cross-hatch circle + TMP "DAM 64%"]
-    ├── Pin_B / Pin_M / Pin_K / Pin_P [Strictly 4 circular dotted-seal station badges]
+    ├── Pin_B / Pin_M / Pin_K / Pin_P / Pin_KD [4 solid discard hub seals + 1 outline Koperasi Desa (Kopdes) seal]
     └── Icon_PlayerSampan        [Live chevron + 20% teal sightline cone mapped to player world X/Z]
 ```
 
@@ -105,7 +105,7 @@ Subscribe in `OnEnable()` and unsubscribe in `OnDisable()` inside `unity/Assets/
 | `TC_ContextualAlertRail` | `OnStateChanged`, `OnHazardOrAlert` | `biohazardCargo`, `IsBiohazardDotActive`, `BiohazardGraceRemaining`, `IsSellLocked` (`currentWaterLevelY >= 1.85f`) | **Never show Sell-Lock when `currentWaterLevelY < 1.85f`!** Show `Strip_BiohazardTimer` ONLY when `biohazardCargo > 0`. Show `Strip_SellLockDump` ONLY when `IsSellLocked == true`. |
 | `TR_EconomyCargoLedger` | `OnStateChanged` | `rupiah`, `cargoCount`, `cargoCapacity`, `normalCargo`, `medicalCargo`, `biohazardCargo`, `communityTrust` | Format Rupiah with Indonesian thousand separators (`"Rp " + rupiah.ToString("N0", idCulture)`). Show `"{cargoCount} / {cargoCapacity}"` and highlight magenta if `cargoCount >= cargoCapacity`. |
 | `TL_ToolUnlockToast` | `OnToolUnlocked(ToolDefinition)` | `tool.Index`, `tool.DisplayName`, `tool.GunungDamagePerSwing` | Slide in from `scale 0.97, alpha 0` over `220ms`, hold `3.5s`, fade out. Show `"BISA KERUK"` badge when `tool.GunungDamagePerSwing > 0f` (`#13+`). |
-| `BC_StationDockSheet` | Pier Trigger Enter/Exit + `OnStateChanged` | Active station type (`Bank Sampah`, `Pos Medis B3`, `Karantina Biohazard`, `Gudang Pengepul`) | Illegal classes at the current station receive **90-deg magenta cross-hatch** + `"DENDA"` label. Legal class gets **inverted Zone-0 (`#111211`)** primary styling. At `Gudang Pengepul`, show `[E] JUAL SEMUA (MURAH · TURUN WARGA)` warning. |
+| `BC_StationDockSheet` | Pier/Hub Trigger (`OnNearbyHubChanged`, `OnNearbyDermagaChanged`) + `OnStateChanged` | Active station (`Bank Sampah`, `Pos Medis B3`, `Karantina Biohazard`, `Gudang Pengepul`), `Koperasi Desa (Kopdes)`, or `Dermaga` | Illegal classes receive **90-deg magenta cross-hatch** + `"DENDA"` label. Legal class gets **inverted Zone-0 (`#111211`)**. At `Gudang Pengepul`, show `[E] JUAL SEMUA`. At `Kopdes`, show `[E] BUKA KOPDES`. At `Dermaga`, show `[E] TURUN KE SUNGAI` / `[E] NAIK KE DARAT`. |
 | `BR_VellumHydroMap` | `LateUpdate` (throttled `15 Hz`) + `OnStateChanged` | Player `Transform.position` (`x, z`) & `eulerAngles.y`, `gunungSampahHealth` | Map river bounds (`zMin..zMax`) linearly to contour spline Y; rotate player chevron by `eulerAngles.y`; update `DAM XX%` label inside magenta cross-hatch circle. |
 
 ---

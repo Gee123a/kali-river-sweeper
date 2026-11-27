@@ -49,23 +49,23 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 - `OnWaterSplash` (`Action<Vector3 pos>`): fired when player scoops trash or paddles; subscribe `WaterSplashEffect` here.
 - `OnGunungTierBreached` (`Action<Vector3 pos>`): fired when `DamageGunungSampah()` breaks a dam tier; subscribe `TrashAvalancheEffect` here.
 - `OnEndingTriggered` (`Action<GameEnding ending>`): Displays `Canvas_SDGImpactReport` tailored to **`TrueSdgVictory`**, **`CompromisedOceanFlush`**, **`FloodFail`**, or **`HealthFail`** using `recycledKg`, `flushedKg`, `medicalWasteSecured`, `biohazardWasteSecured`, `totalFinesPaid`, `pengepulHazardDumped`, and `communityTrust`.
-- `KaliPlayerController` (`OnNearbyHubChanged`, `Action<bool isNear, DiscardStationType stationType, bool isPosSortir, bool isTokoAlat, string hubName>` + read-only `HasNearbyHub`, `NearbyStationType`, `NearbyIsPosSortir`, `NearbyIsTokoAlat`, `NearbyHubName`): Emitted at ~10 Hz when entering/exiting a station or Toko Alat interact range so `BC_StationDockSheet` (`[1][2][3][E]`) shows/hides cleanly.
+- `KaliPlayerController` (`OnNearbyHubChanged`, `Action<bool isNear, DiscardStationType stationType, bool isKopdes, string hubName>` + `OnNearbyDermagaChanged`, `Action<bool isNear, bool isInBoat, string dermagaName>` + read-only `HasNearbyHub`, `NearbyStationType`, `NearbyIsKopdes`, `NearbyHubName`, `HasNearbyDermaga`, `NearbyDermagaIsInBoat`, `NearbyDermagaName`): Emitted at ~10 Hz when entering/exiting a station, Koperasi Desa (Kopdes), or Dermaga port trigger so `BC_StationDockSheet` (`[1][2][3][E]`) shows/hides cleanly.
 - `RiverMath` (`RiverFlowBuoyancy.cs`): World bounds `MinWorldX = -65f`, `MaxWorldX = 65f`, `MinWorldZ = -90f`, `MaxWorldZ = 90f` (`130m x 180m`).
 
 ---
 
 ## 3. Milestone Tasks (Prioritized)
 
-### Merged to `main` (`a982cb1` + `6d27006`)
+### Merged to `main` (`a982cb1`)
 - [x] `4 URP VFX Prefabs & Event Scripts (Assets/_Project/VFX/)`: `VFX_MonsoonRain` (`OnWeatherChanged`), `VFX_WaterSplashMuddy` (`OnWaterSplash`), `VFX_MethaneSludgeBubbles`, `VFX_TrashAvalanche` (`OnGunungTierBreached`) - auto-placed by `MapJsonImporter.cs`.
-- [x] `Canvas_HUD` Core + Sprites + Minimap + Station Dock (`UI/Prefabs/Canvas_HUD.prefab`, `UI/Scripts/KaliHudController.cs`, `HudMapLayout.cs`): Barlow Condensed + IBM Plex Mono, `UI_Vellum9Slice`, `UI_Hatch45_Tile`, `UI_CrossHatch90_Magenta`, `UI_Contour`, `UI_Chevron`, river/station markers from `kali-river-map.json`, HP/Siaga/Clarity/Cargo HUD, and `BC_StationDockSheet` subscribed to `KaliPlayerController.OnNearbyHubChanged`.
-- [x] `Canvas_SDGImpactReport` (`UI/Prefabs/Canvas_SDGImpactReport.prefab`, `UI/Scripts/SdgImpactReportController.cs`): all 4 endings (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`), end-of-run stats, and SDG 6.3 / 11.5 / 14.1 verdict.
+- [x] `Canvas_HUD` Core + Sprites + Minimap (`UI/Prefabs/Canvas_HUD.prefab`, `UI/Scripts/KaliHudController.cs`): Barlow Condensed + IBM Plex Mono, `UI_Vellum9Slice`, `UI_Hatch45_Tile`, `UI_CrossHatch90_Magenta`, `UI_Contour`, `UI_Chevron`, HP ramp cells, Siaga dot/ruler, clarity fill, cargo counts, and alerts.
 
-### Priority 1: MVP Scene Bake & Final UI Verification (Kerjakan Sekarang)
-- [ ] **Task 1A: Bake HUD, SDG Report & 4 VFX into `Main.unity` + `1280x720` QA**: run `git pull origin main`, open Unity (`Window > TextMeshPro > Import TMP Essential Resources` if TMP warns), run `KALI > Load Default Purpose-Built Map` to bake `Canvas_HUD`, `Canvas_SDGImpactReport`, and all 4 VFX into `Main.unity`, then verify `1920x1080` and `1280x720` in Play Mode (including `F9 + 1..4` & endings).
+### Priority 1: MVP Blockers (Selesai di branch Niki — siap push ke `niki-vfx`)
+- [x] **Task 1A: Wire `BC_StationDockSheet`, Minimap `RiverMath` & 720p/TMP Fixes**: subscribed `KaliHudController.cs` to `KaliPlayerController.OnNearbyHubChanged` and `OnNearbyDermagaChanged`, wrapped `DENDA` / `[E] JUAL SEMUA` onto 2 lines (`96x40px`, auto-size) for `1280x720`, wired `BiohazardGraceRemaining` to `Image.Type.Filled`, anchored `UI_Contour.png` to `RiverMath` with solid `B/M/K/P` + outline `KD` (Kopdes) pin & `DAM` at `y = 237.5`, regenerated 8.4 MB SDF fonts (`BarlowCondensed-Bold` & `IBMPlexMono-SemiBold`), and imported `Assets/TextMesh Pro/` (TMP Essentials). *(Run `Build HUD Sprites` + `Build Canvas_HUD` in Unity before final push.)*
+- [x] **Task 1B: Build `Canvas_SDGImpactReport` (`SdgImpactReportController.cs`, `Canvas_SDGImpactReport.prefab`)**: ending/victory modal handling all **4 endings** (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`), summarizing recycled vs flushed kg, Medical/Biohazard secured, wrong-station fines, Pengepul hazard dumps, and **SDG 6.3 / 11.5 / 14.1** educational verdict.
 
-### Priority 2: Economy Shop & Audio (Setelah HUD & SDG Report Selesai)
-- [ ] **Task 2: `Canvas_ShopBankSampah` (`Assets/_Project/UI/`)**: `DiscardWasteAtStation` / `DiscardAllAtStation`, `Gudang Pengepul` (`SellAllAtPengepul`), Choice B upgrades (`BuyKampungBins()`, `BuyUpgrade(UpgradeTier)`), 20-tool milestone selector (`SelectTool`), and Choice C emergency floodgate (`TriggerEmergencyFlush()`).
+### Priority 2: Economy Shop & Audio (Kerjakan Sekarang)
+- [ ] **Task 2: `Canvas_ShopBankSampah` (`Assets/_Project/UI/`)**: `KaliShopController.cs` + `Canvas_ShopBankSampah.prefab` for `Koperasi Desa (Kopdes)` & stations (`BuyKampungBins()`, `BuyUpgrade(UpgradeTier)`, 20-tool selector `SelectTool`, Choice A/C `TriggerEmergencyFlush()`, removing the temporary `E`-key fallback in `KaliPlayerController.cs`). Hook: subscribe to KaliPlayerController.OnShopRequested to open the modal; read prices via RiverGameManager.KampungBinsCost / GetUpgradeCost(UpgradeTier); lock state via IsToolUnlocked(int); select via SelectTool(int).
 - [ ] **Task 3: Audio (`Assets/_Project/Audio/`)**: looping calm river vs heavy monsoon storm SFX, wet scoop splashes, needle-prick/Biohazard Geiger warning chime, wrong-station fine buzzer, tool unlock chime, and `Siaga 2/1` siren.
 
 ### Priority 3: Sidang F9 Demo Flow

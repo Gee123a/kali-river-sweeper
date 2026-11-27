@@ -278,13 +278,12 @@ namespace KaliRiverSweeper.UI.Editor
             Panel(map.transform, "TapePin_TL", new Vector2(0f, 1f), new Vector2(8f, -6f), new Vector2(50f, 14f), TapeTint).transform.localRotation = Quaternion.Euler(0f, 0f, 38f);
             Panel(map.transform, "TapePin_BR", new Vector2(0f, 1f), new Vector2(302f, -274f), new Vector2(50f, 14f), TapeTint).transform.localRotation = Quaternion.Euler(0f, 0f, 38f);
 
-            // 4 discard hubs: solid colored badges; 2 utility hubs (S, T): outline badges.
+            // 4 discard hubs: solid colored badges; 1 utility hub (KD = Kopdes): outline badge.
             CreateMapPin(map.transform, "Pin_B", "B", new Color32(0x22, 0xC5, 0x5E, 255), VellumSolid, solid: true);
             CreateMapPin(map.transform, "Pin_M", "M", new Color32(0xEA, 0xB3, 0x08, 255), Ink, solid: true);
             CreateMapPin(map.transform, "Pin_K", "K", new Color32(0xA8, 0x55, 0xF7, 255), VellumSolid, solid: true);
             CreateMapPin(map.transform, "Pin_P", "P", new Color32(0xA8, 0x70, 0x18, 255), VellumSolid, solid: true);
-            CreateMapPin(map.transform, "Pin_S", "S", new Color32(0x14, 0xB8, 0xA6, 255), new Color32(0x0F, 0x76, 0x6E, 255), solid: false);
-            CreateMapPin(map.transform, "Pin_T", "T", new Color32(0xF5, 0x9E, 0x0B, 255), new Color32(0xB4, 0x53, 0x09, 255), solid: false);
+            CreateMapPin(map.transform, "Pin_KD", "KD", new Color32(0xF5, 0x9E, 0x0B, 255), new Color32(0xB4, 0x53, 0x09, 255), solid: false);
 
             // Place pins and the dam from kali-river-map.json now, so the prefab is right without Play mode.
             Vector2 origin = HudMapLayout.ContourOrigin;
@@ -293,8 +292,7 @@ namespace KaliRiverSweeper.UI.Editor
             HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_M"), HudMapLayout.MapToUi(HudMapLayout.MedisB3Pin, origin, area));
             HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_K"), HudMapLayout.MapToUi(HudMapLayout.KarantinaPin, origin, area));
             HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_P"), HudMapLayout.MapToUi(HudMapLayout.PengepulPin, origin, area));
-            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_S"), HudMapLayout.MapToUi(HudMapLayout.PosSortirPin, origin, area));
-            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_T"), HudMapLayout.MapToUi(HudMapLayout.TokoAlatPin, origin, area));
+            HudMapLayout.PlaceAt((RectTransform)map.transform.Find("Pin_KD"), HudMapLayout.MapToUi(HudMapLayout.KopdesPin, origin, area));
 
             Vector2 damCenter = HudMapLayout.MapToUi(HudMapLayout.DamPoint(), origin, area);
             HudMapLayout.PlaceAt((RectTransform)dam.transform, damCenter);
@@ -312,7 +310,7 @@ namespace KaliRiverSweeper.UI.Editor
             {
                 Panel(pin.transform, "InnerFill", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f), VellumSolid);
             }
-            GameObject letterGo = Text(pin.transform, "TMP_PinLetter", letter, 13f, textColor, Vector2.zero, new Vector2(22f, 22f), new Vector2(0.5f, 0.5f));
+            GameObject letterGo = Text(pin.transform, "TMP_PinLetter", letter, letter.Length > 1 ? 10.5f : 13f, textColor, Vector2.zero, new Vector2(22f, 22f), new Vector2(0.5f, 0.5f));
             letterGo.GetComponent<TextMeshProUGUI>().alignment = TextAlignmentOptions.Center;
         }
 
@@ -325,8 +323,7 @@ namespace KaliRiverSweeper.UI.Editor
                 ("M", "Medis B3", new Color32(0xEA, 0xB3, 0x08, 255), true),
                 ("K", "Karantina", new Color32(0xA8, 0x55, 0xF7, 255), true),
                 ("P", "Pengepul", new Color32(0xA8, 0x70, 0x18, 255), true),
-                ("S", "Pos Sortir", new Color32(0x14, 0xB8, 0xA6, 255), false),
-                ("T", "Toko Alat", new Color32(0xF5, 0x9E, 0x0B, 255), false),
+                ("KD", "Kopdes", new Color32(0xF5, 0x9E, 0x0B, 255), false),
             };
             for (int i = 0; i < rows.Length; i++)
             {

@@ -16,4 +16,4 @@ FBX settings are imported from `kali_blender/export_fbx.py` (`-Z Forward`, `Y Up
 |---|---|---|
 | `SM_Env_RiverValleyTerrain` | 3,240 | 130 × 180 m at origin, banks `+1.40`, bed `-2.0`, 45° talud crossing `Y = 0` exactly at `RiverHalfWidthMap`; 3 material slots (tanah / talud / lumpur); world-planar UV (1 tile = 4 m) |
 
-`preview_terrain_map.png`: top view of the exported FBX overlaid with the 54 nodes of `kali-river-map.json`.
+`preview_terrain_map.png`: top view of the exported FBX overlaid with the 53 nodes of `kali-river-map.json`.
