@@ -65,11 +65,11 @@
   - [x] Add prefab/material/UI/VFX auto-wiring table (`MapJsonImporter.cs`), extract `GunungNodeController.cs` & `RiverWaterSurfaceFollower.cs` for clean `.unity` serialization, fix `KaliPlayerController` child-collider lookup & `RiverGameManager` single-ending DoT guard, and pass `7/7` Unity batchmode QA suites (`KaliCoreQaTests.cs`).
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
-- [x] **Task 4B (Part 1): Merge `origin/niki-vfx` + Station Event & 4-VFX Importer Hooks**: merged `origin/niki-vfx` (`Canvas_HUD` + 4 VFX), added `KaliPlayerController.OnNearbyHubChanged` + `RiverMath` bounds, and added all 4 VFX prefabs to `NikiRootPrefabs` / node hooks in `MapJsonImporter.cs` (re-run `KALI > Load Default Purpose-Built Map` once Unity SSD is mounted, then wire `Canvas_SDGImpactReport` once Niki pushes it).
+- [x] **Task 4B (Part 1): Merge `origin/niki-vfx` + Station Event & 4-VFX Importer Hooks**: merged `origin/niki-vfx` (`Canvas_HUD` + `Canvas_SDGImpactReport` + 4 VFX), added `KaliPlayerController.OnNearbyHubChanged` + `RiverMath` bounds, and added all 4 VFX prefabs + 3 UI prefab paths to `NikiRootPrefabs` / node hooks in `MapJsonImporter.cs` (re-run `KALI > Load Default Purpose-Built Map` after pulling Niki's 720p/minimap/TMP Essentials push).
 - [ ] **Task 4C: Team Unity Security Lock & Git History Hygiene**: finalize team agreement on staying on `2022.3.46f1 LTS` for dev vs patching `CVE-2025-59489` (`2022.3.67f2` or `Unity 6`) before final build packaging, and scrub earlier AI bot / `Co-Authored-By` commits if approved.
 
 ### Priority 2: Environment, Trash & Shop Integration (Setelah Prefab Tim Masuk)
-- [ ] **Task 5: Prefab & Shader Wiring (`MapJsonImporter.cs`, `Main.unity`)**: wire Wesley's `SM_Env_*` + `SG_KaliWater` + 3 Station colliders, JC's 9 Normal trash + `SM_Trash_BiohazardDrum` + `PF_LightingRig`, and Niki's `Canvas_ShopBankSampah`.
+- [ ] **Task 5: Prefab & Shader Wiring (`MapJsonImporter.cs`, `Main.unity`)**: wire Wesley's `SM_Env_*` + `SG_KaliWater` + 3 Station colliders, JC's 9 Normal trash + `SM_Trash_BiohazardDrum` + `PF_LightingRig`, and Niki's `Canvas_ShopBankSampah` + `Audio/` (plus optional `BuyTool(int)` / removing the `Toko Alat` `E`-key fallback once `Canvas_ShopBankSampah` is wired).
 
 ### Priority 3: Sidang F9 Verification, Build & ALP Report
 - [ ] **Task 6: Academic ALP Report & Sidang Defense Prep**: `F9` stage screenshots (`1..4`), WebGL/PlayMode verification, and final ALP Report.
