@@ -66,7 +66,7 @@
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
 - [x] **Task 4B (Part 1): Merge `origin/niki-vfx` (`d1f1914`) + Station Event & 4-VFX Importer Hooks**: merged `Canvas_HUD` (with station dock & map markers), `Canvas_SDGImpactReport` (4 endings), and all 4 VFX into `main`; added `KaliPlayerController.OnNearbyHubChanged` + `RiverMath` bounds + auto-wiring in `MapJsonImporter.cs`.
-- [ ] **Task 4B (Part 2): Bake Merged UI & 4 VFX into `Main.unity`**: mount `UnitySSD` (`KYO 1 TB`), open Unity `2022.3.46f1`, run `KALI > Load Default Purpose-Built Map` + `KALI > QA > Run Core Verification`, test Play Mode end-to-end (`Canvas_HUD` + `Canvas_SDGImpactReport` + 4 VFX), and push updated `Main.unity`.
+- [x] **Task 4B (Part 2): Bake Merged UI & 4 VFX into `Main.unity`**: mount `UnitySSD` (`KYO 1 TB`), open Unity `2022.3.46f1`, run `KALI > Load Default Purpose-Built Map` + `KALI > QA > Run Core Verification`, test Play Mode end-to-end (`Canvas_HUD` + `Canvas_SDGImpactReport` + 4 VFX), and push updated `Main.unity`. Done: `75473b5` (9 JC trash prefabs + Main.unity bake, QA 7/7) and `e9e6820` (FBX metas); Play Mode verified at 1280x720 (HUD, station dock, ending pause `timeScale=0`).
 - [ ] **Task 4C: Team Unity Security Lock & Git History Hygiene**: finalize team agreement on staying on `2022.3.46f1 LTS` for dev vs patching `CVE-2025-59489` (`2022.3.67f2` or `Unity 6`) before final build packaging, and scrub earlier AI bot / `Co-Authored-By` commits if approved.
 
 ### Priority 2: Environment, Trash & Shop Integration (Setelah Prefab Tim Masuk)
