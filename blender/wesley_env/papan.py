@@ -446,7 +446,7 @@ def karantina():
 
 
 def umum():
-    """T_Env_PapanUmum - name boards retro-fitted on Pintu Air and Jembatan Utama."""
+    """T_Env_PapanUmum - name boards on Pintu Air, Jembatan Utama and both Dermaga."""
     img = Image.new("RGB", (W, W), (40, 42, 46))
     d = ImageDraw.Draw(img)
     # PINTU AIR (0,0)-(1024,160): blue steel board like the gate, white + yellow text
@@ -459,7 +459,12 @@ def umum():
     for i in range(4):
         d.rectangle((10, 186 + i * 36, 1014, 186 + i * 36 + 32), fill=(126 - i * 4, 88 - i * 3, 56))
     text_center(d, (10, 180, 1014, 336), "JEMBATAN UTAMA", font("BarlowCondensed-Bold.ttf", 112), (244, 230, 196), shadow=(58, 38, 22))
-    out = grime(img, [(0, 0, 1024, 160), (0, 176, 1024, 336)], 5)
+    # DERMAGA (0,352)-(1024,512): clean-river teal board + boarding hint (Ivan: [E] at a Dermaga)
+    d.rectangle((0, 352, 1024, 512), fill=(16, 62, 70))
+    d.rectangle((8, 360, 1016, 504), fill=(27, 107, 99))                 # DESIGN clean teal #1B6B63
+    text_center(d, (8, 356, 1016, 460), "DERMAGA", font("BarlowCondensed-Bold.ttf", 104), (250, 250, 246), shadow=(16, 62, 70))
+    text_center(d, (8, 452, 1016, 502), "NAIK & TURUN PERAHU DI SINI  \u2022  TEKAN [E]", font("BarlowCondensed-SemiBold.ttf", 40), HAZ_YELLOW)
+    out = grime(img, [(0, 0, 1024, 160), (0, 176, 1024, 336), (0, 352, 1024, 512)], 5)
     path = os.path.join(TEX, "T_Env_PapanUmum.png")
     out.save(path, optimize=True)
     return path

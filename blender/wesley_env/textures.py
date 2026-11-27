@@ -219,6 +219,28 @@ def kawat_jaring(seed=111):
     return np.concatenate([np.clip(rgb, 0, 1), wire[..., None].astype(float)], -1)
 
 
+def ponton_hdpe(seed=121):
+    """Floating HDPE dock cubes (marina pontoon, blue): 4 x 4 cubes of 0.5 m per 2 m tile,
+    each with a soft bevelled top, a centre boss and corner lugs; algae grime in the seams."""
+    rng = np.random.default_rng(seed)
+    cell = SIZE // 4
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    lx, ly = (xx % cell) - cell / 2, (yy % cell) - cell / 2
+    edge = np.maximum(np.abs(lx), np.abs(ly)) / (cell / 2)          # 0 centre .. 1 seam
+    lum = 0.78 + 0.22 * np.clip((0.97 - edge) / 0.25, 0, 1)         # bevel toward the seam
+    lum = np.where(edge > 0.95, 0.35, lum)                          # dark seam
+    boss = np.hypot(lx, ly) < cell * 0.14
+    lum = np.where(boss, lum * 1.12, lum)
+    for cx, cy in ((-1, -1), (-1, 1), (1, -1), (1, 1)):             # corner lugs
+        lug = np.hypot(lx - cx * cell * 0.38, ly - cy * cell * 0.38) < cell * 0.055
+        lum = np.where(lug, lum * 0.8, lum)
+    lum = lum * (0.94 + (_fbm(rng, SIZE, 8, 3) - 0.5) * 0.12)
+    blue = np.stack([0.16 * lum, 0.40 * lum, 0.78 * lum], -1)
+    algae = np.clip((edge - 0.82) * 5, 0, 1) * np.clip(_fbm(rng, SIZE, 4, 4) * 1.4 - 0.35, 0, 1)
+    m = algae[..., None] * 0.7
+    return np.clip(blue * (1 - m) + np.array([0.20, 0.26, 0.14]) * m, 0, 1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -231,6 +253,7 @@ GENERATORS = {
     "T_Env_TrashPalette": trash_palette,
     "T_Env_SengGelombang": seng_gelombang,
     "T_Env_KawatJaring": kawat_jaring,
+    "T_Env_PontonHDPE": ponton_hdpe,
 }
 
 
