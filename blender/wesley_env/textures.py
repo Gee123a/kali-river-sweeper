@@ -140,6 +140,35 @@ def trash_plastik(seed=61):
     return _clutter(seed, 280, pal, [3, 2, 2, 3, 1, 1, 1, 2], 0.25, 0.55)
 
 
+def kayu_lapuk(seed=71):
+    """Weathered teak/plank grain (light, tinted per material); grain runs along V."""
+    rng = np.random.default_rng(seed)
+    u = np.arange(SIZE)[None, :] / SIZE
+    warp = (_fbm(rng, SIZE, 3, 4) - 0.5) * 0.08
+    rings = np.sin((u + warp) * 2 * np.pi * 22) * 0.5 + 0.5
+    fine = _fbm(rng, SIZE, 16, 3)
+    lum = 0.78 + (rings - 0.5) * 0.14 + (fine - 0.5) * 0.12
+    dry = np.clip((_fbm(rng, SIZE, 4, 5) - 0.55) * 3.0, 0, 1)          # sun-bleached / damp patches
+    lum = lum * (1 - 0.18 * dry)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    for _ in range(3):                                                  # knots
+        cx, cy, r = rng.integers(0, SIZE, 2).tolist() + [rng.integers(8, 16)]
+        dx = np.minimum(np.abs(xx - cx), SIZE - np.abs(xx - cx))
+        dy = np.minimum(np.abs(yy - cy), SIZE - np.abs(yy - cy))
+        lum -= np.clip(1 - np.sqrt((dx * 1.6) ** 2 + dy ** 2) / r, 0, 1) * 0.35
+    return np.clip(np.stack([lum, lum * 0.97, lum * 0.92], -1), 0, 1)
+
+
+def tali(seed=81):
+    """Twisted rope fibres (diagonal strands)."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE] / SIZE
+    strands = np.sin((xx + yy) * 2 * np.pi * 16) * 0.5 + 0.5
+    fibres = _fbm(rng, SIZE, 32, 2)
+    lum = 0.70 + (strands - 0.5) * 0.30 + (fibres - 0.5) * 0.15
+    return np.clip(np.stack([lum, lum * 0.95, lum * 0.85], -1), 0, 1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -147,6 +176,8 @@ GENERATORS = {
     "T_Trash_Lumpur": trash_lumpur,
     "T_Trash_KasurMedis": trash_kasur_medis,
     "T_Trash_Plastik": trash_plastik,
+    "T_Env_Kayu": kayu_lapuk,
+    "T_Env_Tali": tali,
 }
 
 
