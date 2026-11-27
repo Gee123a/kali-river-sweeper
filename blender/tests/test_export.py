@@ -203,7 +203,7 @@ def test_build_all_stages():
         if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "STAGES" for t in node.targets):
             stages = ast.literal_eval(node.value)
     assert stages is not None, "build_all.py has no STAGES list"
-    assert stages == ["excavator", "tools", "trash", "products"], stages
+    assert stages == ["excavator", "tools", "trash", "products", "equipment"], stages
     from kali_blender import trash_common as trc  # noqa: F401  (imports cleanly)
     assert trc.MATERIAL_NAME == "M_Trash_Atlas", trc.MATERIAL_NAME
     from kali_blender import products_common as pc

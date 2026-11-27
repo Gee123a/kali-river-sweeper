@@ -109,6 +109,8 @@ def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_",
     centre = (lo + hi) / 2
     if pivot == "base":
         centre.z = lo.z            # standing prop: origin at the middle of its footprint, on the ground
+    elif pivot == "floor":
+        centre = Vector((0.0, 0.0, lo.z))   # origin on the floor plane at a named point (post base, spin axis)
     if centre.length > PIVOT_TOLERANCE:
         issues.append(f"origin not at bbox {pivot} (offset {tuple(round(c, 3) for c in centre)})")
     size = max(hi - lo)

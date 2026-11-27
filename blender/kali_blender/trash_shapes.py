@@ -178,6 +178,18 @@ def pillow(geo, W, H, xf, zf, depth, open_edges=(), tear=None, split=None, gusse
     return {"F": F, "B": B, "nx": nx, "nz": nz}
 
 
+def box(geo, key, lo, hi):
+    """Axis-aligned box from corner lo to corner hi (outward normals), in geo.xform space."""
+    (x0, y0, z0), (x1, y1, z1) = lo, hi
+    dx, dy, dz = (x1 - x0, 0, 0), (0, y1 - y0, 0), (0, 0, z1 - z0)
+    grid(geo, key, (x0, y0, z0), dy, dx, 1, 1)               # bottom (-Z)
+    grid(geo, key, (x0, y0, z1), dx, dy, 1, 1)               # top
+    grid(geo, key, (x0, y0, z0), dx, dz, 1, 1)               # front (-Y)
+    grid(geo, key, (x1, y1, z0), (x0 - x1, 0, 0), dz, 1, 1)  # back
+    grid(geo, key, (x0, y1, z0), (0, y0 - y1, 0), dz, 1, 1)  # left (-X)
+    grid(geo, key, (x1, y0, z0), dy, dz, 1, 1)               # right
+
+
 def plateau(x, w):
     """0 at both ends of 0..1, rising smoothly to 1 within w: the flat-topped puff of a full pack."""
     t = min(max(min(x, 1 - x) / w, 0.0), 1.0)

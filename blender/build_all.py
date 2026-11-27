@@ -1,7 +1,7 @@
 """One-command build for the KALI Blender assets (excavator + 20 tools + trash props + clean products).
 
-    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash|products] [--repo ROOT]
-    blender -b --factory-startup -P blender/build_all.py -- [--only excavator|tools|trash|products] [--repo ROOT]
+    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash|products|equipment] [--repo ROOT]
+    blender -b --factory-startup -P blender/build_all.py -- [--only excavator|tools|trash|products|equipment] [--repo ROOT]
     Blender GUI: open this file in the Text Editor (saved, so __file__ is known) and press Run Script.
 
 Outputs (paths relative to the repo root):
@@ -9,6 +9,7 @@ Outputs (paths relative to the repo root):
     tools:     tools_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, tools_common.BLEND_PATH
     trash:     trash_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, trash_common.BLEND_PATH
     products:  products_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, products_common.BLEND_PATH
+    equipment: equipment_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures (+ Emission), equipment_common.BLEND_PATH
     report:    blender/build_report.json (repo-relative paths only)
 Exit code 1 if any asset failed.
 """
@@ -27,10 +28,11 @@ from kali_blender import excavator_spec as S  # noqa: E402
 from kali_blender import tools_common as tc  # noqa: E402
 from kali_blender import trash_common as trc  # noqa: E402
 from kali_blender import products_common as pc  # noqa: E402
+from kali_blender import equipment_common as ec  # noqa: E402
 from kali_blender.export_fbx import export_excavator, export_tool, verify_fbx  # noqa: E402
 
 DEFAULT_ROOT = os.path.dirname(HERE)
-STAGES = ["excavator", "tools", "trash", "products"]
+STAGES = ["excavator", "tools", "trash", "products", "equipment"]
 
 
 def _argv():
@@ -115,6 +117,14 @@ def _pack_config(kind):
             "validate": pc.validate_product, "fbx_dir": pc.FBX_DIR, "tex_dir": pc.TEX_DIR,
             "blend_path": pc.BLEND_PATH, "material": pc.MATERIAL_NAME, "atlas_files": pc.ATLAS_FILES,
             "preview": "Products_Preview",
+        }
+    if kind == "equipment":
+        return {
+            "kind": "equipment", "modules": ec.EQUIPMENT_MODULES, "load": ec.load_equipment_module,
+            "build": lambda mod, coll: ec.build_equipment(mod, collection=coll),
+            "validate": ec.validate_equipment, "fbx_dir": ec.FBX_DIR, "tex_dir": ec.TEX_DIR,
+            "blend_path": ec.BLEND_PATH, "material": ec.MATERIAL_NAME, "atlas_files": ec.ATLAS_FILES,
+            "preview": "Equipment_Preview",
         }
     return {
         "kind": "trash", "modules": trc.TRASH_MODULES, "load": trc.load_trash_module,
@@ -228,6 +238,8 @@ def main():
         build_pack(root, report, "trash")
     if args.only in (None, "products"):
         build_pack(root, report, "products")
+    if args.only in (None, "equipment"):
+        build_pack(root, report, "equipment")
 
     failed = any(a["status"] != "PASS" for a in report["assets"]) or \
         any(at["status"] != "PASS" for at in report["atlases"].values())

@@ -17,6 +17,9 @@ These scripts build the 3D assets for the Unity 2022.3 URP game with Blender 5.3
 - **Produk bersih / clean products** (`SM_Product_*`, 150-400 tris each): the 9 parody brands new and intact, origin on the base.
   One shared atlas material `M_Products_Atlas`. Output: `unity/Assets/_Project/Props/Products/Meshes/`, `Props/Products/Textures/`,
   pack `blender/SM_Products_Pack.blend` (collection `Products_Preview`).
+- **Peralatan lampu / lighting equipment** (`SM_Prop_*`, 150-400 tris each): warung roof lantern, Pintu Air warning beacon
+  and its spinning rotor, clean, origin on the mount. Atlas `M_Equipment_Atlas` (+ Emission map). Output:
+  `unity/Assets/_Project/Props/Equipment/Meshes/`, `Props/Equipment/Textures/`, pack `blender/SM_Equipment_Pack.blend`.
 - **Report**: `blender/build_report.json` (status per asset, tri counts, validation issues, repo-relative output paths). Generated, git-ignored.
 
 ### Daftar 20 alat resmi / Official 20 tools (docs/PRD.md section 3)
@@ -75,6 +78,21 @@ Pose = floating pose (print facing up): the spawner only adds a random yaw.
 
 Prefab `PF_Trash_<nama>` dibuat dengan menu Unity yang sama (`KALI > JC > Build Trash Prefabs`).
 
+## Peralatan lampu / Lighting equipment (equipment stage)
+Mesh untuk prefab lampu (dibuat oleh `unity/Assets/_Project/Lighting/Editor/KaliLightingBuilder.cs`, menu
+`KALI > Lighting > Build All Lighting Assets`). Meshes for the lighting prefabs; see `unity/Assets/_Project/Lighting/README.md`.
+- Modul / modules: `kali_blender/equipment/` (`EQUIPMENT_MODULES` in `equipment_common.py`). Bersih (tanpa kotoran).
+- Material `M_Equipment_Atlas`, atlas `T_Equipment_Atlas_{Albedo,Normal,Mask,Emission}.png` 2048. Swatch palet dengan nilai
+  ke-4 `True` (bohlam, lensa) putih di peta Emission; Unity mewarnainya lewat `_EmissionColor`.
+- **Pivot = titik pasang di lantai** (origin di dasar tiang / pelat / poros): importer menaruh origin prefab di atap.
+  Origin = mount point on the floor plane; the importer drops the prefab origin on the roof top.
+
+| Mesh | Benda / Object | Ukuran / Size (m) | Tris |
+|---|---|---|---|
+| `SM_Prop_LanternWarung` | Lampu warung: balok kaki, tiang bambu, lengan + penyangga, kap enamel hijau, bohlam (lampu 0.28 m ke depan, +Z Unity) | 0.16 x 0.42 x 0.56 | 306 |
+| `SM_Prop_WarningBeacon` | Lampu rotator Pintu Air: pelat, rumah, kubah lensa amber, 4 batang pelindung | 0.16 x 0.16 x 0.21 | 214 |
+| `SM_Prop_BeaconRotor` | Rotor: poros, hub motor, 2 reflektor krom saling membelakangi (origin = dasar poros) | 0.07 x 0.05 x 0.10 | 236 |
+
 ## Produk bersih / Clean products (products stage)
 Versi BARU dan utuh dari 9 barang yang sama (merek parodi yang sama): segel rapat, penuh, label bersih
 (`labels.render_label(..., dirty=False)`), tanpa kusut/sobek/penyok. Untuk toko / item dunia, bukan sampah mengapung.
@@ -124,6 +142,7 @@ Build all (Blender headless):
 ```
 blender -b --factory-startup -P blender/build_all.py -- --only trash
 blender -b --factory-startup -P blender/build_all.py -- --only products
+blender -b --factory-startup -P blender/build_all.py -- --only equipment
 ```
 `--factory-startup` dianjurkan: add-on pengguna (mis. ekstensi MCP) bisa membuat Blender crash saat build headless.
 Recommended: a user add-on thread (e.g. an MCP extension) can crash headless builds (seen on Blender 5.2.1).
@@ -191,6 +210,7 @@ Before export, all transforms are applied. `verify_fbx` re-imports the file, che
 - `kali_blender/tools/`, `kali_blender/trash/`: modul per aset / one module per asset.
 - `kali_blender/labels.py`, `kali_blender/trash_shapes.py`: label merek prosedural dan builder bentuk sampah / procedural brand labels and trash shape builders.
 - `kali_blender/products_common.py`, `kali_blender/products/`: produk bersih (stage `products`) / clean product props.
+- `kali_blender/equipment_common.py`, `kali_blender/equipment/`: peralatan lampu (stage `equipment`) / lighting equipment meshes.
 - `tools_check.py`: cek dan render tool satu per satu / check and render tools one at a time.
 - `tests/test_export.py`: tes ekspor dengan stand-in / export tests with stand-ins.
 
