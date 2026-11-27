@@ -92,7 +92,7 @@ namespace KaliRiverSweeper.Core
                     float targetCenterX = (RiverMath.RiverCenterMapX(mapY) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
                     if (gm != null && gm.trashBoomActive && Mathf.Abs(pos.z - trashBoomZ) < 6f)
                     {
-                        // Boom funnels debris toward east Pos Sortir channel edge.
+                        // Boom gathers mid-river debris along east channel edge.
                         targetCenterX += 5.5f;
                     }
                     pos.x = Mathf.Lerp(pos.x, targetCenterX, 0.35f * Time.deltaTime);

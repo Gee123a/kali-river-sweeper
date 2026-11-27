@@ -49,9 +49,15 @@ namespace KaliRiverSweeper.UI
         private RectTransform pinM;
         private RectTransform pinK;
         private RectTransform pinP;
-        private RectTransform pinS;
-        private RectTransform pinT;
+        private RectTransform pinKD;
         private TMP_Text damLabel;
+        private bool nearHub;
+        private DiscardStationType nearbyStation;
+        private bool nearbyIsKopdes;
+        private string nearbyHubName = string.Empty;
+        private bool nearDermaga;
+        private bool nearbyDermagaInBoat;
+        private string nearbyDermagaName = string.Empty;
         private TMP_Text hpValue;
         private TMP_Text siagaLevel;
         private TMP_Text waterMeters;
@@ -98,8 +104,13 @@ namespace KaliRiverSweeper.UI
             pinM = Find<RectTransform>("BR_VellumHydroMap/Pin_M");
             pinK = Find<RectTransform>("BR_VellumHydroMap/Pin_K");
             pinP = Find<RectTransform>("BR_VellumHydroMap/Pin_P");
-            pinS = Find<RectTransform>("BR_VellumHydroMap/Pin_S");
-            pinT = Find<RectTransform>("BR_VellumHydroMap/Pin_T");
+            pinKD = Find<RectTransform>("BR_VellumHydroMap/Pin_KD") ?? Find<RectTransform>("BR_VellumHydroMap/Pin_T");
+            GameObject legacyPinS = FindGo("BR_VellumHydroMap/Pin_S");
+            if (legacyPinS != null) legacyPinS.SetActive(false);
+            GameObject legacySwatchS = FindGo("BR_VellumHydroMap/Legend/Swatch_S");
+            if (legacySwatchS != null) legacySwatchS.SetActive(false);
+            GameObject legacyLabelS = FindGo("BR_VellumHydroMap/Legend/Label_S");
+            if (legacyLabelS != null) legacyLabelS.SetActive(false);
 
             hpValue = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_HP/TMP_HPValue");
             siagaLevel = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_SiagaLevel");
@@ -167,6 +178,7 @@ namespace KaliRiverSweeper.UI
             if (player != null)
             {
                 player.OnNearbyHubChanged -= HandleNearbyHubChanged;
+                player.OnNearbyDermagaChanged -= HandleNearbyDermagaChanged;
                 player = null;
             }
         }
@@ -207,6 +219,16 @@ namespace KaliRiverSweeper.UI
             if (player == null) return;
 
             player.OnNearbyHubChanged += HandleNearbyHubChanged;
+            player.OnNearbyDermagaChanged += HandleNearbyDermagaChanged;
+
+            nearHub = player.HasNearbyHub;
+            nearbyStation = player.NearbyStationType;
+            nearbyIsKopdes = player.NearbyIsKopdes;
+            nearbyHubName = player.NearbyHubName ?? string.Empty;
+            nearDermaga = player.HasNearbyDermaga;
+            nearbyDermagaInBoat = player.NearbyDermagaIsInBoat;
+            nearbyDermagaName = player.NearbyDermagaName ?? string.Empty;
+            UpdateDockSheet();
         }
 
         private void HandleWeatherChanged(bool isMonsoonStorm)
@@ -219,42 +241,89 @@ namespace KaliRiverSweeper.UI
             Refresh();
         }
 
-        // Shows the dock sheet only while the player is inside a hub trigger.
-        private void HandleNearbyHubChanged(bool near, DiscardStationType station, bool isPosSortir, bool isTokoAlat, string hubName)
+        // Shows the dock sheet only while the player is inside a hub or Dermaga port trigger.
+        private void HandleNearbyHubChanged(bool near, DiscardStationType station, bool isKopdes, string hubName)
         {
-            SetDockVisible(near);
-            if (!near) return;
+            nearHub = near;
+            nearbyStation = station;
+            nearbyIsKopdes = isKopdes;
+            nearbyHubName = hubName ?? string.Empty;
+            UpdateDockSheet();
+        }
 
-            bool isGudang = station == DiscardStationType.GudangPengepul;
-            // Toko Alat is a shop, not a discard hub, so it shows no discard keys.
-            bool isShop = isTokoAlat;
-            if (isShop)
-            {
-                SetText(dockHeader, "TOKO: " + (hubName ?? string.Empty).ToUpper(Invariant));
-                SetText(dockAccepted, "Belanja alat, bukan setor sampah");
-            }
-            else
-            {
-                SetText(dockHeader, "STASIUN: " + (hubName ?? string.Empty).ToUpper(Invariant) + " (" + StationLetter(station) + ")");
-                SetText(dockAccepted, AcceptedLabel(station));
-            }
+        private void HandleNearbyDermagaChanged(bool near, bool isInBoat, string dermagaName)
+        {
+            nearDermaga = near;
+            nearbyDermagaInBoat = isInBoat;
+            nearbyDermagaName = dermagaName ?? string.Empty;
+            UpdateDockSheet();
+        }
 
-            for (int i = 0; i < 4; i++)
+        private void UpdateDockSheet()
+        {
+            if (nearHub)
             {
-                bool legal = !isShop && IsLegalKey(station, i);
-                bool neutral = i == 3 || isGudang || isShop;
-                bool denda = !neutral && !legal;
-
-                if (keyBg[i] != null) keyBg[i].color = legal ? Zone0 : Color.clear;
-                if (keyCrossHatch[i] != null) keyCrossHatch[i].SetActive(denda);
-                if (keyLabel[i] != null)
+                SetDockVisible(true);
+                bool isGudang = nearbyStation == DiscardStationType.GudangPengepul;
+                bool isShop = nearbyIsKopdes;
+                if (isShop)
                 {
-                    keyLabel[i].color = legal ? Vellum : Ink;
-                    string label = KeyBaseLabels[i];
-                    if (i == 3 && isGudang) label = "[E] JUAL SEMUA\n<size=70%>(MURAH \u00B7 TURUN WARGA)</size>";
-                    keyLabel[i].text = denda ? label + "\n<size=70%><color=#F43F5E>DENDA</color></size>" : label;
+                    SetText(dockHeader, "KOPERASI DESA: " + nearbyHubName.ToUpper(Invariant));
+                    SetText(dockAccepted, "Upgrade kapal, tempat sampah kampung & peralatan");
                 }
+                else
+                {
+                    SetText(dockHeader, "STASIUN: " + nearbyHubName.ToUpper(Invariant) + " (" + StationLetter(nearbyStation) + ")");
+                    SetText(dockAccepted, AcceptedLabel(nearbyStation));
+                }
+
+                for (int i = 0; i < 4; i++)
+                {
+                    if (keyBg[i] != null) keyBg[i].gameObject.SetActive(!isShop || i == 3);
+                    if (isShop && i < 3) continue;
+
+                    bool legal = isShop ? (i == 3) : IsLegalKey(nearbyStation, i);
+                    bool neutral = i == 3 || isGudang || isShop;
+                    bool denda = !neutral && !legal;
+
+                    if (keyBg[i] != null) keyBg[i].color = legal ? Zone0 : Color.clear;
+                    if (keyCrossHatch[i] != null) keyCrossHatch[i].SetActive(denda);
+                    if (keyLabel[i] != null)
+                    {
+                        keyLabel[i].color = legal ? Vellum : Ink;
+                        string label = KeyBaseLabels[i];
+                        if (isShop && i == 3) label = "[E] BUKA KOPDES";
+                        else if (i == 3 && isGudang) label = "[E] JUAL SEMUA\n<size=70%>(MURAH \u00B7 TURUN WARGA)</size>";
+                        keyLabel[i].text = denda ? label + "\n<size=70%><color=#F43F5E>DENDA</color></size>" : label;
+                    }
+                }
+                return;
             }
+
+            if (nearDermaga)
+            {
+                SetDockVisible(true);
+                SetText(dockHeader, "DERMAGA: " + nearbyDermagaName.ToUpper(Invariant));
+                SetText(dockAccepted, nearbyDermagaInBoat
+                    ? "Pelabuhan sungai — tekan [E] untuk naik ke darat"
+                    : "Pelabuhan sungai — tekan [E] untuk turun ke sungai & naik perahu");
+
+                for (int i = 0; i < 4; i++)
+                {
+                    if (keyBg[i] != null) keyBg[i].gameObject.SetActive(i == 3);
+                    if (i < 3) continue;
+                    if (keyBg[i] != null) keyBg[i].color = Zone0;
+                    if (keyCrossHatch[i] != null) keyCrossHatch[i].SetActive(false);
+                    if (keyLabel[i] != null)
+                    {
+                        keyLabel[i].color = Vellum;
+                        keyLabel[i].text = nearbyDermagaInBoat ? "[E] NAIK KE DARAT" : "[E] TURUN KE SUNGAI";
+                    }
+                }
+                return;
+            }
+
+            SetDockVisible(false);
         }
 
         // Key 0 is Normal at Bank Sampah, key 1 is Medis B3 at Pos Medis B3, key 2 is Biohazard at Karantina.
@@ -336,8 +405,7 @@ namespace KaliRiverSweeper.UI
             HudMapLayout.PlaceAt(pinM, MapToUi(HudMapLayout.MedisB3Pin));
             HudMapLayout.PlaceAt(pinK, MapToUi(HudMapLayout.KarantinaPin));
             HudMapLayout.PlaceAt(pinP, MapToUi(HudMapLayout.PengepulPin));
-            HudMapLayout.PlaceAt(pinS, MapToUi(HudMapLayout.PosSortirPin));
-            HudMapLayout.PlaceAt(pinT, MapToUi(HudMapLayout.TokoAlatPin));
+            HudMapLayout.PlaceAt(pinKD, MapToUi(HudMapLayout.KopdesPin));
 
             Vector2 dam = MapToUi(HudMapLayout.DamPoint());
             HudMapLayout.PlaceAt(damMarker, dam);

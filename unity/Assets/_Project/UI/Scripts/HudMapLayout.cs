@@ -14,8 +14,7 @@ namespace KaliRiverSweeper.UI
         public static readonly Vector2 MedisB3Pin = new Vector2(261f, 749f);
         public static readonly Vector2 KarantinaPin = new Vector2(803f, 505f);
         public static readonly Vector2 PengepulPin = new Vector2(319f, 1307f);
-        public static readonly Vector2 PosSortirPin = new Vector2(783f, 649f);
-        public static readonly Vector2 TokoAlatPin = new Vector2(234f, 1113f);
+        public static readonly Vector2 KopdesPin = new Vector2(234f, 1113f);
 
         // Upstream Gunung Sampah basin (Puncak Gunung Sampah at y = 150..325).
         public const float DamChokeY = 237.5f;

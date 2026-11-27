@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KALI HUD Reference: Lembar Kalkir Zona Cahaya</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --z0: #111211;
+    --z1: #1E1F1D;
+    --z2: #2F312E;
+    --z4: #54534E;
+    --z6: #8E8C84;
+    --z8: #DCDAD2;
+    --z9: #EAE7DF;
+    --zx: rgba(244, 242, 236, 0.92);
+    --zx-solid: #F4F2EC;
+    --magenta: #B50E6F;
+    --magenta-line: #E11D8F;
+    --magenta-soft: rgba(225, 29, 143, 0.14);
+    --teal: #1B8A7A;
+    --teal-ink: #0F665A;
+    --amber: #B45309;
+    --normal-c: #15803D;
+    --medis-c: #A14A06;
+    --bio-c: #B50E6F;
+    --tape: rgba(255, 253, 245, 0.62);
+    --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #141514;
+    font-family: var(--font-display);
+    color: var(--z1);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Full-bleed responsive stage (1920x1080 or 1280x720) */
+  .stage {
+    position: relative; width: 100vw; height: 100vh; overflow: hidden;
+    background: #fbd1a8 url('../.impeccable/mocks/decision/clean-sunrise-bg.png') center/cover no-repeat;
+  }
+
+  /* Monsoon Act 3 overcast sky + rain veil when in crisis mode */
+  body.state-crisis .stage::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(22, 34, 46, 0.66) 0%, rgba(28, 43, 54, 0.42) 48%, rgba(16, 26, 34, 0.56) 100%),
+      repeating-linear-gradient(108deg, rgba(220, 236, 245, 0.08) 0 1px, transparent 1px 28px);
+    z-index: 1;
+  }
+
+  .hud-layer {
+    position: absolute; inset: 0; z-index: 5; pointer-events: none;
+    padding: clamp(20px, 2.6vh, 34px) clamp(24px, 2.2vw, 38px);
+  }
+
+  /* Backlit Vellum Sheet Base */
+  .vellum {
+    position: relative;
+    background: var(--zx);
+    border: 1px solid rgba(30, 31, 29, 0.52);
+    box-shadow: 0 8px 24px rgba(17, 18, 17, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .vellum::after {
+    /* Delicate masking-tape pin */
+    content: ''; position: absolute; top: -8px; left: 50%; transform: translateX(-50%) rotate(-1.5deg);
+    width: 52px; height: 14px;
+    background: var(--tape);
+    border: 1px solid rgba(30, 31, 29, 0.12);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    pointer-events: none;
+  }
+  .vellum.no-tape::after { display: none; }
+
+  /* 45-degree Load Hatch & 90-degree Conflict Cross-Hatch */
+  .hatch-load {
+    background-image: repeating-linear-gradient(-45deg, rgba(30,31,29,0.72) 0 1.4px, transparent 1.4px 6px);
+  }
+  .hatch-conflict {
+    background-color: var(--magenta-soft);
+    background-image:
+      repeating-linear-gradient(-45deg, rgba(225,29,143,0.42) 0 1.4px, transparent 1.4px 6.5px),
+      repeating-linear-gradient(45deg, rgba(225,29,143,0.42) 0 1.4px, transparent 1.4px 6.5px);
+  }
+
+  .mono { font-family: var(--font-mono); }
+  .caps {
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 0.72vw, 12.5px);
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--z4);
+  }
+
+  /* =========================================================
+     1. TOP-LEFT: SURVIVAL & FLOOD SHEET (HP + SIAGA)
+     ========================================================= */
+  .top-left {
+    position: absolute; top: clamp(20px, 2.6vh, 34px); left: clamp(24px, 2.2vw, 38px);
+    width: clamp(260px, 19.5vw, 342px);
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .tl-sheet {
+    padding: clamp(10px, 1.1vh, 14px) clamp(14px, 1.1vw, 18px);
+  }
+  .hp-row {
+    display: flex; align-items: center; gap: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid rgba(30, 31, 29, 0.24);
+  }
+  .hp-val {
+    font-size: clamp(26px, 2.1vw, 34px); font-weight: 700; line-height: 1; letter-spacing: 0.02em;
+    min-width: 72px;
+  }
+  .hp-val small { font-size: 16px; font-weight: 700; color: var(--z4); margin-right: 5px; }
+  /* 11-Step Zone Ramp HP Bar */
+  .zone-ramp {
+    flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 18px;
+    padding: 2px; border: 1px solid rgba(30, 31, 29, 0.45); background: rgba(255,255,255,0.55);
+  }
+  .zr-cell { height: 100%; background: var(--z8); }
+  .zr-cell.on-1 { background: #2D302D; }
+  .zr-cell.on-2 { background: #3D413D; }
+  .zr-cell.on-3 { background: #4F5450; }
+  .zr-cell.on-4 { background: #626863; }
+  .zr-cell.on-5 { background: #777D78; }
+  .zr-cell.on-6 { background: #8E948E; }
+  .zr-cell.on-7 { background: #A5ABA5; }
+  .zr-cell.danger { background: var(--magenta); }
+
+  .siaga-row {
+    display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px;
+    padding-top: 10px;
+  }
+  .siaga-left {
+    display: flex; align-items: center; gap: 8px;
+    padding-right: 12px; border-right: 1px solid rgba(30, 31, 29, 0.24);
+  }
+  .siaga-num { font-size: clamp(24px, 1.9vw, 31px); font-weight: 700; line-height: 1; letter-spacing: 0.03em; }
+  .filtration-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--amber);
+    box-shadow: 0 0 0 3px rgba(201, 122, 10, 0.22);
+  }
+  body.state-crisis .filtration-dot {
+    background: var(--magenta);
+    box-shadow: 0 0 0 4px rgba(225, 29, 143, 0.28);
+  }
+  .water-gauge { display: flex; flex-direction: column; gap: 4px; }
+  .water-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .water-m { font-family: var(--font-mono); font-size: clamp(18px, 1.35vw, 23px); font-weight: 700; line-height: 1; }
+  body.state-crisis .water-m { color: var(--magenta); }
+  .ruler {
+    position: relative; height: 11px; border-bottom: 1px solid var(--z1);
+    background-image: repeating-linear-gradient(90deg, var(--z1) 0 1px, transparent 1px 7px);
+  }
+  .ruler-needle {
+    position: absolute; bottom: -1px; left: 42%; width: 2.5px; height: 14px; background: var(--amber);
+  }
+  body.state-crisis .ruler-needle { left: 82%; background: var(--magenta); }
+
+  /* =========================================================
+     2. TOP-CENTER: UNIFIED ECOLOGICAL HYDRO-PROFILE RAIL
+     ========================================================= */
+  .top-center {
+    position: absolute; top: clamp(20px, 2.6vh, 34px); left: 50%; transform: translateX(-50%);
+    width: clamp(540px, 43vw, 790px);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .eco-rail {
+    width: 100%; display: grid; grid-template-columns: 1.35fr 1fr auto; align-items: stretch;
+  }
+  .eco-cell {
+    padding: clamp(9px, 1vh, 12px) clamp(14px, 1.2vw, 18px);
+    border-right: 1px solid rgba(30, 31, 29, 0.26);
+    display: flex; flex-direction: column; justify-content: center; gap: 5px;
+  }
+  .eco-cell:last-child { border-right: none; }
+  .eco-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .eco-title { font-size: clamp(16px, 1.15vw, 20px); font-weight: 700; letter-spacing: 0.05em; }
+  .eco-pct { font-family: var(--font-mono); font-size: clamp(15px, 1.05vw, 18px); font-weight: 700; }
+  .eco-track {
+    position: relative; height: 12px; border: 1px solid rgba(30, 31, 29, 0.42);
+    background: rgba(255, 255, 255, 0.65); overflow: hidden;
+  }
+  .eco-fill-gunung {
+    height: 100%; width: 64%; border-right: 2px solid var(--z1);
+  }
+  .eco-fill-clarity {
+    height: 100%; width: 61%; background: var(--teal);
+  }
+  body.state-crisis .eco-fill-gunung { width: 82%; }
+  body.state-crisis .eco-fill-clarity { width: 24%; background: var(--z4); }
+
+  .monsun-cell {
+    min-width: clamp(112px, 8.2vw, 142px); align-items: center; text-align: center;
+    background: rgba(234, 231, 223, 0.55);
+  }
+  body.state-crisis .monsun-cell {
+    background: var(--magenta-soft);
+  }
+  .monsun-clock {
+    font-family: var(--font-mono); font-size: clamp(20px, 1.45vw, 25px); font-weight: 700; line-height: 1.05;
+  }
+  body.state-crisis .monsun-clock { color: var(--magenta); }
+
+  /* CONTEXTUAL ALERT RAIL (ONLY VISIBLE IN CRISIS STATE, NEVER BLOCKS CENTER CROSSHAIR) */
+  .alert-rail {
+    display: none; width: 100%; flex-direction: column; gap: 6px;
+  }
+  body.state-crisis .alert-rail { display: flex; }
+  .alert-strip {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 7px 14px;
+    border: 1.5px solid var(--magenta);
+    box-shadow: 0 6px 16px rgba(17, 18, 17, 0.24);
+  }
+  .alert-clear {
+    background: var(--zx-solid); padding: 2px 10px;
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid rgba(30,31,29,0.28);
+  }
+  .alert-tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    background: var(--magenta); color: #FFFFFF; padding: 2px 7px;
+  }
+  .alert-msg { font-size: clamp(15px, 1.05vw, 18px); font-weight: 700; letter-spacing: 0.03em; color: var(--z0); }
+  .alert-timer { font-family: var(--font-mono); font-size: clamp(15px, 1.05vw, 18px); font-weight: 700; color: var(--magenta); }
+  .key-inv {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    background: var(--z0); color: #FFFFFF; padding: 2px 7px; margin: 0 4px;
+  }
+
+  /* =========================================================
+     3. TOP-RIGHT: ECONOMY & 3-CLASS CARGO LEDGER
+     ========================================================= */
+  .top-right {
+    position: absolute; top: clamp(20px, 2.6vh, 34px); right: clamp(24px, 2.2vw, 38px);
+    width: clamp(256px, 18.8vw, 326px);
+  }
+  .tr-sheet { padding: clamp(10px, 1.1vh, 14px) clamp(14px, 1.1vw, 18px); }
+  .cash-block {
+    padding-bottom: 9px; border-bottom: 1px solid rgba(30, 31, 29, 0.28);
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .cash-num {
+    font-size: clamp(26px, 2.1vw, 35px); font-weight: 700; line-height: 1; letter-spacing: 0.01em;
+    color: var(--z0);
+  }
+  .cargo-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 0 6px;
+  }
+  .cargo-cap { font-family: var(--font-mono); font-size: clamp(16px, 1.15vw, 19px); font-weight: 700; }
+  .cargo-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    padding-bottom: 9px; border-bottom: 1px solid rgba(30, 31, 29, 0.24);
+  }
+  .cargo-slot {
+    background: rgba(255, 255, 255, 0.74); border: 1px solid rgba(30, 31, 29, 0.28);
+    padding: 7px 8px; display: flex; flex-direction: column; gap: 3px;
+    border-top-width: 3px;
+  }
+  .slot-normal { border-top-color: var(--normal-c); }
+  .slot-medis { border-top-color: var(--medis-c); }
+  .slot-bio { border-top-color: var(--bio-c); }
+  .cargo-slot span { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--z4); }
+  .cargo-slot strong { font-family: var(--font-mono); font-size: clamp(16px, 1.15vw, 19px); font-weight: 700; color: var(--z0); }
+
+  .warga-row {
+    padding-top: 8px; display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .warga-val { font-family: var(--font-mono); font-size: clamp(18px, 1.25vw, 22px); font-weight: 700; color: var(--z0); }
+
+  /* =========================================================
+     4. CENTER PRECISION CROSSHAIR
+     ========================================================= */
+  .crosshair {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 24px; height: 24px;
+  }
+  .ch-h, .ch-v { position: absolute; background: var(--z0); box-shadow: 0 0 0 1px rgba(244,242,236,0.85); }
+  .ch-h { top: 11px; left: 0; width: 7px; height: 2px; }
+  .ch-h.r { left: auto; right: 0; }
+  .ch-v { left: 11px; top: 0; width: 2px; height: 7px; }
+  .ch-v.b { top: auto; bottom: 0; }
+  .ch-dot {
+    position: absolute; top: 10px; left: 10px; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--z0); box-shadow: 0 0 0 1.5px rgba(244,242,236,0.92);
+  }
+
+  /* =========================================================
+     5. CONTEXTUAL AUTO-UNLOCK TOAST (TRANSIENT, CRISIS DEMO ONLY)
+     ========================================================= */
+  .unlock-toast {
+    display: none;
+    position: absolute; left: clamp(24px, 2.2vw, 38px); top: clamp(162px, 17.5vh, 198px);
+    width: clamp(260px, 19.5vw, 342px);
+    padding: 8px 14px;
+    border-left: 4px solid var(--teal);
+  }
+  body.state-crisis .unlock-toast { display: flex; justify-content: space-between; align-items: center; }
+  .unlock-toast strong { font-size: clamp(16px, 1.15vw, 19px); font-weight: 700; letter-spacing: 0.03em; }
+
+  /* =========================================================
+     6. BOTTOM-CENTER: EMPTY BY DEFAULT (CONTEXTUAL STATION DOCK ONLY)
+     ========================================================= */
+  .station-dock {
+    display: none;
+    position: absolute; bottom: clamp(24px, 2.8vh, 36px); left: 50%; transform: translateX(-50%);
+    width: clamp(500px, 38vw, 660px);
+    padding: 10px 14px 12px;
+  }
+  body.state-crisis .station-dock,
+  body.state-dock .station-dock { display: block; }
+  .dock-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(30,31,29,0.28);
+  }
+  .dock-title { font-size: clamp(18px, 1.25vw, 22px); font-weight: 700; letter-spacing: 0.06em; }
+  .dock-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .dkey {
+    padding: 7px 9px; border: 1px solid rgba(30,31,29,0.42); background: rgba(255,255,255,0.72);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .dkey.primary { background: var(--z0); color: #FFFFFF; border-color: var(--z0); }
+  .dkey.primary .dk-sub { color: #7EE3D3; }
+  .dkey.conflict { border: 1.5px solid var(--magenta); }
+  .dk-top { display: flex; align-items: center; gap: 6px; font-size: clamp(15px, 1.05vw, 18px); font-weight: 700; }
+  .dk-kbd {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    padding: 1px 5px; border: 1px solid currentColor;
+  }
+  .dk-sub { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--z4); }
+  .dkey.conflict .dk-clear {
+    background: var(--zx-solid); padding: 6px 8px; border: 1px solid rgba(181,14,111,0.45);
+  }
+  .dkey.conflict .dk-sub { color: var(--magenta); }
+
+  /* =========================================================
+     7. BOTTOM-RIGHT: TILTED BACKLIT TRACING-PAPER CONTOUR MAP
+     ========================================================= */
+  .map-sheet {
+    position: absolute; right: clamp(28px, 2.5vw, 44px); bottom: clamp(24px, 2.8vh, 38px);
+    width: clamp(252px, 21.5vw, 372px); height: clamp(186px, 25vh, 276px);
+    transform: rotate(-2.5deg);
+    background: rgba(244, 242, 236, 0.92);
+    border: 1.2px solid rgba(30, 31, 29, 0.58);
+    box-shadow: 0 14px 30px rgba(17, 18, 17, 0.24), inset 0 1px 0 rgba(255,255,255,0.8);
+    overflow: visible;
+  }
+  .tape-tl, .tape-br {
+    position: absolute; width: 58px; height: 16px; background: var(--tape);
+    border: 1px solid rgba(30,31,29,0.14); z-index: 4;
+  }
+  .tape-tl { top: -6px; left: -14px; transform: rotate(-38deg); }
+  .tape-br { bottom: -6px; right: -14px; transform: rotate(-38deg); }
+
+  /* Interactive Preview Switcher (hidden in screenshot capture unless ?preview=1) */
+  .preview-bar {
+    display: none; position: fixed; bottom: 16px; left: 24px; z-index: 99;
+    gap: 8px; pointer-events: auto;
+  }
+  body.show-preview .preview-bar { display: flex; }
+  .pbtn {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700; cursor: pointer;
+    padding: 8px 14px; background: var(--zx-solid); color: var(--z0);
+    border: 1.5px solid var(--z0); box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .pbtn.active { background: var(--z0); color: #FFFFFF; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hud-layer">
+
+    <!-- 1. TOP-LEFT: SURVIVAL & FLOOD -->
+    <div class="top-left">
+      <div class="vellum tl-sheet">
+        <div class="hp-row">
+          <div class="hp-val"><small>HP</small><span id="v-hp">72</span></div>
+          <div class="zone-ramp" id="hp-ramp">
+            <div class="zr-cell on-1"></div>
+            <div class="zr-cell on-2"></div>
+            <div class="zr-cell on-3"></div>
+            <div class="zr-cell on-4"></div>
+            <div class="zr-cell on-5"></div>
+            <div class="zr-cell on-6"></div>
+            <div class="zr-cell on-7"></div>
+            <div class="zr-cell"></div>
+            <div class="zr-cell"></div>
+            <div class="zr-cell"></div>
+          </div>
+        </div>
+        <div class="siaga-row">
+          <div class="siaga-left">
+            <span class="siaga-num" id="v-siaga">SIAGA 3</span>
+            <span class="filtration-dot"></span>
+          </div>
+          <div class="water-gauge">
+            <div class="water-top">
+              <span class="caps">AIR</span>
+              <span class="water-m" id="v-water">+0.84m</span>
+            </div>
+            <div class="ruler"><div class="ruler-needle"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSIENT TOOL UNLOCK TOAST (ONLY IN CRISIS/DEMO STATE) -->
+    <div class="vellum no-tape unlock-toast">
+      <div>
+        <div class="caps" style="color:var(--teal-ink)">ALAT TERBUKA</div>
+        <strong>#13 GANCO GANDA WINCH+</strong>
+      </div>
+      <span class="mono" style="font-size:12px;font-weight:700;color:var(--teal-ink)">BISA KERUK</span>
+    </div>
+
+    <!-- 2. TOP-CENTER: ECOLOGICAL RAIL + CONTEXTUAL ALERT RAIL -->
+    <div class="top-center">
+      <div class="vellum eco-rail">
+        <div class="eco-cell">
+          <div class="eco-head">
+            <span class="eco-title">GUNUNG SAMPAH</span>
+            <span class="eco-pct" id="v-gunung">64%</span>
+          </div>
+          <div class="eco-track"><div class="eco-fill-gunung hatch-load"></div></div>
+        </div>
+        <div class="eco-cell">
+          <div class="eco-head">
+            <span class="eco-title">KEJERNIHAN</span>
+            <span class="eco-pct" id="v-clarity" style="color:var(--teal-ink)">61%</span>
+          </div>
+          <div class="eco-track"><div class="eco-fill-clarity"></div></div>
+        </div>
+        <div class="eco-cell monsun-cell">
+          <span class="caps" id="v-monsun-lbl">MONSUN</span>
+          <span class="monsun-clock" id="v-monsun">04:37</span>
+        </div>
+      </div>
+
+      <!-- Contextual Alert Rail (Active only when Biohazard DoT / Sell-Lock triggers) -->
+      <div class="alert-rail">
+        <div class="alert-strip hatch-conflict">
+          <div class="alert-clear">
+            <span class="alert-tag">BIOHAZARD</span>
+            <span class="alert-msg">SEGERA KE KARANTINA (K) SEBELUM PAPARAN AKTIF</span>
+          </div>
+          <div class="alert-clear"><span class="alert-timer">00:08</span></div>
+        </div>
+        <div class="alert-strip hatch-conflict">
+          <div class="alert-clear">
+            <span class="alert-tag">JUAL DIKUNCI</span>
+            <span class="alert-msg">AIR >= +1.85m · TEKAN <span class="key-inv">Q</span> BUANG MUATAN DI DATARAN TINGGI</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. TOP-RIGHT: ECONOMY & 3-CLASS CARGO -->
+    <div class="top-right">
+      <div class="vellum tr-sheet">
+        <div class="cash-block">
+          <span class="caps">KAS</span>
+          <span class="cash-num" id="v-cash">Rp 1.250.000</span>
+        </div>
+        <div class="cargo-header">
+          <span class="caps">MUATAN</span>
+          <span class="cargo-cap" id="v-cap">14 / 22</span>
+        </div>
+        <div class="cargo-grid">
+          <div class="cargo-slot slot-normal">
+            <span>NORMAL</span>
+            <strong id="v-c-norm">10</strong>
+          </div>
+          <div class="cargo-slot slot-medis">
+            <span>MEDIS B3</span>
+            <strong id="v-c-med">3</strong>
+          </div>
+          <div class="cargo-slot slot-bio">
+            <span>BIO</span>
+            <strong id="v-c-bio">1</strong>
+          </div>
+        </div>
+        <div class="warga-row">
+          <span class="caps">KEPERCAYAAN WARGA</span>
+          <span class="warga-val" id="v-warga">68</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. CENTER RETICLE -->
+    <div class="crosshair">
+      <div class="ch-h"></div><div class="ch-h r"></div>
+      <div class="ch-v"></div><div class="ch-v b"></div>
+      <div class="ch-dot"></div>
+    </div>
+
+    <!-- 5. CONTEXTUAL STATION DOCK SHEET (HIDDEN IN NORMAL NAVIGATION; BOTTOM STAYS CLEAR) -->
+    <div class="vellum no-tape station-dock">
+      <div class="dock-head">
+        <span class="dock-title">STASIUN: BANK SAMPAH BERKAH (B)</span>
+        <span class="caps">HANYA TERIMA SAMPAH NORMAL</span>
+      </div>
+      <div class="dock-keys">
+        <div class="dkey primary">
+          <div class="dk-top"><span class="dk-kbd">1</span><span>NORMAL</span></div>
+          <div class="dk-sub">+Rp 120.000</div>
+        </div>
+        <div class="dkey conflict hatch-conflict">
+          <div class="dk-clear">
+            <div class="dk-top"><span class="dk-kbd">2</span><span>MEDIS B3</span></div>
+            <div class="dk-sub">DENDA -Rp 25K</div>
+          </div>
+        </div>
+        <div class="dkey conflict hatch-conflict">
+          <div class="dk-clear">
+            <div class="dk-top"><span class="dk-kbd">3</span><span>BIOHAZARD</span></div>
+            <div class="dk-sub">DENDA -Rp 50K</div>
+          </div>
+        </div>
+        <div class="dkey">
+          <div class="dk-top"><span class="dk-kbd">E</span><span>SETOR AMAN</span></div>
+          <div class="dk-sub">NORMAL SAJA</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. BOTTOM-RIGHT: TILTED TRANSLUCENT TRACING-PAPER HYDROGRAPHIC CONTOUR MAP -->
+    <div class="map-sheet">
+      <div class="tape-tl"></div>
+      <div class="tape-br"></div>
+      <svg viewBox="0 0 372 276" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="chokeCross" width="7" height="7" patternUnits="userSpaceOnUse">
+            <path d="M0 7 L7 0 M0 0 L7 7" stroke="#E11D8F" stroke-width="1.25" opacity="0.72"/>
+          </pattern>
+        </defs>
+        <!-- Subtle paper coordinate hairlines -->
+        <g stroke="#1E1F1D" stroke-width="0.6" opacity="0.16">
+          <line x1="0" y1="69" x2="372" y2="69"/>
+          <line x1="0" y1="138" x2="372" y2="138"/>
+          <line x1="0" y1="207" x2="372" y2="207"/>
+          <line x1="93" y1="0" x2="93" y2="276"/>
+          <line x1="186" y1="0" x2="186" y2="276"/>
+          <line x1="279" y1="0" x2="279" y2="276"/>
+        </g>
+
+        <!-- Inner topographic river channel & bathymetric elevation contour lines -->
+        <path d="M52 276 C68 230, 88 205, 118 190 C158 170, 178 148, 172 104 C166 64, 184 30, 198 0 L282 0 C266 36, 250 74, 258 118 C268 170, 232 206, 178 228 C144 242, 128 256, 118 276 Z"
+              fill="#DFDDD4" stroke="#1E1F1D" stroke-width="1.5"/>
+        <!-- Bathymetric contour rings inside channel -->
+        <path d="M74 276 C88 236, 108 214, 136 200 C172 182, 192 156, 186 108 C181 68, 198 34, 212 0"
+              fill="none" stroke="#1E1F1D" stroke-width="0.75" opacity="0.45"/>
+        <path d="M100 276 C112 246, 130 228, 158 214 C198 194, 224 166, 218 114 C213 74, 228 38, 242 0"
+              fill="none" stroke="#1E1F1D" stroke-width="0.75" opacity="0.45"/>
+        <path d="M262 0 C248 36, 234 72, 242 116 C250 164, 218 196, 168 218"
+              fill="none" stroke="#1E1F1D" stroke-width="0.7" stroke-dasharray="4 3" opacity="0.45"/>
+        <!-- Subtle riverbank topography contours -->
+        <path d="M12 184 C48 168, 86 150, 112 112 C132 82, 132 42, 146 0"
+              fill="none" stroke="#1E1F1D" stroke-width="0.7" opacity="0.28"/>
+        <path d="M298 276 C306 232, 326 196, 356 174"
+              fill="none" stroke="#1E1F1D" stroke-width="0.7" opacity="0.28"/>
+
+        <!-- Dichroic Magenta 90-degree Cross-Hatch: Gunung Sampah / Active Debris Choke Zone -->
+        <circle cx="222" cy="76" r="34" fill="url(#chokeCross)" stroke="#E11D8F" stroke-width="1.6"/>
+        <rect x="188" y="99" width="68" height="17" fill="#F4F2EC" stroke="#B50E6F" stroke-width="1"/>
+        <text id="v-map-dam" x="222" y="111" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="11" fill="#B50E6F">DAM 64%</text>
+
+        <!-- Player Sampan Marker + Sightline Wedge -->
+        <g transform="translate(174, 178) rotate(22)">
+          <polygon points="0,-46 -18,-6 18,-6" fill="#1B8A7A" opacity="0.20"/>
+          <polygon points="0,-13 8,10 0,5 -8,10" fill="#111211" stroke="#F4F2EC" stroke-width="1.6" stroke-linejoin="round"/>
+        </g>
+
+        <!-- STRICTLY 4 STAMPED STATION SEALS: B, M, K, P -->
+        <g font-family="IBM Plex Mono, monospace" font-weight="700">
+          <!-- B: Bank Sampah Berkah (Left Bank) -->
+          <circle cx="112" cy="148" r="16" fill="#F4F2EC" stroke="#15803D" stroke-width="1.8"/>
+          <circle cx="112" cy="148" r="12.5" fill="none" stroke="#15803D" stroke-width="0.8" stroke-dasharray="2 2"/>
+          <text x="112" y="153" text-anchor="middle" font-size="13" fill="#15803D">B</text>
+
+          <!-- M: Pos Medis B3 (Right Mid-Bank) -->
+          <circle cx="286" cy="144" r="16" fill="#F4F2EC" stroke="#B45309" stroke-width="1.8"/>
+          <circle cx="286" cy="144" r="12.5" fill="none" stroke="#B45309" stroke-width="0.8" stroke-dasharray="2 2"/>
+          <text x="286" y="149" text-anchor="middle" font-size="13" fill="#B45309">M</text>
+
+          <!-- K: Karantina Biohazard (Upper Left Bank near Dam) -->
+          <circle cx="152" cy="52" r="16" fill="#F4F2EC" stroke="#E11D8F" stroke-width="1.8"/>
+          <circle cx="152" cy="52" r="12.5" fill="none" stroke="#E11D8F" stroke-width="0.8" stroke-dasharray="2 2"/>
+          <text x="152" y="57" text-anchor="middle" font-size="13" fill="#E11D8F">K</text>
+
+          <!-- P: Gudang Pengepul (Lower Right Bank) -->
+          <circle cx="242" cy="232" r="16" fill="#F4F2EC" stroke="#1E1F1D" stroke-width="1.8"/>
+          <circle cx="242" cy="232" r="12.5" fill="none" stroke="#1E1F1D" stroke-width="0.8" stroke-dasharray="2 2"/>
+          <text x="242" y="237" text-anchor="middle" font-size="13" fill="#1E1F1D">P</text>
+        </g>
+
+        <!-- +Z Flow Compass Arrow (Top-Right of Sheet) -->
+        <g transform="translate(336, 46)">
+          <line x1="0" y1="34" x2="0" y2="0" stroke="#1E1F1D" stroke-width="1.6"/>
+          <polygon points="0,-6 -4.5,4 4.5,4" fill="#1E1F1D"/>
+          <text x="0" y="-12" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-weight="700" font-size="12" fill="#1E1F1D">+Z</text>
+        </g>
+
+        <!-- Subtle Sheet Legend Footer -->
+        <rect x="10" y="250" width="104" height="17" fill="#F4F2EC" stroke="#1E1F1D" stroke-width="0.8"/>
+        <text x="16" y="262" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="9" letter-spacing="0.8" fill="#1E1F1D">PETA ALUR · DAS</text>
+      </svg>
+    </div>
+
+  </div>
+</div>
+
+<!-- Optional Interactive Preview Controls (only visible when ?preview=1) -->
+<div class="preview-bar">
+  <button class="pbtn active" onclick="setMode('normal')">1. Golden Pagi (Normal)</button>
+  <button class="pbtn" onclick="setMode('dock')">2. Dock Stasiun (B)</button>
+  <button class="pbtn" onclick="setMode('crisis')">3. Krisis Monsun (Siaga 1)</button>
+</div>
+
+<script>
+function setMode(mode) {
+  document.body.classList.remove('state-crisis', 'state-dock');
+  document.querySelectorAll('.pbtn').forEach((b, i) => {
+    b.classList.toggle('active', (mode === 'normal' && i === 0) || (mode === 'dock' && i === 1) || (mode === 'crisis' && i === 2));
+  });
+  const cells = document.querySelectorAll('#hp-ramp .zr-cell');
+  if (mode === 'crisis') {
+    document.body.classList.add('state-crisis');
+    document.getElementById('v-hp').textContent = '38';
+    document.getElementById('v-siaga').textContent = 'SIAGA 1';
+    document.getElementById('v-water').textContent = '+1.92m';
+    document.getElementById('v-gunung').textContent = '82%';
+    document.getElementById('v-map-dam').textContent = 'DAM 82%';
+    document.getElementById('v-clarity').textContent = '24%';
+    document.getElementById('v-monsun-lbl').textContent = 'BADAI';
+    document.getElementById('v-monsun').textContent = '00:42';
+    document.getElementById('v-cap').textContent = '21 / 22';
+    document.getElementById('v-c-norm').textContent = '14';
+    document.getElementById('v-c-med').textContent = '5';
+    document.getElementById('v-c-bio').textContent = '2';
+    document.getElementById('v-warga').textContent = '54';
+    cells.forEach((c, idx) => {
+      c.className = 'zr-cell' + (idx < 4 ? ' danger' : '');
+    });
+  } else {
+    if (mode === 'dock') document.body.classList.add('state-dock');
+    document.getElementById('v-hp').textContent = '72';
+    document.getElementById('v-siaga').textContent = 'SIAGA 3';
+    document.getElementById('v-water').textContent = '+0.84m';
+    document.getElementById('v-gunung').textContent = '64%';
+    document.getElementById('v-map-dam').textContent = 'DAM 64%';
+    document.getElementById('v-clarity').textContent = '61%';
+    document.getElementById('v-monsun-lbl').textContent = 'MONSUN';
+    document.getElementById('v-monsun').textContent = '04:37';
+    document.getElementById('v-cap').textContent = '14 / 22';
+    document.getElementById('v-c-norm').textContent = '10';
+    document.getElementById('v-c-med').textContent = '3';
+    document.getElementById('v-c-bio').textContent = '1';
+    document.getElementById('v-warga').textContent = '68';
+    cells.forEach((c, idx) => {
+      c.className = 'zr-cell' + (idx < 7 ? ` on-${idx + 1}` : '');
+    });
+  }
+}
+
+const params = new URLSearchParams(window.location.search);
+if (params.get('preview') === '1') document.body.classList.add('show-preview');
+if (params.get('state') === 'crisis') setMode('crisis');
+if (params.get('state') === 'dock') setMode('dock');
+</script>
+</body>
+</html>

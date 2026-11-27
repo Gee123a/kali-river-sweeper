@@ -32,12 +32,13 @@ All scripts, shaders, 3D meshes, colliders, and UI panels must obey these hard-c
    - `RiverGameManager` broadcasts `Shader.SetGlobalFloat("_WaterClarity", waterClarity)` on startup and throttled (`~10 Hz`) `NotifyState()` updates (`0.05f` polluted muddy brown $\rightarrow$ `1.0f` pristine turquoise).
    - **Wesley's `SG_KaliWater`** Shader Graph Blackboard MUST declare a Float property with exact Reference Name **`_WaterClarity`** and scroll dual normals along **`+V`** (`+Z` downstream).
 3. **Collider & Prefab Path Contracts (`KaliPlayerController.cs` & `MapJsonImporter.cs`)**:
-   - **Discard Station & Shop Interaction (`1 / 2 / 3 / E` keys)**:
-     - `"Bank Sampah"` (`Normal` waste) & `"Pos Sortir"` (`Normal` baled bonus) with `Collider`.
+   - **Discard Station, Port & Shop Interaction (`1 / 2 / 3 / E` keys)**:
+     - `"Bank Sampah"` (`Normal` waste) with `Collider`.
      - `"Pos Medis"` / `"Pos Medis B3"` (`Medical` waste) with `Collider`.
      - `"Karantina Biohazard"` (`Biohazard`/Radioactive waste) with `Collider`.
      - `"Gudang Pengepul"` (located near Spawn / `Bank Sampah`; cheap all-in-one bulk collector with Trust penalty on hazardous waste) with `Collider`.
-     - `"Toko Alat"` (vessels, `Kampung Bins`, `Trash Boom`) with `Collider`.
+     - `"Koperasi Desa"` / `"Kopdes"` (vessels, `Kampung Bins`, `Trash Boom`) with `Collider` (`MapJsonImporter` maps legacy `toko_alat` JSON entries to `KoperasiDesa`).
+     - `"Dermaga"` (`Dermaga Awal`, `Dermaga Tengah`) with solid `Collider` — exclusive port for stepping between land and river (`IsInRiver` entry/exit on foot is blocked outside `Jembatan`/`Dermaga`) and `[E]` boat embark/disembark.
      - Wrong-station discards incur Rupiah fines + Trust loss; during `Sell-Lock` (`waterLevelY >= 1.85m`) hubs lock and player presses **`Q`** to dump cargo on high ground.
    - **Dredging Interaction (`Left Click`, camera-aimed nearest target)**:
      - Floating waste prefabs must have a `Collider` + `RiverFlowBuoyancy` + `RiverTrashItem` (`WasteClass`: `Normal`, `Medical`, or `Biohazard`).
@@ -55,7 +56,7 @@ All scripts, shaders, 3D meshes, colliders, and UI panels must obey these hard-c
    - `OnWeatherChanged` (`Action<bool>`): Fires when `isMonsoonStorm` toggles (`VFX_MonsoonRain`, `VolumeProfile_MonsoonStorm`).
    - `OnEndingTriggered` (`Action<GameEnding>`): Fires on `TrueSdgVictory` (`0% Gunung Sampah` OR surviving Monsoon Countdown), `CompromisedOceanFlush`, `FloodFail` (`waterLevelY >= 2.45m`), or `HealthFail` (`playerHealth <= 0`).
    - `OnToolUnlocked` (`Action<ToolDefinition>`), `OnEquippedToolChanged` (`Action<ToolDefinition>`), `OnHazardOrAlert` (`Action<string, bool>`).
-   - Core APIs: `TryPickupWaste(WasteClass, int)`, `DiscardWasteAtStation(DiscardStationType, WasteClass, bool)`, `DiscardAllAtStation(DiscardStationType, bool)`, `DumpCargoOnHighGround()`, `BuyKampungBins()`, `BuyUpgrade(UpgradeTier)`, `SelectTool(int)`, `CycleTool(int)`, `DamageGunungSampah(float)`, `TriggerEmergencyFlush()`, `CompleteCleanBreach()`.
+   - Core APIs: `TryPickupWaste(WasteClass, int)`, `DiscardWasteAtStation(DiscardStationType, WasteClass)`, `DiscardAllAtStation(DiscardStationType)`, `DumpCargoOnHighGround()`, `BuyKampungBins()`, `BuyUpgrade(UpgradeTier)`, `SelectTool(int)`, `CycleTool(int)`, `DamageGunungSampah(float)`, `TriggerEmergencyFlush()`, `CompleteCleanBreach()`.
 
 ---
 
@@ -92,4 +93,5 @@ open -a Safari tools/map-editor.html
 #   F9 + 2   -> Act 2: #10 Capitan Ular + Sampan + Kampung Bins Root-Cause Fix
 #   F9 + 3   -> Act 3: Monsoon Storm + Siaga 1 Flood & Sell-Lock (~+2.09m)
 #   F9 + 4   -> Clean River SDG Victory (waterClarity = 1.00)
+#   Shift+X = Emergency Ocean Flush (Choice C, ends run as CompromisedOceanFlush); R = toggle monsoon (demo only, requires F9 armed)
 ```

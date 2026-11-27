@@ -10,7 +10,7 @@ namespace KaliRiverSweeper.Core
     {
         Galah4m = 1,
         WoodenSampan = 2,
-        TrashBoomAndPosSortir = 3,
+        TrashBoom = 3,
         AmphibiousExcavator = 4
     }
 
@@ -119,12 +119,23 @@ namespace KaliRiverSweeper.Core
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            if (Application.isPlaying) Time.timeScale = 1f;
             monsoonCountdownRemaining = monsoonCountdownSeconds;
             RecalculateWaterMetrics();
             Shader.SetGlobalFloat(WaterClarityId, waterClarity);
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this && Application.isPlaying) Time.timeScale = 1f;
+        }
+
         private void Update()
+        {
+            Tick(Time.deltaTime);
+        }
+
+        private void Tick(float dt)
         {
             HandleDemoHotkeys();
             if (activeEnding != GameEnding.None) return;
@@ -132,7 +143,7 @@ namespace KaliRiverSweeper.Core
             // 1. Monsoon countdown & automatic storm trigger
             if (monsoonCountdownRemaining > 0f)
             {
-                monsoonCountdownRemaining = Mathf.Max(0f, monsoonCountdownRemaining - Time.deltaTime);
+                monsoonCountdownRemaining = Mathf.Max(0f, monsoonCountdownRemaining - dt);
                 if (monsoonCountdownRemaining <= monsoonStormTriggerRemaining && !isMonsoonStorm)
                 {
                     SetWeather(true);
@@ -150,7 +161,7 @@ namespace KaliRiverSweeper.Core
             // 2. Trash Boom passive income & water relief
             if (trashBoomActive)
             {
-                boomTimer += Time.deltaTime;
+                boomTimer += dt;
                 if (boomTimer >= 4f)
                 {
                     boomTimer = 0f;
@@ -164,11 +175,11 @@ namespace KaliRiverSweeper.Core
             // 3. Biohazard cargo Damage Over Time (DoT) & passive safe recovery
             if (biohazardCargo > 0)
             {
-                biohazardExposureTimer += Time.deltaTime;
+                biohazardExposureTimer += dt;
                 if (biohazardExposureTimer >= biohazardGraceSeconds)
                 {
                     float dotRate = Mathf.Min(12f, 2.5f + 1.5f * biohazardCargo);
-                    ApplyPlayerDamage(dotRate * Time.deltaTime, notifyImmediate: false);
+                    ApplyPlayerDamage(dotRate * dt, notifyImmediate: false);
                     if (activeEnding != GameEnding.None) return;
                 }
                 MarkStateDirty();
@@ -177,12 +188,12 @@ namespace KaliRiverSweeper.Core
             {
                 if (biohazardExposureTimer > 0f)
                 {
-                    biohazardExposureTimer = Mathf.Max(0f, biohazardExposureTimer - 3f * Time.deltaTime);
+                    biohazardExposureTimer = Mathf.Max(0f, biohazardExposureTimer - 3f * dt);
                     MarkStateDirty();
                 }
                 if (!IsBankOverflowing && playerHealth < maxPlayerHealth)
                 {
-                    playerHealth = Mathf.Min(maxPlayerHealth, playerHealth + 0.8f * Time.deltaTime);
+                    playerHealth = Mathf.Min(maxPlayerHealth, playerHealth + 0.8f * dt);
                     MarkStateDirty();
                 }
             }
@@ -198,7 +209,7 @@ namespace KaliRiverSweeper.Core
             // 5. Throttled state broadcast (~10 Hz)
             if (stateDirty)
             {
-                notifyThrottleTimer += Time.deltaTime;
+                notifyThrottleTimer += dt;
                 if (notifyThrottleTimer >= NotifyIntervalSeconds)
                 {
                     NotifyState();
@@ -342,7 +353,7 @@ namespace KaliRiverSweeper.Core
         /// Proper station yields full Rupiah & trust; wrong station incurs a Rupiah fine & trust penalty.
         /// Blocked during Sell-Lock.
         /// </summary>
-        public int DiscardWasteAtStation(DiscardStationType station, WasteClass wasteClass, bool sortedAtPosSortir = false)
+        public int DiscardWasteAtStation(DiscardStationType station, WasteClass wasteClass)
         {
             if (activeEnding != GameEnding.None) return 0;
             if (IsSellLocked)
@@ -371,7 +382,7 @@ namespace KaliRiverSweeper.Core
             {
                 int rate = wasteClass switch
                 {
-                    WasteClass.Normal => (sortedAtPosSortir && trashBoomActive) ? 7500 : 4000,
+                    WasteClass.Normal => 4000,
                     WasteClass.Medical => 9000,
                     WasteClass.Biohazard => 14000,
                     _ => 4000
@@ -421,7 +432,7 @@ namespace KaliRiverSweeper.Core
         /// Discards all held waste classes at a station in one action.
         /// At Gudang Pengepul, sells everything cheaply with Trust/SDG penalties for hazardous waste.
         /// </summary>
-        public int DiscardAllAtStation(DiscardStationType station, bool sortedAtPosSortir = false)
+        public int DiscardAllAtStation(DiscardStationType station)
         {
             if (activeEnding != GameEnding.None) return 0;
             if (IsSellLocked)
@@ -437,9 +448,9 @@ namespace KaliRiverSweeper.Core
             }
 
             int net = 0;
-            if (normalCargo > 0) net += DiscardWasteAtStation(station, WasteClass.Normal, sortedAtPosSortir);
-            if (medicalCargo > 0) net += DiscardWasteAtStation(station, WasteClass.Medical, sortedAtPosSortir);
-            if (biohazardCargo > 0) net += DiscardWasteAtStation(station, WasteClass.Biohazard, sortedAtPosSortir);
+            if (normalCargo > 0) net += DiscardWasteAtStation(station, WasteClass.Normal);
+            if (medicalCargo > 0) net += DiscardWasteAtStation(station, WasteClass.Medical);
+            if (biohazardCargo > 0) net += DiscardWasteAtStation(station, WasteClass.Biohazard);
             return net;
         }
 
@@ -537,15 +548,31 @@ namespace KaliRiverSweeper.Core
         // Backwards-compatible legacy Choice A wrappers
         public int DumpAtBurnPit() => SellAllAtPengepul();
 
-        public int SellAtBankSampah(bool sortedAtPosSortir)
+        public int SellAtBankSampah()
         {
-            return DiscardAllAtStation(DiscardStationType.BankSampah, sortedAtPosSortir);
+            return DiscardAllAtStation(DiscardStationType.BankSampah);
         }
+
+        public const int KampungBinsCost = 30000;
+
+        public static int GetUpgradeCost(UpgradeTier tier)
+        {
+            return tier switch
+            {
+                UpgradeTier.Galah4m => 20000,
+                UpgradeTier.WoodenSampan => 40000,
+                UpgradeTier.TrashBoom => 75000,
+                UpgradeTier.AmphibiousExcavator => 120000,
+                _ => 999999
+            };
+        }
+
+        public bool IsToolUnlocked(int index) => index >= 0 && index <= highestUnlockedToolIndex;
 
         public bool BuyKampungBins()
         {
-            if (kampungBinsInstalled || rupiah < 30000) return false;
-            rupiah -= 30000;
+            if (kampungBinsInstalled || rupiah < KampungBinsCost) return false;
+            rupiah -= KampungBinsCost;
             kampungBinsInstalled = true;
             communityTrust = Mathf.Min(100, communityTrust + 25);
             RaiseAlert("Tempat Sampah Kampung terpasang! Sampah desa turun 60%.", false);
@@ -555,14 +582,7 @@ namespace KaliRiverSweeper.Core
 
         public bool BuyUpgrade(UpgradeTier tier)
         {
-            int cost = tier switch
-            {
-                UpgradeTier.Galah4m => 20000,
-                UpgradeTier.WoodenSampan => 40000,
-                UpgradeTier.TrashBoomAndPosSortir => 75000,
-                UpgradeTier.AmphibiousExcavator => 120000,
-                _ => 999999
-            };
+            int cost = GetUpgradeCost(tier);
             if (rupiah < cost) return false;
             rupiah -= cost;
             ApplyTier(tier);
@@ -676,7 +696,7 @@ namespace KaliRiverSweeper.Core
             rupiah = Mathf.Max(rupiah, 250000);
             ApplyTier(UpgradeTier.Galah4m);
             ApplyTier(UpgradeTier.WoodenSampan);
-            ApplyTier(UpgradeTier.TrashBoomAndPosSortir);
+            ApplyTier(UpgradeTier.TrashBoom);
             ApplyTier(UpgradeTier.AmphibiousExcavator);
             NotifyState();
         }
@@ -762,7 +782,7 @@ namespace KaliRiverSweeper.Core
             {
                 case UpgradeTier.Galah4m: galahUnlocked = true; break;
                 case UpgradeTier.WoodenSampan: sampanUnlocked = true; cargoCapacity = Mathf.Max(cargoCapacity, 22); break;
-                case UpgradeTier.TrashBoomAndPosSortir: trashBoomActive = true; break;
+                case UpgradeTier.TrashBoom: trashBoomActive = true; break;
                 case UpgradeTier.AmphibiousExcavator: excavatorUnlocked = true; cargoCapacity = 60; break;
             }
         }
@@ -770,6 +790,12 @@ namespace KaliRiverSweeper.Core
         private void TriggerEnding(GameEnding ending)
         {
             activeEnding = ending;
+            if (Application.isPlaying)
+            {
+                Time.timeScale = 0f;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
             NotifyState();
             OnEndingTriggered?.Invoke(ending);
         }
@@ -868,6 +894,13 @@ namespace KaliRiverSweeper.Core
             bool monsoon)
         {
             activeEnding = GameEnding.None;
+            // Remove live trash so activeRiverTrashCount (decremented in RiverTrashItem.OnDisable) matches the scene
+            foreach (RiverTrashItem item in FindObjectsOfType<RiverTrashItem>())
+            {
+                item.TryUnregister(); // Synchronous: Destroy() defers OnDisable, and isRegistered guards double decrement
+                if (Application.isPlaying) Destroy(item.gameObject); else DestroyImmediate(item.gameObject); // edit-mode QA calls this too
+            }
+            if (Application.isPlaying) Time.timeScale = 1f;
             SetWeather(monsoon);
             playerHealth = maxPlayerHealth;
             normalCargo = 0;

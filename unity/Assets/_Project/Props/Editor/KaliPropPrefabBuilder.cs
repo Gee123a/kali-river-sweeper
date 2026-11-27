@@ -9,8 +9,8 @@ using Object = UnityEngine.Object;
 namespace Kali.Props.EditorTools
 {
     /// <summary>
-    /// Turns JC's FBX meshes (Props/Trash/Meshes, Props/Tools/Meshes, Rigging) into prefabs and builds the
-    /// shared 2048 atlas & URP Lit materials. Editor-only (lives in an Editor folder).
+    /// Turns JC's FBX meshes (Props/Trash/Meshes, Props/Tools/Meshes, Props/Products/Meshes, Rigging) into prefabs
+    /// and builds the shared 2048 atlas & URP Lit materials. Editor-only (lives in an Editor folder).
     /// </summary>
     public static class KaliPropPrefabBuilder
     {
@@ -33,6 +33,13 @@ namespace Kali.Props.EditorTools
         private const string ToolMaterialPath = ToolMaterialFolder + "/M_Tools_Atlas.mat";
         private const string ToolAtlasBaseName = "T_Tools_Atlas";
 
+        private const string ProductMeshFolder = PropsRoot + "/Products/Meshes";
+        private const string ProductPrefabFolder = PropsRoot + "/Products/Prefabs";
+        private const string ProductMaterialFolder = PropsRoot + "/Products/Materials";
+        private const string ProductTextureFolder = PropsRoot + "/Products/Textures";
+        private const string ProductMaterialPath = ProductMaterialFolder + "/M_Products_Atlas.mat";
+        private const string ProductAtlasBaseName = "T_Products_Atlas";
+
         private const string RiggingMeshFolder = RiggingRoot;
         private const string RiggingPrefabFolder = RiggingRoot;
         private const string RiggingMaterialFolder = RiggingRoot + "/Materials";
@@ -45,6 +52,7 @@ namespace Kali.Props.EditorTools
 
         private const string TrashMeshPattern = @"^SM_Trash_(.+)\.fbx$";
         private const string ToolMeshPattern = @"^SM_Tool_(.+)\.fbx$";
+        private const string ProductMeshPattern = @"^SM_Product_(.+)\.fbx$";
 
         private const string UrpLitShader = "Universal Render Pipeline/Lit";
         private const string BuoyancyTypeName = "RiverFlowBuoyancy";
@@ -93,6 +101,20 @@ namespace Kali.Props.EditorTools
             }
         }
 
+        [MenuItem("KALI/JC/Build Product Prefabs")]
+        public static void BuildProductPrefabsMenu()
+        {
+            try
+            {
+                BuildAtlasMaterials();
+                BuildProductPrefabs();
+            }
+            finally
+            {
+                AssetDatabase.SaveAssets();
+            }
+        }
+
         [MenuItem("KALI/JC/Build Atlas Materials")]
         public static void BuildAtlasMaterialsMenu()
         {
@@ -128,6 +150,8 @@ namespace Kali.Props.EditorTools
             int trashFailed = 0;
             int toolBuilt = 0;
             int toolFailed = 0;
+            int productBuilt = 0;
+            int productFailed = 0;
             bool excavatorBuilt = false;
 
             try
@@ -143,6 +167,10 @@ namespace Kali.Props.EditorTools
                 BuildPrefabsFromFolder(ToolMeshFolder, ToolMeshPattern, ToolPrefabFolder, "PF_Tool_",
                     LoadToolMaterial(), BuildToolPrefab, out toolBuilt, out toolFailed);
 
+                // 2b. Product prefabs (clean shop / world items).
+                BuildPrefabsFromFolder(ProductMeshFolder, ProductMeshPattern, ProductPrefabFolder, "PF_Product_",
+                    LoadProductMaterial(), BuildProductPrefab, out productBuilt, out productFailed);
+
                 // 4. Excavator prefab & materials.
                 excavatorBuilt = BuildExcavatorPrefab();
             }
@@ -152,6 +180,7 @@ namespace Kali.Props.EditorTools
                 Debug.Log(LogPrefix + "Build All JC Prefabs summary: atlas materials ok=" + atlasCount
                           + " | trash prefabs built=" + trashBuilt + " failed=" + trashFailed
                           + " | tool prefabs built=" + toolBuilt + " failed=" + toolFailed
+                          + " | product prefabs built=" + productBuilt + " failed=" + productFailed
                           + " | excavator built=" + excavatorBuilt);
             }
         }
@@ -160,19 +189,23 @@ namespace Kali.Props.EditorTools
         // 3. Atlas materials
         // ------------------------------------------------------------------
 
-        /// <summary>Configures the atlas textures and creates/updates both URP Lit atlas materials. Returns materials ok.</summary>
+        /// <summary>Configures the atlas textures and creates/updates the URP Lit atlas materials. Returns materials ok.</summary>
         private static int BuildAtlasMaterials()
         {
             EnsureFolder(TrashTextureFolder);
             EnsureFolder(TrashMaterialFolder);
             EnsureFolder(ToolTextureFolder);
             EnsureFolder(ToolMaterialFolder);
+            EnsureFolder(ProductTextureFolder);
+            EnsureFolder(ProductMaterialFolder);
 
             AssetDatabase.StartAssetEditing();
             try
             {
-                ConfigureAtlasTextures(TrashTextureFolder, TrashAtlasBaseName);
-                ConfigureAtlasTextures(ToolTextureFolder, ToolAtlasBaseName);
+                // Trash atlas carries painted brand labels: smooth filtering + mipmaps so they read at distance.
+                ConfigureAtlasTextures(TrashTextureFolder, TrashAtlasBaseName, smoothAlbedo: true);
+                ConfigureAtlasTextures(ToolTextureFolder, ToolAtlasBaseName, smoothAlbedo: false);
+                ConfigureAtlasTextures(ProductTextureFolder, ProductAtlasBaseName, smoothAlbedo: true);
             }
             finally
             {
@@ -182,17 +215,19 @@ namespace Kali.Props.EditorTools
             int ok = 0;
             if (CreateOrUpdateAtlasMaterial(TrashMaterialPath, TrashTextureFolder, TrashAtlasBaseName)) ok++;
             if (CreateOrUpdateAtlasMaterial(ToolMaterialPath, ToolTextureFolder, ToolAtlasBaseName)) ok++;
+            if (CreateOrUpdateAtlasMaterial(ProductMaterialPath, ProductTextureFolder, ProductAtlasBaseName)) ok++;
 
             AssetDatabase.SaveAssets();
-            Debug.Log(LogPrefix + "Atlas materials ready: " + ok + "/2 (" + TrashMaterialPath + ", " + ToolMaterialPath + ")");
+            Debug.Log(LogPrefix + "Atlas materials ready: " + ok + "/3 (" + TrashMaterialPath + ", " + ToolMaterialPath
+                      + ", " + ProductMaterialPath + ")");
             return ok;
         }
 
-        private static void ConfigureAtlasTextures(string textureFolder, string baseName)
+        private static void ConfigureAtlasTextures(string textureFolder, string baseName, bool smoothAlbedo)
         {
-            // Albedo: sRGB colour, point filter (flat colour swatches).
+            // Albedo: sRGB colour, point filter for flat colour swatches, bilinear + mipmaps for painted labels.
             ConfigureTextureImporter(textureFolder + "/" + baseName + "_Albedo.png",
-                TextureImporterType.Default, true, true);
+                TextureImporterType.Default, true, !smoothAlbedo);
             // Normal: NormalMap import type (linear).
             ConfigureTextureImporter(textureFolder + "/" + baseName + "_Normal.png",
                 TextureImporterType.NormalMap, false, false);
@@ -218,6 +253,12 @@ namespace Kali.Props.EditorTools
                 importer.filterMode = FilterMode.Point;
                 // Atlas swatch colours must not bleed into far mip levels.
                 importer.mipmapEnabled = false;
+            }
+            else if (type == TextureImporterType.Default)
+            {
+                // Reset in case an earlier run imported this texture with point filter / no mipmaps.
+                importer.filterMode = FilterMode.Bilinear;
+                importer.mipmapEnabled = true;
             }
 
             importer.SaveAndReimport();
@@ -445,6 +486,63 @@ namespace Kali.Props.EditorTools
         }
 
         // ------------------------------------------------------------------
+        // 2b. Product prefabs (clean shop / world items: no Rigidbody, no RiverTrashItem)
+        // ------------------------------------------------------------------
+
+        private static Material LoadProductMaterial()
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(ProductMaterialPath);
+            if (mat == null)
+            {
+                Debug.LogWarning(LogPrefix + "Material not found: " + ProductMaterialPath + " (run Build Atlas Materials)");
+            }
+
+            return mat;
+        }
+
+        private static void BuildProductPrefabs()
+        {
+            Material mat = LoadProductMaterial();
+            int built;
+            int failed;
+            BuildPrefabsFromFolder(ProductMeshFolder, ProductMeshPattern, ProductPrefabFolder, "PF_Product_",
+                mat, BuildProductPrefab, out built, out failed);
+        }
+
+        private static bool BuildProductPrefab(MeshEntry entry, string prefabPath, Material mat)
+        {
+            GameObject root = InstantiateUnpacked(entry);
+            if (root == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                ApplyMaterial(root, mat);
+
+                Bounds localBounds;
+                if (!TryGetLocalBounds(root, out localBounds))
+                {
+                    Debug.LogError(LogPrefix + "No mesh bounds found in " + entry.AssetPath);
+                    return false;
+                }
+
+                // Solid, static shop / world item: the mesh origin is its base, so the prefab sits on whatever it is placed on.
+                BoxCollider box = root.AddComponent<BoxCollider>();
+                box.isTrigger = false;
+                box.center = localBounds.center;
+                box.size = localBounds.size;
+
+                return SavePrefab(root, prefabPath);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        // ------------------------------------------------------------------
         // 5. Excavator Prefab & URP Material Support
         // ------------------------------------------------------------------
 
@@ -637,7 +735,9 @@ namespace Kali.Props.EditorTools
             }
 
             PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
-            instance.name = (entry.AssetPath.Contains("SM_Tool_") ? "PF_Tool_" : "PF_Trash_") + entry.Variant;
+            string prefix = entry.AssetPath.Contains("SM_Tool_") ? "PF_Tool_"
+                : entry.AssetPath.Contains("SM_Product_") ? "PF_Product_" : "PF_Trash_";
+            instance.name = prefix + entry.Variant;
             return instance;
         }
 

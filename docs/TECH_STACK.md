@@ -10,7 +10,7 @@
 | **VFX Pipeline** | **Unity VFX Graph & Shuriken** | `com.unity.visualeffectgraph` `14.0.11` | **Niki** |
 | **UI & Typography** | **uGUI + TextMeshPro** | `com.unity.ugui` `1.0.0`, `com.unity.textmeshpro` `3.0.6` | **Niki** |
 | **Camera & Splines** | **Cinemachine & Unity Splines** | `2.10.1` / `2.6.1` | **Ivan** & **Niki** |
-| **Level Data & Tools** | **JSON + Three.js Browser Preview** | `kali-river-map.json` (54 nodes, `+Z` flow), `tools/play-3d.html`, `tools/map-editor.html` | **Ivan** |
+| **Level Data & Tools** | **JSON + Three.js Browser Preview** | `kali-river-map.json` (53 nodes, `+Z` flow), `tools/play-3d.html`, `tools/map-editor.html` | **Ivan** |
 | **Asset Coordination** | **MCP For Unity + Git LFS / `.gitattributes`** | `com.coplaydev.unity-mcp` | **Ivan** |
 
 ---
@@ -34,7 +34,7 @@
 | **20 Scavenging Tools** (`Sendok` to `Garuk Skimmer Hidrolik`) | `300 – 1,200 tris` | Shared `T_Tools_Atlas` `2048×2048` PBR | **JC** |
 | **Vessels & Automation Props** (`Rakit`, `Sampan`, `TrashBoom`) | `500 – 2,500 tris` | `1024×1024` PBR | **JC** |
 | **Hero Rigged Excavator** (`SK_ExcavatorAmfibi`) | `4,000 – 6,000 tris` | 3 Material Slots (`Body`, `Hydraulic_Steel`, `Pontoon_Rubber`) | **JC** |
-| **Modular Kampung Buildings** (`Rumah`, `Warung`, `Bank`, `Toko`, `Pos`) | `600 – 1,800 tris` | `1024×1024`–`2048×2048` PBR + Lightmap UV2 | **Wesley** |
+| **Modular Kampung Buildings** (`Rumah`, `Warung Madura`, `Bank`, `Kopdes`) | `600 – 1,800 tris` | `1024×1024`–`2048×2048` PBR + Lightmap UV2 | **Wesley** |
 | **Major River Structures** (`JembatanUtama`, `PintuAir`, `GunungSampah`) | `1,200 – 4,000 tris` | `2048×2048` PBR (`SG_TrashTriplanar` for mound) | **Wesley** |
 | **River Valley Terrain** (`SM_Env_RiverValleyTerrain`) | `3,000 – 5,000 tris` | Vertex color + tiled mud/grass PBR | **Wesley** |
 

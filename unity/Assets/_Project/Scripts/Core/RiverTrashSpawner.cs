@@ -95,10 +95,39 @@ namespace KaliRiverSweeper.Core
             {
                 go.AddComponent<RiverFlowBuoyancy>();
             }
-            if (go.GetComponent<Collider>() == null)
+            if (go.GetComponentInChildren<Collider>(true) == null)
             {
                 BoxCollider bc = go.AddComponent<BoxCollider>();
-                bc.size = Vector3.one * 0.85f;
+                bool hasBounds = false;
+                Bounds bounds = default;
+                foreach (Renderer r in go.GetComponentsInChildren<Renderer>())
+                {
+                    if (r is ParticleSystemRenderer) continue;
+                    if (!hasBounds)
+                    {
+                        bounds = r.bounds;
+                        hasBounds = true;
+                    }
+                    else
+                    {
+                        bounds.Encapsulate(r.bounds);
+                    }
+                }
+
+                if (hasBounds)
+                {
+                    // ponytail: one combined box from renderer bounds, no per-mesh colliders.
+                    Vector3 ls = go.transform.lossyScale;
+                    bc.center = go.transform.InverseTransformPoint(bounds.center);
+                    bc.size = Vector3.Scale(bounds.size, new Vector3(
+                        1f / Mathf.Max(ls.x, 0.0001f),
+                        1f / Mathf.Max(ls.y, 0.0001f),
+                        1f / Mathf.Max(ls.z, 0.0001f)));
+                }
+                else
+                {
+                    bc.size = Vector3.one * 0.85f;
+                }
             }
 
             return go;

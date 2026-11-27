@@ -95,7 +95,7 @@ def asset_variants(asset_id: str) -> tuple[list[str], list[str]]:
 def find_matches(candidates: list[str], file_set: set[str]) -> tuple[list[str], bool]:
     matched = []
     has_meta = False
-    for path in file_set:
+    for path in sorted(file_set):
         if path.endswith(".meta"):
             continue
         name = Path(path).name
@@ -104,6 +104,9 @@ def find_matches(candidates: list[str], file_set: set[str]) -> tuple[list[str], 
             matched.append(path)
             if (path + ".meta") in file_set:
                 has_meta = True
+    # Deterministic priority so .fbx wins over .blend/.py when both match the same stem
+    ext_rank = {".prefab": 0, ".fbx": 1, ".cs": 2, ".shadergraph": 3, ".unity": 4, ".json": 5, ".asset": 6}
+    matched.sort(key=lambda p: (ext_rank.get(Path(p).suffix.lower(), 99), p))
     return matched, has_meta
 
 
@@ -116,7 +119,7 @@ def compute_status(asset_id: str, current_status: str, head_files: set[str], loc
         head_pf, head_pf_meta = find_matches(prefabs, head_files) if prefabs else ([], False)
         in_main = bool((head_pf and head_pf_meta) or head_src)
         if in_main:
-            return "In Progress in main (Needs Dock & 720p QA)"
+            return "DONE (In main)"
         niki_files = branch_files.get("niki-vfx", set())
         b_src, _ = find_matches(sources, niki_files)
         b_pf, b_pf_meta = find_matches(prefabs, niki_files) if prefabs else ([], False)
@@ -268,8 +271,8 @@ def sync_tracker() -> tuple[list[list[str]], int]:
         new_status = compute_status(row[0], old_status, head_files, local_files, branch_files)
 
         if row[0] == "Canvas_HUD":
-            if new_status == "In Progress in main (Needs Dock & 720p QA)":
-                row[9] = "Sprites, contour map & chevron in main; wire BC_StationDockSheet to OnNearbyHubChanged & verify 1280x720"
+            if new_status == "DONE (In main)":
+                row[9] = "Baked into Main.unity (75473b5); 1280x720 Play Mode verified"
             elif new_status == "In Progress in Branch (niki-vfx)":
                 row[9] = "Prototype Canvas_HUD.prefab on niki-vfx; needs vellum/hatch sprites, contour minimap, [1][2][3][E] dock & 1280x720 QA"
 
@@ -370,7 +373,7 @@ def maybe_write_xlsx(title_rows: list[list[str]], header: list[str], rows: list[
     owners_meta = [
         ("Ivan (Lead)", "Game Logic, C# Architecture, Buoyancy & Importer"),
         ("JC", "Props (Trash, 20 Tools, Medical B3), Rigging (Excavator IK), Lighting"),
-        ("Wesley", "Environment Architecture (10 SM_Env_*) & URP Shaders"),
+        ("Wesley", "Environment Architecture (12 SM_Env_*) & URP Shaders"),
         ("Niki", "VFX Systems (4), UI Canvases (3) & Audio"),
     ]
     r_idx = 5

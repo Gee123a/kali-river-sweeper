@@ -33,7 +33,7 @@ git push
 When the editor loads, you must execute the custom Kali bootstrap menus in exact sequence:
 
 * **Step 1**: Click **`KALI > JC > Build All JC Prefabs`** in the top Unity menu. *(Builds atlas materials, `PF_Tool_*`, `PF_Trash_MedicalBag/SyringeBox`, and `PF_ExcavatorAmfibi` — **Must run FIRST!**)*
-* **Step 2**: Click **`KALI > Load Default Purpose-Built Map`**. *(Spawns the `_KALI_World` 54-node scene with `Player_Rig`, `RiverGameManager`, `RiverTrashSpawner`, and tools pre-wired).*
+* **Step 2**: Click **`KALI > Load Default Purpose-Built Map`**. *(Spawns the `_KALI_World` 53-node scene with `Player_Rig`, `RiverGameManager`, `RiverTrashSpawner`, and tools pre-wired).*
 * **Step 3**: Save your scene under `unity/Assets/_Project/Scenes/`, or press **Play** and hit **`F9`** followed by **`1..4`** to preview all 4 game stages/scenarios instantly.
 
 ---
