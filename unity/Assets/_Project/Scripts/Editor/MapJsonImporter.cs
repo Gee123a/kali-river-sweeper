@@ -552,6 +552,7 @@ namespace KaliRiverSweeper.Editor
             cc.height = 1.8f;
             cc.radius = 0.4f;
             KaliPlayerController ctrl = player.AddComponent<KaliPlayerController>();
+            player.AddComponent<KaliFieldGuideOverlay>();
 
             Camera mainCam = Camera.main;
             if (mainCam == null)

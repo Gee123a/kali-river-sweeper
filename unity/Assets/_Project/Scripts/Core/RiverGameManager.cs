@@ -157,6 +157,7 @@ namespace KaliRiverSweeper.Core
         private int demoJumpConsumedFrame = -1;
         private bool isTrustAuditPenaltyActive;
         private float nextEmergencyTriageTime;
+        private readonly bool[] ownedTools = new bool[21];
         private const float NotifyIntervalSeconds = 0.10f; // ~10 Hz throttle for Update ticks
         private const int MaxVisualBarrierProps = 22;
 
@@ -165,6 +166,7 @@ namespace KaliRiverSweeper.Core
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             if (Application.isPlaying) Time.timeScale = 1f;
+            ownedTools[1] = true;
             monsoonCountdownRemaining = monsoonCountdownSeconds;
             RecalculateWaterMetrics();
             Shader.SetGlobalFloat(WaterClarityId, waterClarity);
@@ -465,12 +467,33 @@ namespace KaliRiverSweeper.Core
                 {
                     return 0;
                 }
-                RaiseAlert($"Tidak ada limbah {legalClass} di kargo untuk {station}.", false);
+
+                string hint = BuildWrongStationHint(station);
+                RaiseAlert(hint, cargoCount > 0);
                 NotifyState();
                 return 0;
             }
 
             return DiscardWasteAtStation(station, legalClass);
+        }
+
+        private string BuildWrongStationHint(DiscardStationType station)
+        {
+            if (cargoCount <= 0) return $"Kargo kosong. Serok sampah di sungai dulu untuk setor ke {station}.";
+
+            string held = string.Empty;
+            if (normalCargo > 0) held += $"{normalCargo} Normal -> Bank Sampah [1]  ";
+            if (medicalCargo > 0) held += $"{medicalCargo} Medis -> Pos Medis B3 [2]  ";
+            if (biohazardCargo > 0) held += $"{biohazardCargo} Biohazard -> Karantina [3]";
+
+            string accepts = station switch
+            {
+                DiscardStationType.BankSampah => "Bank Sampah hanya terima NORMAL [1]",
+                DiscardStationType.PosMedisB3 => "Pos Medis B3 hanya terima MEDIS [2]",
+                DiscardStationType.KarantinaBiohazard => "Karantina hanya terima BIOHAZARD [3]",
+                _ => station.ToString()
+            };
+            return $"{accepts}! Kargo kamu: {held.Trim()} (salah tekan 1/2/3 = DENDA!)";
         }
 
         /// <summary>
@@ -734,6 +757,28 @@ namespace KaliRiverSweeper.Core
 
         public bool IsToolUnlocked(int index) => index >= 1 && index <= highestUnlockedToolIndex;
 
+        public bool IsToolOwned(int index) => index >= 1 && index <= 20 && (index == 1 || ownedTools[index]);
+
+        public bool BuyTool(int toolIndex)
+        {
+            if (toolIndex < 1 || toolIndex > 20 || IsToolOwned(toolIndex)) return false;
+
+            ToolDefinition tool = ToolCatalog.GetTool(toolIndex);
+            int cost = tool.UnlockRupiah;
+            if (rupiah < cost) return false;
+
+            rupiah -= cost;
+            ownedTools[toolIndex] = true;
+            if (toolIndex > highestUnlockedToolIndex) highestUnlockedToolIndex = toolIndex;
+            if (toolIndex >= 6) galahUnlocked = true;
+
+            equippedToolIndex = toolIndex;
+            OnEquippedToolChanged?.Invoke(EquippedTool);
+            RaiseAlert($"Alat #{tool.Index:00} {tool.DisplayName} dibeli & dipakai!", false);
+            NotifyState();
+            return true;
+        }
+
         public bool IsUpgradeOwned(UpgradeTier tier) => tier switch
         {
             UpgradeTier.Galah4m => galahUnlocked,
@@ -774,7 +819,8 @@ namespace KaliRiverSweeper.Core
 
         public bool SelectTool(int toolIndex)
         {
-            int clamped = Mathf.Clamp(toolIndex, 1, highestUnlockedToolIndex);
+            int clamped = Mathf.Clamp(toolIndex, 1, 20);
+            if (!IsToolOwned(clamped)) return false;
             if (clamped == equippedToolIndex) return false;
             equippedToolIndex = clamped;
             OnEquippedToolChanged?.Invoke(EquippedTool);
@@ -784,11 +830,19 @@ namespace KaliRiverSweeper.Core
 
         public void CycleTool(int delta)
         {
-            if (highestUnlockedToolIndex <= 1) return;
-            int next = equippedToolIndex + delta;
-            if (next < 1) next = highestUnlockedToolIndex;
-            if (next > highestUnlockedToolIndex) next = 1;
-            SelectTool(next);
+            int step = delta >= 0 ? 1 : -1;
+            int idx = equippedToolIndex;
+            for (int i = 0; i < 20; i++)
+            {
+                idx += step;
+                if (idx < 1) idx = 20;
+                if (idx > 20) idx = 1;
+                if (IsToolOwned(idx))
+                {
+                    SelectTool(idx);
+                    return;
+                }
+            }
         }
 
         public void NotifyWaterSplash(Vector3 worldPos)
@@ -914,17 +968,14 @@ namespace KaliRiverSweeper.Core
 
             int prevHighest = highestUnlockedToolIndex;
             highestUnlockedToolIndex = newHighest;
-            equippedToolIndex = newHighest;
             if (newHighest >= 6) galahUnlocked = true;
 
             for (int i = prevHighest + 1; i <= newHighest; i++)
             {
                 ToolDefinition tool = ToolCatalog.GetTool(i);
                 OnToolUnlocked?.Invoke(tool);
-                RaiseAlert($"Alat Baru Terbuka: #{tool.Index:00} {tool.DisplayName}!", false);
+                RaiseAlert($"Alat Baru Tersedia di Kopdes: #{tool.Index:00} {tool.DisplayName}!", false);
             }
-
-            OnEquippedToolChanged?.Invoke(EquippedTool);
         }
 
         private void ApplyPlayerDamage(float amount, bool notifyImmediate)
@@ -1180,7 +1231,11 @@ namespace KaliRiverSweeper.Core
             cumulativeEarnings = targetCumulativeRupiah;
             rupiah = targetRupiah;
             highestUnlockedToolIndex = ToolCatalog.GetHighestUnlockedIndex(cumulativeEarnings);
-            equippedToolIndex = Mathf.Clamp(targetToolIdx, 1, highestUnlockedToolIndex);
+            for (int i = 1; i < ownedTools.Length; i++)
+            {
+                ownedTools[i] = i <= targetToolIdx;
+            }
+            equippedToolIndex = Mathf.Clamp(targetToolIdx, 1, 20);
             galahUnlocked = galah;
             sampanUnlocked = sampan;
             trashBoomActive = boom;

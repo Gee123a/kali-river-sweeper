@@ -208,9 +208,10 @@ namespace KaliRiverSweeper.Editor
             {
                 RiverGameManager gm = ctx.Manager;
 
-                // #10 Capitan Ular guarantees 0% medical prick risk
+                // #10 Capitan Ular guarantees 0% medical prick risk once bought & equipped
                 InvokeNonPublic(gm, "AddEarnings", 80000);
-                Assert(gm.equippedToolIndex == ToolCatalog.SnakeGrabberIndex, "80,000 Rp equips #10 Capitan Ular");
+                Assert(gm.equippedToolIndex == 1, "AddEarnings does not auto-equip #10 Capitan Ular");
+                Assert(gm.BuyTool(ToolCatalog.SnakeGrabberIndex) && gm.equippedToolIndex == ToolCatalog.SnakeGrabberIndex, "BuyTool #10 Capitan Ular equips it");
                 AssertApprox(0f, gm.EquippedTool.MedicalPrickChance, 0.0001f, "#10 Capitan Ular 0% prick chance");
 
                 gm.cargoCapacity = 25;
@@ -271,19 +272,23 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEquippedToolChanged += _ => equipChangedCount++;
 
                 InvokeNonPublic(gm, "AddEarnings", 30000);
-                Assert(gm.highestUnlockedToolIndex == 6 && gm.equippedToolIndex == 6 && gm.galahUnlocked, "30k unlocks #06 + galah");
-                Assert(unlockedCount == 5 && equipChangedCount == 1, "Fired OnToolUnlocked for #2..#6");
+                Assert(gm.highestUnlockedToolIndex == 6 && gm.equippedToolIndex == 1 && gm.galahUnlocked, "30k unlocks #06 + galah without auto-equip");
+                Assert(unlockedCount == 5 && equipChangedCount == 0, "Fired OnToolUnlocked for #2..#6 without auto-equip");
 
-                Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
-                Assert(gm.rupiah == 0 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Spending rupiah preserves tool unlocks");
+                Assert(gm.BuyTool(6) && gm.equippedToolIndex == 6 && gm.IsToolOwned(6), "BuyTool #06 spends 28k and equips it");
+                Assert(!gm.BuyTool(6), "BuyTool blocks duplicate purchase");
+                Assert(!gm.BuyTool(20), "BuyTool blocks purchase when rupiah is insufficient");
+                Assert(gm.rupiah == 2000 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Buying tool spends rupiah only");
 
                 Assert(gm.SelectTool(1) && gm.equippedToolIndex == 1, "SelectTool #01");
-                Assert(gm.SelectTool(20) && gm.equippedToolIndex == 6, "SelectTool clamps to highestUnlockedToolIndex");
+                Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 1, "SelectTool rejects unowned tool #20");
                 gm.CycleTool(-1);
-                Assert(gm.equippedToolIndex == 5, "CycleTool decrements cleanly");
-                gm.SelectTool(1);
-                gm.CycleTool(-1);
-                Assert(gm.equippedToolIndex == 6, "CycleTool wraps backwards to highest unlocked");
+                Assert(gm.equippedToolIndex == 6, "CycleTool wraps backwards to highest owned");
+                gm.CycleTool(1);
+                Assert(gm.equippedToolIndex == 1, "CycleTool wraps forwards to #01");
+
+                InvokeNonPublic(gm, "AddEarnings", 28000);
+                Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
             }
 
             // Shop / economy API
@@ -342,9 +347,10 @@ namespace KaliRiverSweeper.Editor
                 gm.DamageGunungSampah(0.30f, gunungGo.transform.position);
                 AssertApprox(1f, gm.gunungSampahHealth, 0.001f, "Starter tool cannot damage Gunung");
 
-                // Unlock #13 Ganco Ganda Winch
+                // Unlock & buy #13 Ganco Ganda Winch
                 InvokeNonPublic(gm, "AddEarnings", 140000);
                 Assert(gm.highestUnlockedToolIndex == 13, "140k unlocks #13 Ganco Ganda Winch");
+                Assert(gm.BuyTool(13), "BuyTool #13 Ganco Ganda Winch");
 
                 int tierBreaches = 0;
                 Vector3 lastBreachPos = Vector3.zero;
@@ -454,7 +460,8 @@ namespace KaliRiverSweeper.Editor
             using (QaContext ctx = new QaContext(isolateSceneGunungNodes: true))
             {
                 RiverGameManager gm = ctx.Manager;
-                InvokeNonPublic(gm, "AddEarnings", 140000); // Unlock #13 Ganco Ganda Winch
+                InvokeNonPublic(gm, "AddEarnings", 140000);
+                Assert(gm.BuyTool(13), "BuyTool #13 Ganco Ganda Winch");
 
                 Vector3 isolatedPos = new Vector3(5000f, 5000f, 5000f);
                 GameObject hubRoot = ctx.Track(new GameObject("Bank Sampah Berkah"));

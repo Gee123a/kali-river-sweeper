@@ -473,7 +473,7 @@ namespace KaliRiverSweeper.Player
 
                 if (match == null) continue;
 
-                float dSq = (col.ClosestPoint(transform.position) - transform.position).sqrMagnitude;
+                float dSq = (SafeClosestPoint(col, transform.position) - transform.position).sqrMagnitude;
                 if (dSq < bestDistSq)
                 {
                     bestDistSq = dSq;
@@ -669,7 +669,7 @@ namespace KaliRiverSweeper.Player
                 Transform match = FindHierarchyMatch(col.transform, "Dermaga");
                 if (match == null) continue;
 
-                Vector3 cp = col.ClosestPoint(new Vector3(pos.x, col.bounds.center.y, pos.z));
+                Vector3 cp = SafeClosestPoint(col, new Vector3(pos.x, col.bounds.center.y, pos.z));
                 float dx = cp.x - pos.x;
                 float dz = cp.z - pos.z;
                 float dSq = dx * dx + dz * dz;
@@ -682,6 +682,15 @@ namespace KaliRiverSweeper.Player
             }
 
             return bestCol != null;
+        }
+
+        private static Vector3 SafeClosestPoint(Collider col, Vector3 point)
+        {
+            if (col is BoxCollider || col is SphereCollider || col is CapsuleCollider || (col is MeshCollider mc && mc.convex))
+            {
+                return col.ClosestPoint(point);
+            }
+            return col.bounds.ClosestPoint(point);
         }
 
         private void TeleportPlayer(Vector3 worldPos)
@@ -724,7 +733,7 @@ namespace KaliRiverSweeper.Player
             {
                 if (col == null || col.gameObject == gameObject) continue;
 
-                Vector3 toTarget = col.ClosestPoint(eyeOrigin) - eyeOrigin;
+                Vector3 toTarget = SafeClosestPoint(col, eyeOrigin) - eyeOrigin;
                 float dist = toTarget.magnitude;
                 if (dist > reach + 0.5f) continue;
 
