@@ -29,6 +29,11 @@ namespace KaliRiverSweeper.Core
             trashRoot = root;
         }
 
+        public void ResetSpawnerState()
+        {
+            spawnTimer = 0f;
+        }
+
         private void Update()
         {
             RiverGameManager gm = RiverGameManager.Instance;

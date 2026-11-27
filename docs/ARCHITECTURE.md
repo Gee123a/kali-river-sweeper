@@ -19,7 +19,7 @@ kali-river-sweeper/
 ├── plan_niki.md                             # [Niki] Isolated implementation plan (VFX, UI Canvases, Audio)
 ├── docs/
 │   ├── PLAYBOOK.md                          # Master AI-assisted production playbook & rubric scorecard
-│   ├── PRD.md                               # Product Requirements, 20 auto-unlock tools, 3-class waste, 3 stations & 4 endings
+│   ├── PRD.md                               # Product Requirements, 20 Kopdes BuyTool tools, swim/stamina/drowning, 3-class waste & 5 endings
 │   ├── ARCHITECTURE.md                      # System design, C# contracts & rigging architecture (this file)
 │   ├── DESIGN.md                            # Visual identity, color palette, PBR rules & HUD typography
 │   ├── TECH_STACK.md                        # Unity 2022.3.46f1 URP, Blender 5.3.0 & poly budgets
@@ -76,30 +76,31 @@ All subsystems integrate via these verified symbols in `Scripts/`:
   - GameObject containing **`"Pos Medis"`** with Collider $\rightarrow$ `Medical` B3 waste clinic.
   - GameObject containing **`"Karantina Biohazard"`** with Collider $\rightarrow$ `Biohazard` quarantine bunker.
   - GameObject containing **`"Gudang Pengepul"`** with Collider (near Spawn) $\rightarrow$ cheap all-in-one bulk dump (`SellAllAtPengepul()`).
-  - GameObject containing **`"Koperasi Desa"`** or **`"Kopdes"`** with Collider $\rightarrow$ upgrade & river gear shop (`OnShopRequested`; `MapJsonImporter` remaps legacy `"toko_alat"` JSON types to `KoperasiDesa`).
-  - GameObject containing **`"Dermaga"`** with Collider $\rightarrow$ exclusive embark/disembark port (`OnNearbyDermagaChanged`); `ResolvePermittedMoveOnFoot` blocks walking/jumping off dry bank into `RiverMath.IsInRiver` outside `Jembatan` and `Dermaga`.
-  - Wrong-station discards trigger Rupiah fines; during `IsSellLocked` (`waterLevelY >= 1.85m`), hubs lock and player presses **`Q`** to dump cargo on high ground.
-- `TryScoopOrDredge()` uses camera-aimed nearest-target selection on **`Left Click`**:
-  - GameObject with **`RiverFlowBuoyancy`** + **`RiverTrashItem`** + Collider $\rightarrow$ scoops `Normal`, `Medical` (prick risk mitigated to `0%` by `#10 Capitan Ular`), or `Biohazard` (DoT in cargo past 10s).
+  - GameObject containing **`"Koperasi Desa"`** or **`"Kopdes"`** with Collider $\rightarrow$ upgrade, vessel & 20-tool shop (`OnShopRequested`, `BuyTool(int)`, `IsToolOwned(int)`; `MapJsonImporter` remaps legacy `"toko_alat"` JSON types to `KoperasiDesa`).
+  - GameObject containing **`"Dermaga"`** with Collider $\rightarrow$ exclusive `[E]` boat embark/disembark port (`OnNearbyDermagaChanged`) and dry-dock recovery; on foot, players can walk/sprint (`6.5/10.5 m/s`) or enter `RiverMath.IsInRiver` to **swim on the water surface** (`swimSurfaceOffset = 0.25f`, `swimStamina` draining `8/16/4 s⁻¹`, `18 s⁻¹` regen on land/`Jembatan`/`Dermaga`/boat, `14 HP/s` drowning damage at `0` stamina) and climb back out at banks/`Dermaga`.
+  - Wrong-station discards trigger Rupiah fines (`[E]` calls safe `DiscardLegalAtStation`); during `IsSellLocked` (`waterLevelY >= 1.85m`), hubs lock and player holds **`Q`** (`0.5s`) to dump cargo on high ground.
+- `TryScoopOrDredge()` uses camera-aimed nearest-target selection (`SafeClosestPoint` for non-convex `MeshCollider` safety) on **`Left Click`**:
+  - GameObject with **`RiverFlowBuoyancy`** + **`RiverTrashItem`** + Collider $\rightarrow$ scoops `Normal`, `Medical` (prick risk mitigated to `0%` once `#10 Capitan Ular` milestone unlocks), or `Biohazard` (DoT in cargo past 10s).
   - GameObject containing **`"PintuAirPile"`** with Collider $\rightarrow$ scoops piled downstream barrier debris (`TryScoopPiledBarrierTrash`).
   - GameObject containing **`"Gunung Sampah"`** + `GunungNodeController` + Collider $\rightarrow$ bottom-anchored dredge scaling (`excavatorUnlocked` or tool `#13+`).
   - **Equipped Tool Colliders**: `PF_Tool_*` `BoxCollider` must be **`isTrigger = true` or disabled while equipped** (`KaliPlayerController` forces this on equip).
 
 ### C. Prefab Auto-Spawner Hooks (`MapJsonImporter.cs` $\leftrightarrow$ `JC` & `Wesley`)
-Menu item **`KALI > Load Default Purpose-Built Map`** splits West/East `Ground_Daratan` banks (open water channel down to `-2.0m`), elevates `Jembatan Utama` (`Y = +3.6m`), attaches `RiverTrashSpawner` to `Managers`, parses all **53 nodes** in `kali-river-map.json` (`11` rumah, `7` warung (`Warung Madura`), `11` pohon, `8` trash_pile, `3` gunung_node, `2` dermaga (`Dermaga Awal` & `Dermaga Tengah`), `1` sluice_gate at `+Z`, `1` jembatan, `1` bank_sampah, `1` pos_medis, `1` karantina_biohazard, `1` pengepul near Spawn, `1` kopdes (`Koperasi Desa (Kopdes)`), `1` trash_boom, `1` excavator, `1` interceptor, `1` spawn), and auto-loads:
+Menu item **`KALI > Load Default Purpose-Built Map`** splits West/East `Ground_Daratan` banks (open water channel down to `-2.0m`, when `SM_Env_RiverValleyTerrain` is absent), elevates `Jembatan Utama` (`Y = +3.6m`), attaches `RiverTrashSpawner` + `KaliFieldGuideOverlay` (`[H]` guide), parses all **53 nodes** in `kali-river-map.json` (`11` rumah, `7` warung (`Warung Madura`), `11` pohon, `8` trash_pile, `3` gunung_node, `2` dermaga (`Dermaga Awal` & `Dermaga Tengah`), `1` sluice_gate at `+Z`, `1` jembatan, `1` bank_sampah, `1` pos_medis, `1` karantina_biohazard, `1` pengepul near Spawn, `1` kopdes (`Koperasi Desa (Kopdes)`), `1` trash_boom, `1` excavator, `1` interceptor, `1` spawn), and auto-loads:
 - `Assets/_Project/Lighting/Prefabs/PF_LightingRig.prefab`
 - `Assets/_Project/Lighting/Prefabs/PF_Lantern_Warung.prefab` (attached above `warung` nodes)
 - `Assets/_Project/Lighting/Prefabs/PF_WarningBeacon_PintuAir.prefab` (attached atop `+Z` downstream `sluice_gate`)
 - `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab`
-- `Assets/_Project/Props/Trash/Prefabs/PF_Trash_{SandalSwallow,AquaBottle_600ml,AquaGalon_19L,PopMieCup,KresekBag,KasurKapuk,BanBekas,EcengGondok,BatangPisang,MedicalBag,SyringeBox}.prefab` (plus `PF_Trash_BiohazardDrum` / `PF_Trash_RadioactiveBarrel` with runtime fallback)
+- `Assets/_Project/Props/Trash/Prefabs/PF_Trash_{BotolLifeman,BotolSprit,BungkusIndomy,BungkusRisol,BungkusSariBoti,KotakRokok,SachetKecapBingo,SachetMoli,StyrofoamMakanan,AquaBottle_600ml,AquaGalon_19L,MedicalBag,SyringeBox}.prefab` (plus legacy/fallback `PF_Trash_BiohazardDrum` / `PF_Trash_RadioactiveBarrel`)
 - `Assets/_Project/Props/Tools/Prefabs/PF_Tool_<Name>.prefab` (`#01 SendokMakanBengkok` .. `#20 GarukSkimmerHidrolik`)
 
-### D. Event Subscriptions for UI & VFX (`RiverGameManager.cs` $\leftrightarrow$ `Niki`)
-- `RiverGameManager.Instance.OnStateChanged` (throttled ~10 Hz on continuous ticks) $\rightarrow$ Refresh `Canvas_HUD` (`rupiah`, `cumulativeEarnings`, `playerHealth`, `cargoCount/cargoCapacity`, `normalCargo/medicalCargo/biohazardCargo`, `currentWaterLevelY`, `IsBankOverflowing`, `IsSellLocked`, `IsBiohazardDotActive`, `BiohazardGraceRemaining`, `SiagaLevel`, `floodPressure`, `monsoonCountdownRemaining`, `equippedToolIndex/highestUnlockedToolIndex`, `waterClarity`, `gunungSampahHealth`, `communityTrust`, `medicalWasteSecured`, `biohazardWasteSecured`, `infectionIncidents`, `wrongDiscardCount`, `totalFinesPaid`, `pengepulHazardDumped`).
-- `RiverGameManager.Instance.OnToolUnlocked(ToolDefinition)` & `OnEquippedToolChanged(ToolDefinition)` $\rightarrow$ Show tool milestone toast & update tool HUD slot.
-- `RiverGameManager.Instance.OnHazardOrAlert(string msg, bool isDanger)` $\rightarrow$ Display prick, Biohazard DoT, wrong-station fine, and Sell-Lock alert banners.
+### D. Event Subscriptions for UI & VFX (`RiverGameManager.cs` & `KaliPlayerController.cs` $\leftrightarrow$ `Niki`)
+- `RiverGameManager.Instance.OnStateChanged` (throttled ~10 Hz on continuous ticks) $\rightarrow$ Refresh `Canvas_HUD` (`rupiah`, `cumulativeEarnings`, `playerHealth`, `swimStamina`, `maxSwimStamina`, `SwimStaminaNormalized`, `isPlayerSwimming`, `IsSwimming`, `IsDrowning`, `cargoCount/cargoCapacity`, `normalCargo/medicalCargo/biohazardCargo`, `currentWaterLevelY`, `IsBankOverflowing`, `IsSellLocked`, `IsBiohazardDotActive`, `BiohazardGraceRemaining`, `SiagaLevel`, `floodPressure`, `monsoonCountdownRemaining`, `equippedToolIndex/highestUnlockedToolIndex`, `waterClarity`, `gunungSampahHealth`, `communityTrust`, `medicalWasteSecured`, `biohazardWasteSecured`, `infectionIncidents`, `wrongDiscardCount`, `totalFinesPaid`, `unpaidFineDebt`, `pengepulHazardDumped`).
+- `RiverGameManager.Instance.OnToolUnlocked(ToolDefinition)` & `OnEquippedToolChanged(ToolDefinition)` $\rightarrow$ Show Kopdes tool-availability toast (no free auto-equip; purchase via `BuyTool(int)`) & update active tool HUD slot.
+- `RiverGameManager.Instance.OnHazardOrAlert(string msg, bool isDanger)` & `OnStationAuditReceipt(StationAuditReceipt)` $\rightarrow$ Display prick, Biohazard DoT, swim stamina/drowning warnings, wrong-station fine receipts, and Sell-Lock alert banners.
+- `KaliPlayerController.OnSwimStateChanged(bool isSwimming)` & `OnAimTargetChanged` $\rightarrow$ Drive swim HUD/wake feedback and crosshair target hazard preview.
 - `RiverGameManager.Instance.OnWeatherChanged(bool isMonsoonStorm)` $\rightarrow$ Toggle `VFX_MonsoonRain` and storm lighting/audio.
-- `RiverGameManager.Instance.OnEndingTriggered(GameEnding ending)` $\rightarrow$ Display `Canvas_SDGImpactReport` for **`TrueSdgVictory`**, **`CompromisedOceanFlush`**, **`FloodFail`**, or **`HealthFail`**.
+- `RiverGameManager.Instance.OnEndingTriggered(GameEnding)` / `OnEndingWithDiagnosisTriggered(GameEnding, string)` $\rightarrow$ Display `Canvas_SDGImpactReport` for **`TrueSdgVictory`**, **`PartialSurvival`**, **`CompromisedOceanFlush`**, **`FloodFail`**, or **`HealthFail`**.
 
 ---
 

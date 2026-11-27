@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using KaliRiverSweeper.Core;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -11,9 +12,14 @@ namespace KaliRiverSweeper.Player
     [RequireComponent(typeof(CharacterController))]
     public class KaliPlayerController : MonoBehaviour
     {
-        [Header("Movement & Boat")]
+        [Header("Movement, Swimming & Boat")]
         public float walkSpeed = 6.5f;
         public float sprintSpeed = 10.5f;
+        public float swimSpeed = 4.2f;
+        public float swimSprintSpeed = 6.2f;
+        public float exhaustedSwimSpeedMultiplier = 0.55f;
+        public float swimSurfaceOffset = 0.25f;
+        public float swimClimbVerticalSpeed = 6.5f;
         public float boatSpeed = 10.0f;
         public float boatRideHeight = 0.80f;
         public float freeCamSpeed = 18f;
@@ -27,11 +33,32 @@ namespace KaliRiverSweeper.Player
 
         [Header("State")]
         public bool isInBoat;
+        public bool isSwimming;
         public bool isFreeCam;
 
         public event Action<bool, DiscardStationType, bool, string> OnNearbyHubChanged;
         public event Action<bool, bool, string> OnNearbyDermagaChanged;
         public event Action OnShopRequested;
+        public event Action<bool> OnBoatStateChanged;
+        public event Action<bool> OnSwimStateChanged;
+        public event Action<bool> OnFreeCamStateChanged;
+        public event Action<bool, WasteClass, bool, float> OnAimTargetChanged;
+
+        public bool IsInBoat => isInBoat;
+        public bool IsSwimming => isSwimming;
+        public bool IsFreeCam => isFreeCam;
+        public float NextScoopTime => nextScoopTime;
+        public float ScoopCooldownProgress
+        {
+            get
+            {
+                float rem = nextScoopTime - Time.time;
+                if (rem <= 0f) return 1f;
+                float cd = RiverGameManager.Instance != null ? Mathf.Max(0.05f, RiverGameManager.Instance.EquippedTool.Cooldown) : 0.45f;
+                return Mathf.Clamp01(1f - (rem / cd));
+            }
+        }
+
         public bool HasNearbyHub { get; private set; }
         public DiscardStationType NearbyStationType { get; private set; }
         public bool NearbyIsKopdes { get; private set; }
@@ -44,13 +71,23 @@ namespace KaliRiverSweeper.Player
 
         private CharacterController controller;
         private Camera cam;
+        private Vector3 initialSpawnPos;
+        private float initialYaw;
         private float yaw;
         private float pitch;
         private float verticalVel;
         private float nextScoopTime;
         private float nextPaddleSplashTime;
         private float nextHubPollTime;
-        private float nextRiverGuardAlertTime;
+        private float climbOutAssistTimer;
+        private float qHoldTimer;
+        private bool qHoldWarned;
+        private float flushHoldTimer;
+        private bool flushHoldWarned;
+        private bool lastAimHasTarget;
+        private WasteClass lastAimClass;
+        private bool lastAimInReach;
+        private float lastAimPrick = -1f;
         private int lastEquippedVisualIndex = -1;
         private GameObject activeToolVisual;
         private Quaternion toolSocketBaseRot = Quaternion.identity;
@@ -60,11 +97,35 @@ namespace KaliRiverSweeper.Player
         {
             controller = GetComponent<CharacterController>();
             cam = GetComponentInChildren<Camera>();
+            initialSpawnPos = transform.position;
             yaw = transform.eulerAngles.y;
+            initialYaw = yaw;
 
 #if !ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
             Debug.LogWarning("[KALI] Neither Unity Input System nor Legacy Input Manager is active in Player Settings. Player controls will be disabled.");
 #endif
+        }
+
+        public void ResetToInitialSpawn()
+        {
+            isInBoat = false;
+            climbOutAssistTimer = 0f;
+            SetSwimmingState(RiverGameManager.Instance, false, false, false);
+            if (isFreeCam)
+            {
+                isFreeCam = false;
+                OnFreeCamStateChanged?.Invoke(false);
+            }
+            OnBoatStateChanged?.Invoke(false);
+            verticalVel = 0f;
+            yaw = initialYaw;
+            pitch = 0f;
+            qHoldTimer = 0f;
+            flushHoldTimer = 0f;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            if (cam != null) cam.transform.localRotation = Quaternion.identity;
+            TeleportPlayer(initialSpawnPos);
+            RefreshNearbyHub();
         }
 
         private void Start()
@@ -88,8 +149,13 @@ namespace KaliRiverSweeper.Player
 
         private void Update()
         {
-            if (RiverGameManager.Instance != null && RiverGameManager.Instance.activeEnding != GameEnding.None)
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (gm != null && gm.activeEnding != GameEnding.None)
             {
+                if (WasKeyPressed(KeyAction.R))
+                {
+                    gm.RestartRun();
+                }
                 return;
             }
 
@@ -106,6 +172,7 @@ namespace KaliRiverSweeper.Player
             {
                 nextHubPollTime = Time.unscaledTime + HubPollInterval;
                 RefreshNearbyHub();
+                RefreshAimTarget();
             }
         }
 
@@ -128,68 +195,194 @@ namespace KaliRiverSweeper.Player
 
         private void HandleMove()
         {
-            Vector2 moveAxis = GetMoveAxis();
+            StepMovement(GetMoveAxis(), IsShiftHeld(), WasKeyPressed(KeyAction.Space), Time.deltaTime);
+        }
+
+        private void StepMovement(Vector2 moveAxis, bool sprintHeld, bool jumpPressed, float dt)
+        {
+            if (dt <= 0f) return;
+            if (controller == null) controller = GetComponent<CharacterController>();
+
             Vector3 dir = (transform.right * moveAxis.x + transform.forward * moveAxis.y).normalized;
+            RiverGameManager gm = RiverGameManager.Instance;
 
             if (isFreeCam)
             {
+                SetSwimmingState(gm, false, false, false);
                 float up = (IsKeyHeld(KeyAction.E) ? 1f : 0f) - (IsKeyHeld(KeyAction.Q) ? 1f : 0f);
-                transform.position += (dir * freeCamSpeed + Vector3.up * (up * freeCamSpeed)) * Time.deltaTime;
+                Vector3 nextFree = transform.position + (dir * freeCamSpeed + Vector3.up * (up * freeCamSpeed)) * dt;
+                nextFree.x = Mathf.Clamp(nextFree.x, -64f, 64f);
+                nextFree.y = Mathf.Clamp(nextFree.y, 0.5f, 55f);
+                nextFree.z = Mathf.Clamp(nextFree.z, -88f, 88f);
+                transform.position = nextFree;
                 return;
             }
 
-            RiverGameManager gm = RiverGameManager.Instance;
             float waterY = gm != null ? gm.currentWaterLevelY : 0f;
-            float speed = isInBoat ? boatSpeed : (IsShiftHeld() ? sprintSpeed : walkSpeed);
+            float stormMult = gm != null && gm.isMonsoonStorm ? 2.2f : 1f;
 
-            Vector3 horizMove;
-            if (!isInBoat)
+            if (isInBoat)
             {
-                if (transform.position.y < waterY - 0.35f)
-                {
-                    // Wading/flooded slow-down without trapping player
-                    speed *= 0.65f;
-                }
-                if (controller.isGrounded)
-                {
-                    verticalVel = WasKeyPressed(KeyAction.Space) ? 6.5f : -1f;
-                }
-                else
-                {
-                    verticalVel -= 18f * Time.deltaTime;
-                }
+                climbOutAssistTimer = 0f;
+                SetSwimmingState(gm, false, false, false);
+                float targetBoatY = waterY + boatRideHeight;
+                verticalVel = (targetBoatY - transform.position.y) * 5.0f;
+                Vector3 rawStep = (dir * boatSpeed + Vector3.forward * (0.45f * stormMult)) * dt;
+                Vector3 horizMove = ResolvePermittedMoveInBoat(transform.position, rawStep, gm);
+                MoveController(horizMove + Vector3.up * (verticalVel * dt));
 
-                Vector3 rawStep = dir * (speed * Time.deltaTime);
-                horizMove = ResolvePermittedMoveOnFoot(transform.position, rawStep, gm);
+                if (gm != null && dir.sqrMagnitude > 0.05f && Time.time >= nextPaddleSplashTime)
+                {
+                    nextPaddleSplashTime = Time.time + 0.45f;
+                    gm.NotifyWaterSplash(new Vector3(transform.position.x, waterY, transform.position.z));
+                }
+                return;
+            }
+
+            // On foot or surface-only river swimming
+            if (climbOutAssistTimer > 0f)
+            {
+                climbOutAssistTimer = Mathf.Max(0f, climbOutAssistTimer - dt);
+            }
+
+            float targetSwimY = waterY + swimSurfaceOffset;
+            bool inRiverChannel = RiverMath.IsInRiver(transform.position) && !IsPointOnBridge(transform.position) && !IsPointOnDermaga(transform.position);
+            bool wantsMove = dir.sqrMagnitude > 0.01f;
+            bool hittingWall = controller != null && (controller.collisionFlags & CollisionFlags.Sides) != 0;
+            bool movingOutward = wantsMove && IsMovingOutwardTowardShore(transform.position, dir);
+            bool nextSwim = false;
+            if (climbOutAssistTimer <= 0f && inRiverChannel)
+            {
+                float entryMargin = isSwimming ? 0.55f : 0.35f;
+                nextSwim = transform.position.y <= targetSwimY + entryMargin;
+            }
+
+            if (wantsMove && !IsPointOnBridge(transform.position))
+            {
+                Vector3 probeAhead = transform.position + dir * 1.35f;
+                bool probeLeavesRiver = !RiverMath.IsInRiver(probeAhead) || IsPointOnDermaga(probeAhead);
+                bool nearShoreOrDock = probeLeavesRiver || (movingOutward && (!RiverMath.IsInRiver(transform.position + dir * 2.0f) || IsNearAnyDermagaEdge(transform.position, 2.5f)));
+                bool canClimbFromWater = nextSwim && ((jumpPressed && nearShoreOrDock) || (hittingWall && (movingOutward || probeLeavesRiver)));
+                bool canClimbFromSubmergedEdge = !nextSwim && climbOutAssistTimer <= 0f && transform.position.y < Mathf.Max(targetSwimY + 0.1f, 1.35f) &&
+                    ((hittingWall && (movingOutward || !RiverMath.IsInRiver(transform.position))) || (jumpPressed && !RiverMath.IsInRiver(transform.position) && transform.position.y < waterY + 0.35f));
+
+                if (canClimbFromWater || canClimbFromSubmergedEdge)
+                {
+                    climbOutAssistTimer = 0.65f;
+                    verticalVel = swimClimbVerticalSpeed;
+                    nextSwim = false;
+                }
+            }
+
+            bool exhausted = gm != null && gm.swimStamina <= 0f;
+            SetSwimmingState(gm, nextSwim, wantsMove, wantsMove && sprintHeld && !exhausted);
+
+            if (isSwimming)
+            {
+                float speed = (wantsMove && sprintHeld && !exhausted) ? swimSprintSpeed : swimSpeed;
+                if (exhausted) speed *= exhaustedSwimSpeedMultiplier;
+
+                Vector3 rawStep = (dir * speed + Vector3.forward * (0.35f * stormMult)) * dt;
+                Vector3 horizMove = ClampStepToWorldBounds(transform.position, rawStep);
+
+                // Strictly surface-only buoyancy: keep swimmer at water surface, never underwater
+                verticalVel = (targetSwimY - transform.position.y) * 10.0f;
+                float minStepY = (targetSwimY - 0.05f) - transform.position.y;
+                float stepY = Mathf.Max(verticalVel * dt, minStepY);
+                MoveController(horizMove + Vector3.up * stepY);
+
+                if (gm != null && wantsMove && Time.time >= nextPaddleSplashTime)
+                {
+                    nextPaddleSplashTime = Time.time + 0.55f;
+                    gm.NotifyWaterSplash(new Vector3(transform.position.x, waterY, transform.position.z));
+                }
             }
             else
             {
-                float targetBoatY = waterY + boatRideHeight;
-                verticalVel = (targetBoatY - transform.position.y) * 5.0f;
-                float stormMult = gm != null && gm.isMonsoonStorm ? 2.2f : 1f;
-                Vector3 rawStep = (dir * speed + Vector3.forward * (0.45f * stormMult)) * Time.deltaTime;
-                horizMove = ResolvePermittedMoveInBoat(transform.position, rawStep, gm);
+                float speed = sprintHeld ? sprintSpeed : walkSpeed;
+                if (transform.position.y < waterY + 0.55f)
+                {
+                    // Shallow bank-overflow wading slow-down without entering deep swim
+                    speed *= 0.68f;
+                }
+
+                if (climbOutAssistTimer > 0f)
+                {
+                    float maxClimbCenterY = Mathf.Max(2.40f, waterY + 1.15f);
+                    verticalVel = transform.position.y < maxClimbCenterY ? swimClimbVerticalSpeed : 0f;
+                    if (!RiverMath.IsInRiver(transform.position) && controller != null && controller.isGrounded)
+                    {
+                        climbOutAssistTimer = 0f;
+                    }
+                }
+                else if (controller != null && controller.isGrounded)
+                {
+                    verticalVel = jumpPressed ? 6.5f : -1f;
+                }
+                else
+                {
+                    verticalVel -= 18f * dt;
+                }
+
+                Vector3 rawStep = dir * (speed * dt);
+                Vector3 horizMove = ResolvePermittedMoveOnFoot(transform.position, rawStep, gm);
+                MoveController(horizMove + Vector3.up * (verticalVel * dt));
+
+                // Catch on water surface immediately if fall crosses below water surface over the river channel
+                if (climbOutAssistTimer <= 0f &&
+                    RiverMath.IsInRiver(transform.position) &&
+                    !IsPointOnBridge(transform.position) &&
+                    !IsPointOnDermaga(transform.position) &&
+                    transform.position.y <= targetSwimY + 0.05f)
+                {
+                    if (transform.position.y < targetSwimY - 0.05f)
+                    {
+                        TeleportPlayer(new Vector3(transform.position.x, targetSwimY, transform.position.z));
+                    }
+                    SetSwimmingState(gm, true, wantsMove, wantsMove && sprintHeld && !exhausted);
+                }
             }
+        }
 
-            Vector3 move = horizMove + Vector3.up * (verticalVel * Time.deltaTime);
-            controller.Move(move);
+        private void MoveController(Vector3 delta)
+        {
+            if (controller != null && controller.enabled) controller.Move(delta);
+            else transform.position += delta;
+        }
 
-            if (isInBoat && gm != null && dir.sqrMagnitude > 0.05f && Time.time >= nextPaddleSplashTime)
+        private void SetSwimmingState(RiverGameManager gm, bool swimming, bool movingInWater, bool sprintingInWater)
+        {
+            bool changed = isSwimming != swimming;
+            isSwimming = swimming;
+            if (changed)
             {
-                nextPaddleSplashTime = Time.time + 0.45f;
-                gm.NotifyWaterSplash(new Vector3(transform.position.x, waterY, transform.position.z));
+                if (swimming)
+                {
+                    verticalVel = Mathf.Max(verticalVel, -2.0f);
+                    float waterY = gm != null ? gm.currentWaterLevelY : 0f;
+                    gm?.NotifyWaterSplash(new Vector3(transform.position.x, waterY, transform.position.z));
+                }
+                OnSwimStateChanged?.Invoke(swimming);
             }
+            gm?.SetPlayerSwimming(swimming, movingInWater, sprintingInWater);
         }
 
         private void HandleActions()
         {
             RiverGameManager gm = RiverGameManager.Instance;
 
-            if (WasKeyPressed(KeyAction.F)) isFreeCam = !isFreeCam;
-
-            if (WasKeyPressed(KeyAction.R) && gm != null && gm.demoHotkeysArmed)
+            if (WasKeyPressed(KeyAction.F) && isFreeCam)
             {
-                gm.SetWeather(!gm.isMonsoonStorm);
+                isFreeCam = !isFreeCam;
+                OnFreeCamStateChanged?.Invoke(isFreeCam);
+                gm?.NotifyInfo(isFreeCam ? "Free-Cam Demo aktif (dibatasi di area sungai)." : "Kembali ke kamera gameplay.");
+            }
+
+            if (WasKeyPressed(KeyAction.T) && KaliDayNightCycle.Instance != null)
+            {
+                KaliDayNightCycle cycle = KaliDayNightCycle.Instance;
+                cycle.SkipToNextPhase();
+                gm?.NotifyInfo($"WAKTU: {cycle.CurrentPhaseName} ({cycle.ClockText})");
             }
 
             // Tool switching via Mouse Scroll or [ / ]
@@ -206,20 +399,74 @@ namespace KaliRiverSweeper.Player
                 }
             }
 
-            // High-ground cargo dump (anti-deadlock during Sell-Lock) when not in Free-Cam
-            if (!isFreeCam && WasKeyPressed(KeyAction.Q) && gm != null)
+            // High-ground cargo dump (0.5s hold on Q) when not in Free-Cam
+            if (!isFreeCam && gm != null && IsKeyHeld(KeyAction.Q))
             {
-                gm.DumpCargoOnHighGround();
+                if (gm.cargoCount > 0)
+                {
+                    if (!qHoldWarned)
+                    {
+                        qHoldWarned = true;
+                        int hazardQty = gm.medicalCargo + gm.biohazardCargo;
+                        if (!gm.IsSellLocked && hazardQty > 0)
+                        {
+                            gm.NotifyInfo($"Tahan [Q] 0.5 detik untuk buang kargo (penalti -{hazardQty * 2} Trust sebelum Sell-Lock)...", true);
+                        }
+                        else
+                        {
+                            gm.NotifyInfo("Tahan [Q] 0.5 detik untuk buang kargo di daratan tinggi...");
+                        }
+                    }
+                    qHoldTimer += Time.deltaTime;
+                    if (qHoldTimer >= 0.5f)
+                    {
+                        qHoldTimer = 0f;
+                        qHoldWarned = false;
+                        gm.DumpCargoOnHighGround();
+                    }
+                }
+            }
+            else
+            {
+                qHoldTimer = 0f;
+                qHoldWarned = false;
             }
 
-            // Emergency Flush hotkey (Shift + X) during flood crisis
-            if (!isFreeCam && IsShiftHeld() && WasKeyPressed(KeyAction.X) && gm != null)
+            // Emergency Flush hotkey (1.5s hold on Shift + X) during flood Sell-Lock crisis
+            if (!isFreeCam && gm != null && IsShiftHeld() && IsKeyHeld(KeyAction.X))
             {
-                gm.TriggerEmergencyFlush();
+                if (!gm.IsSellLocked)
+                {
+                    if (!flushHoldWarned)
+                    {
+                        flushHoldWarned = true;
+                        gm.TriggerEmergencyFlush(confirmed: false);
+                    }
+                }
+                else
+                {
+                    if (!flushHoldWarned)
+                    {
+                        flushHoldWarned = true;
+                        gm.NotifyInfo("TAHAN [Shift + X] 1.5 detik untuk konfirmasi Emergency Flush ke laut!", true);
+                    }
+                    flushHoldTimer += Time.deltaTime;
+                    if (flushHoldTimer >= 1.5f)
+                    {
+                        flushHoldTimer = 0f;
+                        flushHoldWarned = false;
+                        gm.TriggerEmergencyFlush(confirmed: true);
+                    }
+                }
+            }
+            else
+            {
+                flushHoldTimer = 0f;
+                flushHoldWarned = false;
             }
 
-            // Station Quick-Discard (1/2/3) & All-Discard / Boat Toggle (E)
-            if (gm != null && !isFreeCam && !gm.IsDemoHotkeyBusy)
+            // Station Quick-Discard (1/2/3), Kopdes explicit upgrade selection (1-4), & Safe Deposit / Boat Toggle (E)
+            if (gm != null && !isFreeCam)
             {
                 bool nearStation = TryFindNearestHub(out DiscardStationType station, out bool isKopdes);
                 if (nearStation && !isKopdes)
@@ -227,6 +474,10 @@ namespace KaliRiverSweeper.Player
                     if (WasKeyPressed(KeyAction.Digit1)) gm.DiscardWasteAtStation(station, WasteClass.Normal);
                     else if (WasKeyPressed(KeyAction.Digit2)) gm.DiscardWasteAtStation(station, WasteClass.Medical);
                     else if (WasKeyPressed(KeyAction.Digit3)) gm.DiscardWasteAtStation(station, WasteClass.Biohazard);
+                }
+                else if (nearStation && isKopdes && OnShopRequested == null)
+                {
+                    HandleKopdesKeySelection(gm);
                 }
             }
 
@@ -238,9 +489,33 @@ namespace KaliRiverSweeper.Player
                 }
             }
 
-            if (WasLeftMousePressed() && !isFreeCam)
+            bool pointerOverUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            if (WasLeftMousePressed() && !isFreeCam && !pointerOverUi)
             {
                 TryScoopOrDredge();
+            }
+        }
+
+        private static void HandleKopdesKeySelection(RiverGameManager gm)
+        {
+            if (WasKeyPressed(KeyAction.Digit1))
+            {
+                if (!gm.BuyKampungBins()) gm.NotifyInfo("Tong Sampah Kampung sudah terpasang atau Rupiah belum cukup (Rp 30.000).", true);
+            }
+            else if (WasKeyPressed(KeyAction.Digit2))
+            {
+                if (gm.BuyUpgrade(UpgradeTier.WoodenSampan)) gm.NotifyInfo("Perahu Sampan Kayu dibeli di Kopdes! (Kapasitas 22)");
+                else gm.NotifyInfo("Perahu Sampan Kayu sudah dimiliki atau Rupiah belum cukup (Rp 40.000).", true);
+            }
+            else if (WasKeyPressed(KeyAction.Digit3))
+            {
+                if (gm.BuyUpgrade(UpgradeTier.TrashBoom)) gm.NotifyInfo("Trash Boom aktif! (+Rp 2.500/4s)");
+                else gm.NotifyInfo("Trash Boom sudah aktif atau Rupiah belum cukup (Rp 75.000).", true);
+            }
+            else if (WasKeyPressed(KeyAction.Digit4))
+            {
+                if (gm.BuyUpgrade(UpgradeTier.AmphibiousExcavator)) gm.NotifyInfo("Pindad Amphibious Excavator terbuka! Keruk Gunung Sampah!");
+                else gm.NotifyInfo("Excavator sudah terbuka atau Rupiah belum cukup (Rp 120.000).", true);
             }
         }
 
@@ -319,7 +594,7 @@ namespace KaliRiverSweeper.Player
 
                 if (match == null) continue;
 
-                float dSq = (col.ClosestPoint(transform.position) - transform.position).sqrMagnitude;
+                float dSq = (SafeClosestPoint(col, transform.position) - transform.position).sqrMagnitude;
                 if (dSq < bestDistSq)
                 {
                     bestDistSq = dSq;
@@ -346,28 +621,11 @@ namespace KaliRiverSweeper.Player
             if (isKopdes)
             {
                 if (OnShopRequested != null) { OnShopRequested.Invoke(); return true; }
-                // Fallback quick-upgrade progression, used only when no shop UI subscribes to OnShopRequested
-                if (!gm.kampungBinsInstalled && gm.BuyKampungBins()) return true;
-                if (!gm.sampanUnlocked && gm.BuyUpgrade(UpgradeTier.WoodenSampan))
-                {
-                    gm.NotifyInfo("Perahu Sampan Kayu dibeli di Kopdes! (Kapasitas 22)");
-                    return true;
-                }
-                if (!gm.trashBoomActive && gm.BuyUpgrade(UpgradeTier.TrashBoom))
-                {
-                    gm.NotifyInfo("Trash Boom aktif! (+Rp 2.500/4s)");
-                    return true;
-                }
-                if (!gm.excavatorUnlocked && gm.BuyUpgrade(UpgradeTier.AmphibiousExcavator))
-                {
-                    gm.NotifyInfo("Pindad Amphibious Excavator terbuka! Keruk Gunung Sampah!");
-                    return true;
-                }
-                gm.NotifyInfo("Koperasi Desa (Kopdes): Kumpulkan lebih banyak Rupiah (Bins 30k / Sampan 40k / Boom 75k / Excavator 120k).", true);
+                gm.NotifyInfo("Kopdes: [1] Tong Kampung (30rb) | [2] Sampan (40rb) | [3] Trash Boom (75rb) | [4] Excavator (120rb)");
                 return true;
             }
 
-            gm.DiscardAllAtStation(station);
+            gm.DiscardLegalAtStation(station);
             return true;
         }
 
@@ -377,8 +635,8 @@ namespace KaliRiverSweeper.Player
             {
                 gm?.NotifyInfo(
                     isInBoat
-                        ? "Hanya bisa naik ke darat di Dermaga! (Dekati Dermaga Awal / Dermaga Tengah)"
-                        : "Hanya bisa turun ke sungai & naik perahu di Dermaga!",
+                        ? "Hanya bisa naik ke darat dengan perahu di Dermaga! (Dekati Dermaga Awal / Dermaga Tengah)"
+                        : "Naik perahu hanya bisa di Dermaga! (Kamu tetap bisa masuk sungai dengan berenang)",
                     true);
                 return false;
             }
@@ -400,9 +658,12 @@ namespace KaliRiverSweeper.Player
                 float maxRiverX = cxWorld + Mathf.Max(0.5f, hwWorld - 1.0f);
                 waterX = Mathf.Clamp(waterX, minRiverX, maxRiverX);
 
+                climbOutAssistTimer = 0f;
+                SetSwimmingState(gm, false, false, false);
                 isInBoat = true;
                 verticalVel = 0f;
                 TeleportPlayer(new Vector3(waterX, waterY + boatRideHeight, dockBounds.center.z));
+                OnBoatStateChanged?.Invoke(true);
                 RefreshNearbyHub();
                 gm?.NotifyInfo($"Naik perahu dari {dockRoot.name}.");
                 return true;
@@ -417,6 +678,7 @@ namespace KaliRiverSweeper.Player
             isInBoat = false;
             verticalVel = 0f;
             TeleportPlayer(new Vector3(landX, bankSurfaceY, dockBounds.center.z));
+            OnBoatStateChanged?.Invoke(false);
             RefreshNearbyHub();
             gm?.NotifyInfo($"Naik ke darat lewat {dockRoot.name}.");
             return true;
@@ -425,38 +687,28 @@ namespace KaliRiverSweeper.Player
         private Vector3 ResolvePermittedMoveOnFoot(Vector3 curPos, Vector3 rawStep, RiverGameManager gm)
         {
             if (rawStep.sqrMagnitude < 0.000001f) return rawStep;
+            return ClampStepToWorldBounds(curPos, rawStep);
+        }
 
-            bool currentlyAllowed = IsFootPositionPermitted(curPos);
-            Vector3 nextPos = new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z + rawStep.z);
-            if (IsFootPositionPermitted(nextPos)) return rawStep;
+        private static Vector3 ClampStepToWorldBounds(Vector3 curPos, Vector3 rawStep)
+        {
+            float nextX = Mathf.Clamp(curPos.x + rawStep.x, RiverMath.MinWorldX + 1.0f, RiverMath.MaxWorldX - 1.0f);
+            float nextZ = Mathf.Clamp(curPos.z + rawStep.z, RiverMath.MinWorldZ + 2.0f, RiverMath.MaxWorldZ - 2.0f);
+            return new Vector3(nextX - curPos.x, rawStep.y, nextZ - curPos.z);
+        }
 
-            if (!currentlyAllowed)
-            {
-                // Already in river on foot (edge recovery): allow moves moving out toward bank or Dermaga
-                float curMapX = curPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
-                float curMapY = curPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
-                float nextMapX = nextPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
-                float nextMapY = nextPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
-                if (Mathf.Abs(nextMapX - RiverMath.RiverCenterMapX(nextMapY)) >= Mathf.Abs(curMapX - RiverMath.RiverCenterMapX(curMapY)))
-                {
-                    return rawStep;
-                }
-            }
+        private static bool IsMovingOutwardTowardShore(Vector3 pos, Vector3 dir)
+        {
+            float curMapX = pos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+            float curMapY = pos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+            float nextMapX = (pos.x + dir.x) / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+            float nextMapY = (pos.z + dir.z) / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+            return Mathf.Abs(nextMapX - RiverMath.RiverCenterMapX(nextMapY)) > Mathf.Abs(curMapX - RiverMath.RiverCenterMapX(curMapY));
+        }
 
-            // Slide smoothly along the riverbank without falling into the river channel
-            Vector3 tryX = new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z);
-            Vector3 tryZ = new Vector3(curPos.x, curPos.y, curPos.z + rawStep.z);
-            Vector3 resolved = Vector3.zero;
-            if (IsFootPositionPermitted(tryX)) resolved.x = rawStep.x;
-            if (IsFootPositionPermitted(tryZ)) resolved.z = rawStep.z;
-
-            if (resolved.sqrMagnitude < rawStep.sqrMagnitude * 0.25f && Time.unscaledTime >= nextRiverGuardAlertTime)
-            {
-                nextRiverGuardAlertTime = Time.unscaledTime + 3.0f;
-                gm?.NotifyInfo("Naik & turun sungai hanya melalui Dermaga (tekan [E] di Dermaga)!", true);
-            }
-
-            return resolved;
+        private static bool IsNearAnyDermagaEdge(Vector3 pos, float range)
+        {
+            return TryFindNearestDermaga(pos, range, out _, out _);
         }
 
         private static Vector3 ResolvePermittedMoveInBoat(Vector3 curPos, Vector3 rawStep, RiverGameManager gm)
@@ -471,12 +723,6 @@ namespace KaliRiverSweeper.Player
             if (RiverMath.IsInRiver(new Vector3(curPos.x + rawStep.x, curPos.y, curPos.z))) resolved.x = rawStep.x;
             if (RiverMath.IsInRiver(new Vector3(curPos.x, curPos.y, curPos.z + rawStep.z))) resolved.z = rawStep.z;
             return resolved;
-        }
-
-        private static bool IsFootPositionPermitted(Vector3 pos)
-        {
-            if (!RiverMath.IsInRiver(pos)) return true;
-            return IsPointOnBridge(pos) || IsPointOnDermaga(pos);
         }
 
         private static bool IsPointOnBridge(Vector3 pos)
@@ -504,7 +750,7 @@ namespace KaliRiverSweeper.Player
                 0.45f);
             for (int i = 0; i < hits.Length; i++)
             {
-                if (hits[i] != null && HasHierarchyName(hits[i].transform, "Dermaga"))
+                if (hits[i] != null && HasHierarchyName(hits[i].transform, "Dermaga") && pos.y >= hits[i].bounds.max.y - 0.35f)
                 {
                     return true;
                 }
@@ -530,7 +776,7 @@ namespace KaliRiverSweeper.Player
                 Transform match = FindHierarchyMatch(col.transform, "Dermaga");
                 if (match == null) continue;
 
-                Vector3 cp = col.ClosestPoint(new Vector3(pos.x, col.bounds.center.y, pos.z));
+                Vector3 cp = SafeClosestPoint(col, new Vector3(pos.x, col.bounds.center.y, pos.z));
                 float dx = cp.x - pos.x;
                 float dz = cp.z - pos.z;
                 float dSq = dx * dx + dz * dz;
@@ -545,8 +791,18 @@ namespace KaliRiverSweeper.Player
             return bestCol != null;
         }
 
+        private static Vector3 SafeClosestPoint(Collider col, Vector3 point)
+        {
+            if (col is BoxCollider || col is SphereCollider || col is CapsuleCollider || (col is MeshCollider mc && mc.convex))
+            {
+                return col.ClosestPoint(point);
+            }
+            return col.bounds.ClosestPoint(point);
+        }
+
         private void TeleportPlayer(Vector3 worldPos)
         {
+            climbOutAssistTimer = 0f;
             if (controller != null) controller.enabled = false;
             transform.position = worldPos;
             if (controller != null) controller.enabled = true;
@@ -556,6 +812,11 @@ namespace KaliRiverSweeper.Player
         {
             RiverGameManager gm = RiverGameManager.Instance;
             if (gm == null || Time.time < nextScoopTime) return;
+            if (gm.cargoCount >= gm.cargoCapacity)
+            {
+                gm.NotifyInfo("Kargo penuh! Setor ke stasiun atau tahan [Q] di daratan tinggi.", true);
+                return;
+            }
 
             ToolDefinition tool = gm.EquippedTool;
             nextScoopTime = Time.time + tool.Cooldown;
@@ -580,7 +841,7 @@ namespace KaliRiverSweeper.Player
             {
                 if (col == null || col.gameObject == gameObject) continue;
 
-                Vector3 toTarget = col.ClosestPoint(eyeOrigin) - eyeOrigin;
+                Vector3 toTarget = SafeClosestPoint(col, eyeOrigin) - eyeOrigin;
                 float dist = toTarget.magnitude;
                 if (dist > reach + 0.5f) continue;
 
@@ -768,7 +1029,42 @@ namespace KaliRiverSweeper.Player
             return null;
         }
 
-        private enum KeyAction { E, Q, F, R, X, Space, Digit1, Digit2, Digit3, BracketLeft, BracketRight }
+        private void RefreshAimTarget()
+        {
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (gm == null) return;
+
+            float reach = gm.EquippedTool.Reach + (gm.excavatorUnlocked && isInBoat ? 3.5f : 0f);
+            Vector3 eyeOrigin = cam != null ? cam.transform.position : (transform.position + Vector3.up * 0.7f);
+            Vector3 eyeForward = cam != null ? cam.transform.forward : transform.forward;
+            float prickPct = gm.GetEffectiveMedicalPrickChance();
+
+            bool hasTarget = false;
+            WasteClass targetClass = WasteClass.Normal;
+            bool inReach = false;
+
+            if (Physics.Raycast(eyeOrigin, eyeForward, out RaycastHit hit, reach + 4f, ~0, QueryTriggerInteraction.Collide))
+            {
+                RiverTrashItem item = hit.collider != null ? hit.collider.GetComponentInParent<RiverTrashItem>() : null;
+                if (item != null && !item.isCollected)
+                {
+                    hasTarget = true;
+                    targetClass = item.wasteClass;
+                    inReach = hit.distance <= reach + 0.5f;
+                }
+            }
+
+            if (hasTarget != lastAimHasTarget || targetClass != lastAimClass || inReach != lastAimInReach || !Mathf.Approximately(prickPct, lastAimPrick))
+            {
+                lastAimHasTarget = hasTarget;
+                lastAimClass = targetClass;
+                lastAimInReach = inReach;
+                lastAimPrick = prickPct;
+                OnAimTargetChanged?.Invoke(hasTarget, targetClass, inReach, prickPct);
+            }
+        }
+
+        private enum KeyAction { E, Q, F, R, T, X, Space, Digit1, Digit2, Digit3, Digit4, BracketLeft, BracketRight }
 
         private static Vector2 GetMoveAxis()
         {
@@ -900,11 +1196,13 @@ namespace KaliRiverSweeper.Player
                     KeyAction.Q => Keyboard.current.qKey.wasPressedThisFrame,
                     KeyAction.F => Keyboard.current.fKey.wasPressedThisFrame,
                     KeyAction.R => Keyboard.current.rKey.wasPressedThisFrame,
+                    KeyAction.T => Keyboard.current.tKey.wasPressedThisFrame,
                     KeyAction.X => Keyboard.current.xKey.wasPressedThisFrame,
                     KeyAction.Space => Keyboard.current.spaceKey.wasPressedThisFrame,
                     KeyAction.Digit1 => Keyboard.current.digit1Key.wasPressedThisFrame,
                     KeyAction.Digit2 => Keyboard.current.digit2Key.wasPressedThisFrame,
                     KeyAction.Digit3 => Keyboard.current.digit3Key.wasPressedThisFrame,
+                    KeyAction.Digit4 => Keyboard.current.digit4Key.wasPressedThisFrame,
                     KeyAction.BracketLeft => Keyboard.current.leftBracketKey.wasPressedThisFrame,
                     KeyAction.BracketRight => Keyboard.current.rightBracketKey.wasPressedThisFrame,
                     _ => false
@@ -919,11 +1217,13 @@ namespace KaliRiverSweeper.Player
                 KeyAction.Q => KeyCode.Q,
                 KeyAction.F => KeyCode.F,
                 KeyAction.R => KeyCode.R,
+                KeyAction.T => KeyCode.T,
                 KeyAction.X => KeyCode.X,
                 KeyAction.Space => KeyCode.Space,
                 KeyAction.Digit1 => KeyCode.Alpha1,
                 KeyAction.Digit2 => KeyCode.Alpha2,
                 KeyAction.Digit3 => KeyCode.Alpha3,
+                KeyAction.Digit4 => KeyCode.Alpha4,
                 KeyAction.BracketLeft => KeyCode.LeftBracket,
                 KeyAction.BracketRight => KeyCode.RightBracket,
                 _ => KeyCode.None

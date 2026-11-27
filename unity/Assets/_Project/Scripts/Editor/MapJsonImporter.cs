@@ -5,9 +5,13 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using KaliRiverSweeper.Core;
 using KaliRiverSweeper.Player;
 
@@ -266,8 +270,23 @@ namespace KaliRiverSweeper.Editor
                 AttachPrefabIfPresent(root.transform, nikiPath);
             }
 
+            EnsureEventSystem(root.transform);
+
             Debug.Log($"[KALI] Imported {data.items.Length} objects from {path} into _KALI_World.");
             return true;
+        }
+
+        private static void EnsureEventSystem(Transform root)
+        {
+            if (UnityEngine.Object.FindObjectOfType<EventSystem>() != null) return;
+            GameObject esGo = new GameObject("EventSystem");
+            esGo.transform.SetParent(root);
+            esGo.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            esGo.AddComponent<InputSystemUIInputModule>();
+#else
+            esGo.AddComponent<StandaloneInputModule>();
+#endif
         }
 
         private static GameObject LoadFirstPrefab(params string[] paths) => LoadFirstAsset<GameObject>(paths);
@@ -409,7 +428,21 @@ namespace KaliRiverSweeper.Editor
             {
                 GameObject rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab, parent);
                 rig.name = "PF_LightingRig";
-                Debug.Log("[KALI] Successfully instantiated JC's PF_LightingRig.");
+
+                Light rigLight = rig.GetComponentInChildren<Light>(true);
+                if (rigLight != null) RenderSettings.sun = rigLight;
+
+                Material skyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Project/Lighting/Materials/M_KaliSky.mat");
+                if (skyMat != null) RenderSettings.skybox = skyMat;
+
+                RenderSettings.ambientMode = AmbientMode.Trilight;
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+
+                KaliDayNightCycle cycle = rig.GetComponent<KaliDayNightCycle>();
+                if (cycle != null) cycle.SetHour(cycle.startHour);
+
+                Debug.Log("[KALI] Successfully instantiated PF_LightingRig + M_KaliSky.");
                 return;
             }
 
@@ -466,6 +499,27 @@ namespace KaliRiverSweeper.Editor
                 AttachOnTopIfPresent(go.transform, "Assets/_Project/Lighting/Prefabs/PF_WarningBeacon_PintuAir.prefab");
                 CreatePintuAirPileZone(item, infra);
             }
+            else if (item.type is "bank_sampah" or "pos_medis" or "karantina_biohazard" or "pengepul")
+            {
+                CreateStationRiverDockTrigger(item, go.transform);
+            }
+        }
+
+        private static void CreateStationRiverDockTrigger(MapItem item, Transform stationTransform)
+        {
+            float cxWorld = (RiverMath.RiverCenterMapX(item.y) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+            float hwWorld = RiverMath.RiverHalfWidthMap(item.y) * RiverMath.MapScale;
+            Vector3 stPos = stationTransform.position;
+            float bankEdgeX = stPos.x >= cxWorld ? (cxWorld + hwWorld - 1.5f) : (cxWorld - hwWorld + 1.5f);
+            float midX = (stPos.x + bankEdgeX) * 0.5f;
+            float spanX = Mathf.Max(6f, Mathf.Abs(stPos.x - bankEdgeX) + 5f);
+
+            GameObject dockTrigger = new GameObject($"{item.name}_RiverDockTrigger");
+            dockTrigger.transform.SetParent(stationTransform, worldPositionStays: true);
+            dockTrigger.transform.position = new Vector3(midX, 0.8f, stPos.z);
+            BoxCollider bc = dockTrigger.AddComponent<BoxCollider>();
+            bc.isTrigger = true;
+            bc.size = new Vector3(spanX, 4.5f, 8f);
         }
 
         private static GameObject SpawnEnvOrFallback(MapItem item, Transform parent, float groundY, out bool usedPrefab)
@@ -512,6 +566,7 @@ namespace KaliRiverSweeper.Editor
             cc.height = 1.8f;
             cc.radius = 0.4f;
             KaliPlayerController ctrl = player.AddComponent<KaliPlayerController>();
+            player.AddComponent<KaliFieldGuideOverlay>();
 
             Camera mainCam = Camera.main;
             if (mainCam == null)
@@ -523,6 +578,11 @@ namespace KaliRiverSweeper.Editor
             mainCam.transform.SetParent(player.transform);
             mainCam.transform.localPosition = new Vector3(0f, 0.7f, 0f);
             mainCam.transform.localRotation = Quaternion.identity;
+            mainCam.clearFlags = CameraClearFlags.Skybox;
+            mainCam.fieldOfView = 60f;
+            UniversalAdditionalCameraData camData = mainCam.GetComponent<UniversalAdditionalCameraData>();
+            if (camData == null) camData = mainCam.gameObject.AddComponent<UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = true;
 
             GameObject socket = new GameObject("ToolSocket");
             socket.transform.SetParent(mainCam.transform);

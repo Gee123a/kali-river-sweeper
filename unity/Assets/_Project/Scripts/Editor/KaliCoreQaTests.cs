@@ -83,9 +83,11 @@ namespace KaliRiverSweeper.Editor
                 VerifyEventsGunungBreachAndFourEndings,
                 VerifyRiverMathSpawnerAndComponents,
                 VerifyChildColliderLookupAndSingleEndingGuard,
-                VerifyF9StageTwoReset,
                 VerifyPrefabHitboxProportions,
-                VerifyDermagaRiverPortLimits
+                VerifyDermagaRiverPortLimits,
+                VerifyTask4dAnd4fUxContracts,
+                VerifySwimmingStaminaAndDrowning,
+                VerifyDayNightCycle
             };
 
             assertCount = 0;
@@ -207,9 +209,10 @@ namespace KaliRiverSweeper.Editor
             {
                 RiverGameManager gm = ctx.Manager;
 
-                // #10 Capitan Ular guarantees 0% medical prick risk
+                // #10 Capitan Ular guarantees 0% medical prick risk once bought & equipped
                 InvokeNonPublic(gm, "AddEarnings", 80000);
-                Assert(gm.equippedToolIndex == ToolCatalog.SnakeGrabberIndex, "80,000 Rp equips #10 Capitan Ular");
+                Assert(gm.equippedToolIndex == 1, "AddEarnings does not auto-equip #10 Capitan Ular");
+                Assert(gm.BuyTool(ToolCatalog.SnakeGrabberIndex) && gm.equippedToolIndex == ToolCatalog.SnakeGrabberIndex, "BuyTool #10 Capitan Ular equips it");
                 AssertApprox(0f, gm.EquippedTool.MedicalPrickChance, 0.0001f, "#10 Capitan Ular 0% prick chance");
 
                 gm.cargoCapacity = 25;
@@ -270,19 +273,23 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEquippedToolChanged += _ => equipChangedCount++;
 
                 InvokeNonPublic(gm, "AddEarnings", 30000);
-                Assert(gm.highestUnlockedToolIndex == 6 && gm.equippedToolIndex == 6 && gm.galahUnlocked, "30k unlocks #06 + galah");
-                Assert(unlockedCount == 5 && equipChangedCount == 1, "Fired OnToolUnlocked for #2..#6");
+                Assert(gm.highestUnlockedToolIndex == 6 && gm.equippedToolIndex == 1 && gm.galahUnlocked, "30k unlocks #06 + galah without auto-equip");
+                Assert(unlockedCount == 5 && equipChangedCount == 0, "Fired OnToolUnlocked for #2..#6 without auto-equip");
 
-                Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
-                Assert(gm.rupiah == 0 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Spending rupiah preserves tool unlocks");
+                Assert(gm.BuyTool(6) && gm.equippedToolIndex == 6 && gm.IsToolOwned(6), "BuyTool #06 spends 28k and equips it");
+                Assert(!gm.BuyTool(6), "BuyTool blocks duplicate purchase");
+                Assert(!gm.BuyTool(20), "BuyTool blocks purchase when rupiah is insufficient");
+                Assert(gm.rupiah == 2000 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Buying tool spends rupiah only");
 
                 Assert(gm.SelectTool(1) && gm.equippedToolIndex == 1, "SelectTool #01");
-                Assert(gm.SelectTool(20) && gm.equippedToolIndex == 6, "SelectTool clamps to highestUnlockedToolIndex");
+                Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 1, "SelectTool rejects unowned tool #20");
                 gm.CycleTool(-1);
-                Assert(gm.equippedToolIndex == 5, "CycleTool decrements cleanly");
-                gm.SelectTool(1);
-                gm.CycleTool(-1);
-                Assert(gm.equippedToolIndex == 6, "CycleTool wraps backwards to highest unlocked");
+                Assert(gm.equippedToolIndex == 6, "CycleTool wraps backwards to highest owned");
+                gm.CycleTool(1);
+                Assert(gm.equippedToolIndex == 1, "CycleTool wraps forwards to #01");
+
+                InvokeNonPublic(gm, "AddEarnings", 28000);
+                Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
             }
 
             // Shop / economy API
@@ -295,7 +302,7 @@ namespace KaliRiverSweeper.Editor
             using (QaContext shopCtx = new QaContext())
             {
                 RiverGameManager gm = shopCtx.Manager;
-                Assert(gm.IsToolUnlocked(0) && !gm.IsToolUnlocked(19), "IsToolUnlocked: #01 open, #20 locked at 0 earnings");
+                Assert(gm.IsToolUnlocked(1) && !gm.IsToolUnlocked(20), "IsToolUnlocked: #01 open, #20 locked at 0 earnings");
 
                 Vector3 kopdesPos = new Vector3(6000f, 6000f, 6000f);
                 GameObject kopdesRoot = shopCtx.Track(new GameObject("Koperasi Desa (Kopdes)"));
@@ -341,9 +348,10 @@ namespace KaliRiverSweeper.Editor
                 gm.DamageGunungSampah(0.30f, gunungGo.transform.position);
                 AssertApprox(1f, gm.gunungSampahHealth, 0.001f, "Starter tool cannot damage Gunung");
 
-                // Unlock #13 Ganco Ganda Winch
+                // Unlock & buy #13 Ganco Ganda Winch
                 InvokeNonPublic(gm, "AddEarnings", 140000);
                 Assert(gm.highestUnlockedToolIndex == 13, "140k unlocks #13 Ganco Ganda Winch");
+                Assert(gm.BuyTool(13), "BuyTool #13 Ganco Ganda Winch");
 
                 int tierBreaches = 0;
                 Vector3 lastBreachPos = Vector3.zero;
@@ -352,15 +360,16 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEndingTriggered += e => victoryEnding = e;
 
                 Vector3 hitPos = new Vector3(2f, 3f, -68f);
-                node.ApplyDamage(0.30f); // 1.0 -> 0.70 (Tier 4 -> 3)
+                GunungNodeController[] allNodes = UnityEngine.Object.FindObjectsOfType<GunungNodeController>(true);
+                for (int i = 0; i < allNodes.Length; i++) { allNodes[i].Restore(); allNodes[i].ApplyDamage(0.30f); } // 1.0 -> 0.70 (Tier 4 -> 3)
                 gm.DamageGunungSampah(0.10f, hitPos);
                 Assert(tierBreaches == 1 && lastBreachPos == hitPos, "OnGunungTierBreached fires with impactPos on tier drop");
 
-                node.ApplyDamage(0.30f); // 0.70 -> 0.40 (Tier 3 -> 2)
+                for (int i = 0; i < allNodes.Length; i++) allNodes[i].ApplyDamage(0.30f); // 0.70 -> 0.40 (Tier 3 -> 2)
                 gm.DamageGunungSampah(0.10f, hitPos);
                 Assert(tierBreaches == 2, "Second Gunung tier breach");
 
-                node.ApplyDamage(0.40f); // 0.40 -> 0.00 (Tier 2 -> 0 -> CompleteCleanBreach)
+                for (int i = 0; i < allNodes.Length; i++) allNodes[i].ApplyDamage(0.40f); // 0.40 -> 0.00 (Tier 2 -> 0 -> CompleteCleanBreach)
                 gm.DamageGunungSampah(0.10f, hitPos);
                 Assert(tierBreaches == 3, "Final Gunung tier breach");
                 Assert(gm.activeEnding == GameEnding.TrueSdgVictory && victoryEnding == GameEnding.TrueSdgVictory, "Clean breach triggers TrueSdgVictory");
@@ -374,8 +383,8 @@ namespace KaliRiverSweeper.Editor
                 RiverGameManager gm = ctx.Manager;
                 GameEnding flushEnding = GameEnding.None;
                 gm.OnEndingTriggered += e => flushEnding = e;
-                gm.RegisterActiveTrash(10);
-                gm.TriggerEmergencyFlush();
+                gm.RegisterActiveTrash(120);
+                gm.TriggerEmergencyFlush(confirmed: true);
                 Assert(gm.activeEnding == GameEnding.CompromisedOceanFlush && flushEnding == GameEnding.CompromisedOceanFlush, "CompromisedOceanFlush ending");
                 Assert(gm.flushedKg > 0 && gm.TotalTrashInRiver == 0 && gm.gunungSampahHealth == 0f, "Emergency flush clears river and records flushedKg");
             }
@@ -394,7 +403,7 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEndingTriggered += e => timerVictory = e;
                 gm.monsoonCountdownRemaining = 0.0001f;
                 InvokeNonPublic(gm, "Tick", 0.1f);
-                Assert(gm.activeEnding == GameEnding.TrueSdgVictory && timerVictory == GameEnding.TrueSdgVictory, "Monsoon countdown 0 triggers TrueSdgVictory");
+                Assert(gm.activeEnding == GameEnding.PartialSurvival && timerVictory == GameEnding.PartialSurvival, "Monsoon countdown 0 with Gunung intact triggers PartialSurvival");
             }
         }
 
@@ -452,7 +461,8 @@ namespace KaliRiverSweeper.Editor
             using (QaContext ctx = new QaContext(isolateSceneGunungNodes: true))
             {
                 RiverGameManager gm = ctx.Manager;
-                InvokeNonPublic(gm, "AddEarnings", 140000); // Unlock #13 Ganco Ganda Winch
+                InvokeNonPublic(gm, "AddEarnings", 140000);
+                Assert(gm.BuyTool(13), "BuyTool #13 Ganco Ganda Winch");
 
                 Vector3 isolatedPos = new Vector3(5000f, 5000f, 5000f);
                 GameObject hubRoot = ctx.Track(new GameObject("Bank Sampah Berkah"));
@@ -548,30 +558,6 @@ namespace KaliRiverSweeper.Editor
                 InvokeNonPublic(gm, "Tick", 0.1f);
 
                 Assert(endingCount == 1 && gm.activeEnding == GameEnding.HealthFail && lastEnding == GameEnding.HealthFail, "HealthFail is not overwritten by FloodFail");
-            }
-        }
-
-        private static void VerifyF9StageTwoReset()
-        {
-            using (QaContext ctx = new QaContext())
-            {
-                RiverGameManager gm = ctx.Manager;
-                GameObject trashTemplate = ctx.Track(new GameObject("QA_F9TrashTemplate"));
-                GameObject spawnerGo = ctx.Track(new GameObject("QA_F9Spawner"));
-                RiverTrashSpawner spawner = spawnerGo.AddComponent<RiverTrashSpawner>();
-                spawner.normalPrefabs = new[] { trashTemplate };
-                spawner.medicalPrefabs = new[] { trashTemplate };
-                spawner.biohazardPrefabs = new[] { trashTemplate };
-
-                ctx.Track(spawner.SpawnTrashAt(Vector3.zero, WasteClass.Normal));
-                Assert(UnityEngine.Object.FindObjectsOfType<RiverTrashItem>().Length > 0, "F9 setup spawned live trash");
-
-                // Stage 2: 80,000 Rp cumulative, #10 Capitan Ular equipped, Kampung Bins on, no monsoon
-                InvokeNonPublic(gm, "ResetStageState", 80000, 45000, ToolCatalog.SnakeGrabberIndex, true, true, false, true, false, false);
-                Assert(gm.cumulativeEarnings == 80000, "F9 stage 2 cumulativeEarnings == 80000");
-                Assert(gm.equippedToolIndex == ToolCatalog.SnakeGrabberIndex, "F9 stage 2 equips #10 Capitan Ular");
-                // Destroy() in ResetStageState is deferred, so a scene-wide FindObjectsOfType count is not synchronous; check the synchronous registry instead.
-                Assert(gm.activeRiverTrashCount == 0, "F9 stage reset leaves no registered RiverTrashItem");
             }
         }
 
@@ -680,14 +666,14 @@ namespace KaliRiverSweeper.Editor
                 bool offDockBoard = (bool)toggleBoat.Invoke(player, new object[] { gm });
                 Assert(!offDockBoard && !player.isInBoat, "Cannot board boat off-dock along riverbank");
 
-                // 2. Off-dock foot guard: cannot walk or jump straight from dry bank into RiverMath.IsInRiver
+                // 2. Foot entry into river: walking or jumping off bank into RiverMath.IsInRiver IS permitted (triggers swimming instead of invisible wall)
                 Vector3 stepIntoRiver = new Vector3(5.0f, 0f, 0f);
                 Vector3 permittedStep = (Vector3)resolveFoot.Invoke(player, new object[] { offDockBank, stepIntoRiver, gm });
-                Assert(permittedStep.x < 0.01f, "Foot movement cannot cross from bank into river off-dock");
+                Assert(permittedStep.x > 4.9f, "Foot movement can enter river off-dock to swim");
 
                 Vector3 midAirOffDock = new Vector3(offDockBank.x, 3.5f, offDockBank.z);
                 Vector3 jumpStep = (Vector3)resolveFoot.Invoke(player, new object[] { midAirOffDock, stepIntoRiver, gm });
-                Assert(jumpStep.x < 0.01f, "Jumping off-dock bank cannot bypass river entry guard");
+                Assert(jumpStep.x > 4.9f, "Jumping off-dock bank can enter river to swim");
 
                 // 2b. Jembatan crossing: walking across an elevated bridge over RiverMath.IsInRiver IS permitted
                 const float bridgeMapY = 740f;
@@ -702,14 +688,14 @@ namespace KaliRiverSweeper.Editor
                 Vector3 bridgeStep = (Vector3)resolveFoot.Invoke(player, new object[] { onBridgePos, stepIntoRiver, gm });
                 Assert(bridgeStep.x > 4.9f, "Foot movement across Jembatan over river is permitted");
 
-                // 2c. Dermaga pier: walking on pier is permitted, walking off pier river-edge into open river is blocked
+                // 2c. Dermaga pier: walking on pier AND stepping off pier into water on foot is permitted (boats remain Dermaga-only)
                 Vector3 onPierPos = new Vector3(dockCenter.x + 3.5f, 2.25f, dockCenter.z);
                 Vector3 stepToPierTip = new Vector3(0.5f, 0f, 0f);
                 Vector3 stepPastPier = new Vector3(4.0f, 0f, 0f);
                 Vector3 ontoPierStep = (Vector3)resolveFoot.Invoke(player, new object[] { onPierPos, stepToPierTip, gm });
                 Vector3 offPierStep = (Vector3)resolveFoot.Invoke(player, new object[] { onPierPos, stepPastPier, gm });
                 Assert(ontoPierStep.x > 0.4f, "Walking onto Dermaga pier is permitted");
-                Assert(offPierStep.x < 0.01f, "Walking off Dermaga pier into open river on foot is blocked");
+                Assert(offPierStep.x > 3.9f, "Walking off Dermaga pier into river to swim is permitted");
 
                 // 3. On Dermaga: OnNearbyDermagaChanged emits and boarding succeeds into RiverMath.IsInRiver
                 int dockEvents = 0;
@@ -738,6 +724,290 @@ namespace KaliRiverSweeper.Editor
                 bool onDockDisembark = (bool)toggleBoat.Invoke(player, new object[] { gm });
                 Assert(onDockDisembark && !player.isInBoat && !RiverMath.IsInRiver(playerGo.transform.position) && playerGo.transform.position.y >= 1.40f,
                     "Disembarking at Dermaga lifts player onto dry land above BankTopY");
+            }
+        }
+
+        private static void VerifyTask4dAnd4fUxContracts()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                Assert(!gm.IsToolUnlocked(0) && gm.IsToolUnlocked(1), "IsToolUnlocked must be 1-based");
+
+                // 1. #11-#20 Medical prick safety lock once #10 Capitan Ular is unlocked
+                gm.TryPickupWaste(WasteClass.Normal, 2);
+                for (int i = 0; i < 20; i++)
+                {
+                    gm.TryPickupWaste(WasteClass.Normal, 1);
+                    gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                }
+                // Bring cumulative earnings past 140k (#13 Ganco Ganda Winch)
+                while (gm.highestUnlockedToolIndex < 13)
+                {
+                    gm.TryPickupWaste(WasteClass.Normal, 4);
+                    gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                }
+                AssertApprox(0f, gm.GetEffectiveMedicalPrickChance(), 0.0001f, "#13+ Medical prick chance locked at 0% after #10 unlock");
+
+                // 2. Duplicate BuyUpgrade guard
+                int preRupiah = gm.rupiah;
+                bool firstBuy = gm.BuyUpgrade(UpgradeTier.WoodenSampan);
+                int postFirst = gm.rupiah;
+                bool secondBuy = gm.BuyUpgrade(UpgradeTier.WoodenSampan);
+                Assert(firstBuy && !secondBuy && postFirst == preRupiah - RiverGameManager.GetUpgradeCost(UpgradeTier.WoodenSampan) && gm.rupiah == postFirst,
+                    "BuyUpgrade must block duplicate purchase spend");
+
+                // 3. Safe [E] DiscardLegalAtStation leaves Medical/Biohazard untouched with 0 fines
+                int receipts = 0;
+                gm.OnStationAuditReceipt += _ => receipts++;
+                gm.TryPickupWaste(WasteClass.Normal, 2);
+                gm.TryPickupWaste(WasteClass.Medical, 1);
+                int legalOut = gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                Assert(legalOut > 0 && gm.normalCargo == 0 && gm.medicalCargo == 1 && gm.wrongDiscardCount == 0 && receipts > 0,
+                    "DiscardLegalAtStation deposits only legal class with 0 accidental fines and emits audit receipt");
+
+                // 4. EmergencyFlush Sell-Lock + confirm guard
+                Assert(!gm.TriggerEmergencyFlush(confirmed: true), "EmergencyFlush blocked when not Sell-Locked");
+                gm.RegisterActiveTrash(120); // >= 1.85m
+                Assert(gm.IsSellLocked, "120+ trash triggers Sell-Lock");
+                Assert(!gm.TriggerEmergencyFlush(confirmed: false), "EmergencyFlush blocked without confirmation");
+
+                // 5. ComputeSdgScorecard + RestartRun full reset
+                SdgScorecard card = gm.ComputeSdgScorecard();
+                Assert(!string.IsNullOrEmpty(card.Rank), "ComputeSdgScorecard returns valid rank");
+                Assert(gm.TriggerEmergencyFlush(confirmed: true) && gm.activeEnding == GameEnding.CompromisedOceanFlush,
+                    "Confirmed EmergencyFlush during Sell-Lock triggers CompromisedOceanFlush");
+
+                GameObject rsTemplate = ctx.Track(new GameObject("QA_RestartTrashTemplate"));
+                RiverTrashSpawner rsSpawner = ctx.Track(new GameObject("QA_RestartSpawner")).AddComponent<RiverTrashSpawner>();
+                rsSpawner.normalPrefabs = new[] { rsTemplate };
+                ctx.Track(rsSpawner.SpawnTrashAt(Vector3.zero, WasteClass.Normal));
+                gm.RestartRun();
+                Assert(gm.activeRiverTrashCount == 0, "RestartRun leaves no registered RiverTrashItem");
+                Assert(gm.activeEnding == GameEnding.None && gm.rupiah == 0 && gm.wrongDiscardCount == 0 && gm.unpaidFineDebt == 0 && gm.communityTrust == 40,
+                    "RestartRun resets ending, economy, audit debt, and trust");
+            }
+        }
+
+        private static void VerifySwimmingStaminaAndDrowning()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "Initial swimStamina is full");
+                Assert(!gm.IsSwimming && !gm.IsDrowning, "Initially not swimming or drowning");
+
+                // 1. Setup dry bank ground and player controller
+                GameObject bankGo = ctx.Track(new GameObject("QA_DryBank"));
+                bankGo.transform.position = new Vector3(-45f, 0.9f, 0f);
+                BoxCollider bankCol = bankGo.AddComponent<BoxCollider>();
+                bankCol.size = new Vector3(30f, 1.0f, 40f); // top at Y = 1.40f
+
+                GameObject playerGo = ctx.Track(new GameObject("QA_SwimPlayer"));
+                playerGo.transform.position = new Vector3(-45f, 2.30f, 0f);
+                CharacterController cc = playerGo.AddComponent<CharacterController>();
+                cc.height = 1.8f;
+                cc.radius = 0.4f;
+                KaliPlayerController player = playerGo.AddComponent<KaliPlayerController>();
+                InvokeNonPublic(player, "Awake");
+                Physics.SyncTransforms();
+
+                int swimEvents = 0;
+                bool lastSwimEvent = false;
+                player.OnSwimStateChanged += sw => { swimEvents++; lastSwimEvent = sw; };
+
+                // 2. Walking & sprinting on dry land preserves running/sprinting and never drains swimStamina
+                Vector3 beforeLandWalk = playerGo.transform.position;
+                InvokeNonPublic(player, "StepMovement", new Vector2(0f, 1f), true, false, 0.2f);
+                Assert(!player.isSwimming && !gm.IsSwimming, "Sprinting on dry bank stays out of swim mode");
+                Assert(playerGo.transform.position.z > beforeLandWalk.z + 1.5f, "Running/sprinting moves player along dry bank");
+                InvokeNonPublic(gm, "Tick", 1.0f);
+                AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "Dry land sprinting does not drain swimStamina");
+
+                // 3. Entering open river water at surface triggers surface-only swimming + OnSwimStateChanged
+                Vector3 riverCenter = RiverMath.ToWorld3D(RiverMath.RiverCenterMapX(720f), 720f);
+                float expectedSurfaceY = gm.currentWaterLevelY + player.swimSurfaceOffset;
+                playerGo.transform.position = new Vector3(riverCenter.x, expectedSurfaceY - 0.5f, riverCenter.z);
+                Physics.SyncTransforms();
+
+                InvokeNonPublic(player, "StepMovement", new Vector2(0f, 1f), false, true, 0.1f);
+                Assert(player.isSwimming && gm.IsSwimming && swimEvents == 1 && lastSwimEvent,
+                    "Entering RiverMath.IsInRiver off-bridge/dock triggers surface swimming and OnSwimStateChanged(true)");
+                Assert(playerGo.transform.position.y >= expectedSurfaceY - 0.06f,
+                    "Surface-only swimming clamps swimmer up to water surface (never underwater)");
+
+                // Pressing jump mid-river must NOT launch out of water or dive below surface
+                float zBeforeSwim = playerGo.transform.position.z;
+                InvokeNonPublic(player, "StepMovement", Vector2.zero, false, true, 0.25f);
+                Assert(player.isSwimming && playerGo.transform.position.y <= expectedSurfaceY + 0.15f && playerGo.transform.position.y >= expectedSurfaceY - 0.06f,
+                    "Mid-river jump stays strictly surface-only");
+                Assert(playerGo.transform.position.z > zBeforeSwim, "River current drifts surface swimmer toward +Z downstream");
+
+                // Shore climb-out assist near bank exits swim state cleanly and lifts swimmer toward bank top
+                float westShoreX = (RiverMath.RiverCenterMapX(720f) - RiverMath.RiverHalfWidthMap(720f) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale + 0.5f;
+                playerGo.transform.position = new Vector3(westShoreX, expectedSurfaceY, 0f);
+                Physics.SyncTransforms();
+                InvokeNonPublic(player, "StepMovement", new Vector2(-1f, 0f), false, true, 0.15f);
+                Assert(!player.isSwimming && playerGo.transform.position.y > expectedSurfaceY + 0.3f,
+                    "Pressing jump while swimming into shoreline triggers climb-out lift");
+                for (int step = 0; step < 6; step++)
+                {
+                    InvokeNonPublic(player, "StepMovement", new Vector2(-1f, 0f), false, false, 0.12f);
+                }
+                Assert(!RiverMath.IsInRiver(playerGo.transform.position) && !player.isSwimming,
+                    "Climb-out finishes onto riverbank out of swim state");
+
+                // 4. Swim stamina drain rates: treading (4/s), moving (8/s), sprinting (16/s)
+                gm.swimStamina = 100f;
+                gm.SetPlayerSwimming(true, movingInWater: false, sprintingInWater: false);
+                InvokeNonPublic(gm, "Tick", 1.0f);
+                AssertApprox(96f, gm.swimStamina, 0.01f, "Treading water drains 4 swimStamina/s");
+
+                gm.SetPlayerSwimming(true, movingInWater: true, sprintingInWater: false);
+                InvokeNonPublic(gm, "Tick", 1.0f);
+                AssertApprox(88f, gm.swimStamina, 0.01f, "Swimming drains 8 swimStamina/s");
+
+                gm.SetPlayerSwimming(true, movingInWater: true, sprintingInWater: true);
+                InvokeNonPublic(gm, "Tick", 2.0f);
+                AssertApprox(56f, gm.swimStamina, 0.01f, "Sprint-swimming drains 16 swimStamina/s");
+
+                // 5. Exiting water onto dry land/bridge/Dermaga/boat recovers swimStamina
+                playerGo.transform.position = new Vector3(-45f, 2.30f, 0f);
+                Physics.SyncTransforms();
+                InvokeNonPublic(player, "StepMovement", Vector2.zero, false, false, 0.1f);
+                Assert(!player.isSwimming && !gm.IsSwimming && !lastSwimEvent, "Returning to dry bank exits swimming");
+                float staminaBeforeRegen = gm.swimStamina;
+                InvokeNonPublic(gm, "Tick", 2.0f);
+                AssertApprox(Mathf.Min(gm.maxSwimStamina, staminaBeforeRegen + 36f), gm.swimStamina, 0.01f,
+                    "Swim stamina regenerates at 18/s out of water");
+
+                // Boarding a boat while swimming clears swim state immediately
+                playerGo.transform.position = new Vector3(riverCenter.x, expectedSurfaceY, riverCenter.z);
+                Physics.SyncTransforms();
+                InvokeNonPublic(player, "StepMovement", new Vector2(0f, 1f), false, false, 0.1f);
+                Assert(player.isSwimming, "Back in river swimming before boarding boat");
+                Vector3 dockPos = RiverMath.ToWorld3D(RiverMath.RiverCenterMapX(1000f) - RiverMath.RiverHalfWidthMap(1000f), 1000f, 0.625f);
+                GameObject swimDock = ctx.Track(new GameObject("Dermaga SwimQA"));
+                swimDock.transform.position = dockPos;
+                swimDock.AddComponent<BoxCollider>().size = new Vector3(8f, 1.25f, 4f);
+                playerGo.transform.position = new Vector3(dockPos.x + 2f, expectedSurfaceY, dockPos.z);
+                Physics.SyncTransforms();
+                MethodInfo toggleBoat = typeof(KaliPlayerController).GetMethod("TryToggleBoat", BindingFlags.Instance | BindingFlags.NonPublic);
+                bool boarded = (bool)toggleBoat.Invoke(player, new object[] { gm });
+                Assert(boarded && player.isInBoat && !player.isSwimming && !gm.IsSwimming,
+                    "Boarding boat at Dermaga clears swimming state");
+                InvokeNonPublic(player, "StepMovement", Vector2.zero, false, false, 0.1f);
+                Assert(!player.isSwimming && !gm.IsSwimming, "Boat ride stays non-swimming");
+
+                // 6. Exhausting swim stamina triggers drowning alerts, blocks passive HP regen, and causes HealthFail with drowning diagnosis
+                player.ResetToInitialSpawn();
+                gm.swimStamina = 10f;
+                gm.playerHealth = 50f;
+                int dangerAlerts = 0;
+                string lastAlert = string.Empty;
+                gm.OnHazardOrAlert += (msg, danger) => { if (danger) { dangerAlerts++; lastAlert = msg; } };
+                gm.SetPlayerSwimming(true, movingInWater: true, sprintingInWater: true); // drains 16/s
+                InvokeNonPublic(gm, "Tick", 1.0f); // 10 - 16 -> 0 stamina
+                Assert(gm.swimStamina == 0f && gm.IsDrowning && dangerAlerts >= 1,
+                    "Exhausting swim stamina triggers IsDrowning and danger alert");
+                Assert(lastAlert.Contains("TENGGELAM"), "Drowning alert warns player");
+
+                // Subsequent tick deals drowning damage (14 HP/s) without passive HP recovery
+                InvokeNonPublic(gm, "Tick", 2.0f); // 50 - 28 = 22 HP
+                AssertApprox(22f, gm.playerHealth, 0.05f, "Drowning deals 14 HP/s without passive HP regen");
+
+                InvokeNonPublic(gm, "Tick", 2.0f); // 22 - 28 -> 0 HP -> HealthFail
+                Assert(gm.playerHealth == 0f && gm.activeEnding == GameEnding.HealthFail,
+                    "Drowning to 0 HP triggers HealthFail");
+                Assert(gm.LastEndingDiagnosis.Contains("tenggelam"),
+                    "HealthFail caused by drowning records drowning-specific diagnosis");
+
+                // 7. RestartRun restores full swimStamina and clears swim/drowning state
+                gm.RestartRun();
+                AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "RestartRun restores full swimStamina");
+                Assert(!gm.IsSwimming && !gm.IsDrowning, "RestartRun clears swimming and drowning state");
+            }
+        }
+
+        private static void VerifyDayNightCycle()
+        {
+            KaliDayNightCycle prevCycle = KaliDayNightCycle.Instance;
+            PropertyInfo cycleInstProp = typeof(KaliDayNightCycle).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            cycleInstProp?.SetValue(null, null);
+
+            try
+            {
+                using (QaContext ctx = new QaContext())
+                {
+                    RiverGameManager gm = ctx.Manager;
+                    GameObject rig = ctx.Track(new GameObject("QA_DayNightRig"));
+                    GameObject sunGo = ctx.Track(new GameObject("Sun"));
+                    sunGo.transform.SetParent(rig.transform, false);
+                    sunGo.AddComponent<Light>().type = LightType.Directional;
+                    KaliDayNightCycle cycle = rig.AddComponent<KaliDayNightCycle>();
+                    InvokeNonPublic(cycle, "Awake");
+
+                    // 1. Sunrise (+Z) and Noon elevation
+                    cycle.SetHour(6f);
+                    Assert(Mathf.Abs(cycle.SunDirection.y) < 0.1f && cycle.SunDirection.z > 0.9f,
+                        "Hour 6 sun sits near horizon toward +Z (Pintu Air)");
+
+                    cycle.SetHour(12f);
+                    Assert(cycle.SunDirection.y > 0.9f * Mathf.Sin(72f * Mathf.Deg2Rad),
+                        "Hour 12 sun reaches high noon elevation");
+
+                    // 2. StartHour (evening golden hour) toward -Z at 3.5-7.5 deg
+                    cycle.SetHour(cycle.startHour);
+                    float elevDeg = Mathf.Asin(Mathf.Clamp(cycle.SunDirection.y, -1f, 1f)) * Mathf.Rad2Deg;
+                    Assert(cycle.SunDirection.z < 0f && elevDeg >= 3.5f && elevDeg <= 7.5f,
+                        $"StartHour {cycle.startHour:F2} sun sits toward -Z at 3.5-7.5 deg (got {elevDeg:F2} deg)");
+
+                    // 3. Night moonlit sky & stars
+                    cycle.SetHour(23f);
+                    Assert(cycle.MoonDirection.y > 0.1f && cycle.CurrentStars > 0.5f,
+                        "Hour 23 moon is above horizon and stars are visible");
+
+                    // 4. ClockText formatting & proportional Step + 24h wrap
+                    cycle.SetHour(17.4f);
+                    Assert(cycle.ClockText == "17:24", $"Expected ClockText 17:24, got {cycle.ClockText}");
+
+                    cycle.Step(cycle.dayLengthSeconds * 0.25f);
+                    AssertApprox(23.4f, cycle.CurrentHour, 0.01f, "Step(0.25 day) advances +6h");
+                    cycle.Step(cycle.dayLengthSeconds);
+                    AssertApprox(23.4f, cycle.CurrentHour, 0.02f, "Step(1.0 day) wraps cleanly modulo 24h");
+
+                    // 5. SkipToNextPhase sequence from startHour: Dusk -> Night -> Dawn -> Noon -> Golden Hour
+                    cycle.SetHour(cycle.startHour);
+                    cycle.SkipToNextPhase();
+                    AssertApprox(18f + 40f / 60f, cycle.CurrentHour, 0.02f, "Skip 1 -> Dusk 18:40");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(22f, cycle.CurrentHour, 0.02f, "Skip 2 -> Night 22:00");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(5f + 50f / 60f, cycle.CurrentHour, 0.02f, "Skip 3 -> Dawn 05:50");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(12f, cycle.CurrentHour, 0.02f, "Skip 4 -> Noon 12:00");
+                    cycle.SkipToNextPhase();
+                    AssertApprox(cycle.startHour, cycle.CurrentHour, 0.02f, "Skip 5 -> Golden Hour");
+
+                    // 6. Storm blend (~6s smoothing -> ~1 within 10s) and Smog curve
+                    gm.isMonsoonStorm = true;
+                    cycle.Step(10f);
+                    Assert(cycle.StormBlend >= 0.99f, $"StormBlend reaches ~1 after 10s (got {cycle.StormBlend:F3})");
+                    gm.isMonsoonStorm = false;
+                    cycle.Step(10f);
+                    Assert(cycle.StormBlend <= 0.01f, $"StormBlend clears after 10s (got {cycle.StormBlend:F3})");
+
+                    gm.waterClarity = 0.65f;
+                    cycle.Step(0.1f);
+                    AssertApprox(0f, cycle.SmogFactor, 0.001f, "Smog is 0 at waterClarity 0.65");
+                    gm.waterClarity = 0.12f;
+                    cycle.Step(0.1f);
+                    Assert(cycle.SmogFactor > 0.8f, $"Smog > 0.8 at waterClarity 0.12 (got {cycle.SmogFactor:F3})");
+                }
+            }
+            finally
+            {
+                cycleInstProp?.SetValue(null, prevCycle);
             }
         }
 

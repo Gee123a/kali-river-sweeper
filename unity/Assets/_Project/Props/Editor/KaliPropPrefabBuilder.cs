@@ -40,7 +40,7 @@ namespace Kali.Props.EditorTools
         private const string ProductMaterialPath = ProductMaterialFolder + "/M_Products_Atlas.mat";
         private const string ProductAtlasBaseName = "T_Products_Atlas";
 
-        // Equipment (boom, boats, kampung bin). Same material path as KaliLightingBuilder, which builds the lantern /
+        // Equipment (boom, boats, kampung bin). Same material path as KaliLightingPropsBuilder, which builds the lantern /
         // beacon / rotor prefabs from this atlas, so both builders share ONE M_Equipment_Atlas.
         private const string EquipmentMeshFolder = PropsRoot + "/Equipment/Meshes";
         private const string EquipmentPrefabFolder = PropsRoot + "/Equipment/Prefabs";
@@ -62,7 +62,7 @@ namespace Kali.Props.EditorTools
         private const string TrashMeshPattern = @"^SM_Trash_(.+)\.fbx$";
         private const string ToolMeshPattern = @"^SM_Tool_(.+)\.fbx$";
         private const string ProductMeshPattern = @"^SM_Product_(.+)\.fbx$";
-        // The lighting meshes are wrapped by KaliLightingBuilder (KALI > Lighting), not here.
+        // The lighting meshes are wrapped by KaliLightingPropsBuilder (KALI > Lighting > Build Lantern & Beacon Prefabs), not here.
         private const string EquipmentMeshPattern = @"^SM_Prop_(?!LanternWarung\.|WarningBeacon\.|BeaconRotor\.)(.+)\.fbx$";
 
         private const string UrpLitShader = "Universal Render Pipeline/Lit";
@@ -350,7 +350,7 @@ namespace Kali.Props.EditorTools
             }
 
             // Optional emission mask (only the equipment atlas has one): emission = map x _EmissionColor, so only the
-            // white parts (lantern bulb, beacon lens) glow. Same values as KaliLightingBuilder.LoadOrCreateEquipmentMaterial.
+            // white parts (lantern bulb, beacon lens) glow. Same values as KaliLightingPropsBuilder.LoadOrCreateEquipmentMaterial.
             Texture2D emission = AssetDatabase.LoadAssetAtPath<Texture2D>(textureFolder + "/" + baseName + "_Emission.png");
             if (emission != null)
             {
