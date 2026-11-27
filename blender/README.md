@@ -17,6 +17,14 @@ These scripts build the 3D assets for the Unity 2022.3 URP game with Blender 5.3
 - **Produk bersih / clean products** (`SM_Product_*`, 150-400 tris each): the 9 parody brands new and intact, origin on the base.
   One shared atlas material `M_Products_Atlas`. Output: `unity/Assets/_Project/Props/Products/Meshes/`, `Props/Products/Textures/`,
   pack `blender/SM_Products_Pack.blend` (collection `Products_Preview`).
+- **Rigging** (stage `rigging`): `SK_VillagerNPC` (kampung villager, 1200-1800 tris, Unity Humanoid bones,
+  takes `Idle` / `ThrowTrash` / `CarryBin`), its props `SM_Villager_TrashBag` / `SM_Villager_Bin`, and
+  `Anim_PlayerToolSwing` (Generic `ToolHolder` rig, takes `SerokanScoop` / `GancoHookSwing`).
+  Output: `unity/Assets/_Project/Rigging/*.fbx`, `Rigging/Textures/T_Villager_Palette.png`,
+  `blender/SK_VillagerNPC.blend`, `blender/Anim_PlayerToolSwing.blend`. Unity usage: `unity/Assets/_Project/Rigging/README.md`.
+  Animated FBX keep `bake_space_transform=False` (Apply Transform is unsafe with armature animation) and
+  export one take per NLA strip, so take names are exact. QA: `blender -b --factory-startup -P blender/tests/qa_rigging_check.py`;
+  renders: `blender -b --factory-startup -P blender/tests/render_rigging_qa.py -- OUT_DIR`.
 - **Report**: `blender/build_report.json` (status per asset, tri counts, validation issues, repo-relative output paths). Generated, git-ignored.
 
 ### Daftar 20 alat resmi / Official 20 tools (docs/PRD.md section 3)
