@@ -1,3 +1,4 @@
+using KaliRiverSweeper.Core;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -24,6 +25,7 @@ namespace KaliRiverSweeper.UI.Editor
         private static readonly Color Teal = new Color32(0x1B, 0x8A, 0x7A, 255);
         private static readonly Color TapeTint = new Color(1f, 0.99f, 0.96f, 0.62f);
         private static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
+        private static readonly Color Zone0 = new Color32(0x11, 0x12, 0x11, 255);
 
         [MenuItem("KALI/UI/Build Canvas_HUD")]
         public static void Build()
@@ -118,6 +120,122 @@ namespace KaliRiverSweeper.UI.Editor
             Object.DestroyImmediate(root);
             AssetDatabase.Refresh();
             Debug.Log("Canvas_SDGImpactReport prefab written to " + PrefabFolder + "/Canvas_SDGImpactReport.prefab");
+        }
+
+        /// <summary>
+        /// Builds Canvas_ShopBankSampah.prefab: the Toko Alat shop, shown by KaliShopController while the
+        /// player is inside the Toko Alat trigger. Sort order 20, below the SDG report (30) and above the HUD (10).
+        /// Layout is a 1240 x 840 vellum card on a dim layer. Names match KaliShopController's Find paths.
+        /// </summary>
+        [MenuItem("KALI/UI/Build Canvas_ShopBankSampah")]
+        public static void BuildShop()
+        {
+            EnsureFolder("Assets/_Project/UI", "Prefabs");
+
+            GameObject root = new GameObject("Canvas_ShopBankSampah", typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup), typeof(KaliShopController));
+            Canvas canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 20;
+
+            CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            CanvasGroup group = root.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
+
+            GameObject dim = Panel(root.transform, "Dim", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f), new Color(0.07f, 0.07f, 0.06f, 0.66f));
+            RectTransform dimRect = (RectTransform)dim.transform;
+            dimRect.anchorMin = Vector2.zero;
+            dimRect.anchorMax = Vector2.one;
+            dimRect.offsetMin = Vector2.zero;
+            dimRect.offsetMax = Vector2.zero;
+
+            GameObject card = Panel(root.transform, "Card", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1240f, 840f), Vellum);
+            Transform c = card.transform;
+
+            // Header: title, subtitle, and the Rupiah and trust box on the right.
+            Text(c, "Header/TMP_Title", "TOKO ALAT", 32f, Ink, new Vector2(40f, -28f), new Vector2(600f, 40f), new Vector2(0f, 1f));
+            Text(c, "Header/TMP_Subtitle", "Kampung Hulu · belanja alat dan armada", 16f, InkSecondary, new Vector2(40f, -68f), new Vector2(600f, 24f), new Vector2(0f, 1f));
+            Panel(c, "RupiahBox", new Vector2(1f, 1f), new Vector2(-40f, -24f), new Vector2(300f, 76f), VellumSolid);
+            Text(c, "Header/TMP_RupiahValue", "Rp 0", 30f, Ink, new Vector2(-340f, -32f), new Vector2(284f, 40f), new Vector2(1f, 1f));
+            Text(c, "Header/TMP_TrustValue", "Kepercayaan warga 0", 14f, InkSecondary, new Vector2(-340f, -70f), new Vector2(284f, 22f), new Vector2(1f, 1f));
+
+            // Bins: a one-time install, bought with a button.
+            GameObject bins = Panel(c, "Bins", new Vector2(0f, 1f), new Vector2(40f, -130f), new Vector2(360f, 306f), Vellum);
+            Text(bins.transform, "TMP_BinsTitle", "Tempat Sampah Kampung", 20f, Ink, new Vector2(16f, -16f), new Vector2(330f, 28f), new Vector2(0f, 1f));
+            Text(bins.transform, "TMP_BinsDesc", "Sampah desa turun 60%.", 15f, InkSecondary, new Vector2(16f, -52f), new Vector2(330f, 22f), new Vector2(0f, 1f));
+            Text(bins.transform, "TMP_BinsDesc2", "Kepercayaan warga +25.", 15f, InkSecondary, new Vector2(16f, -76f), new Vector2(330f, 22f), new Vector2(0f, 1f));
+            ButtonPanel(bins.transform, "Btn_BuyBins", new Vector2(16f, -120f), new Vector2(328f, 56f), Zone0);
+            ShopLabel(bins.transform, "TMP_BinsStatus", "BELI  Rp 30.000", 18f, Vellum, new Vector2(28f, -136f), new Vector2(304f, 26f), TextAlignmentOptions.Center);
+
+            // Armada: four upgrade tiers in a 2 x 2 grid.
+            GameObject armada = Holder(c, "Armada").gameObject;
+            string[] tierNames = { "Galah 4 m", "Perahu Sampan Kayu", "Trash Boom & Pos Sortir", "Amphibious Excavator" };
+            string[] tierDesc = { "Alat dasar untuk sungai.", "Kapasitas 22, dari 8.", "Passive +Rp 2.500 tiap 4 detik.", "Kapasitas 60, keruk Gunung Sampah." };
+            string[] tierPrice = { "Rp 20.000", "Rp 40.000", "Rp 75.000", "Rp 120.000" };
+            for (int i = 0; i < 4; i++)
+            {
+                float x = 420f + (i % 2) * 390f;
+                float y = -120f - (i / 2) * 166f;
+                GameObject tier = Panel(armada.transform, "Tier_" + i, new Vector2(0f, 1f), new Vector2(x, y), new Vector2(375f, 150f), Vellum);
+                Text(tier.transform, "TMP_TierName", tierNames[i], 19f, Ink, new Vector2(16f, -14f), new Vector2(343f, 28f), new Vector2(0f, 1f));
+                Text(tier.transform, "TMP_TierDesc", tierDesc[i], 14f, InkSecondary, new Vector2(16f, -44f), new Vector2(343f, 22f), new Vector2(0f, 1f));
+                ButtonPanel(tier.transform, "Btn_Buy", new Vector2(16f, -80f), new Vector2(343f, 52f), Zone0);
+                ShopLabel(tier.transform, "TMP_Status", tierPrice[i], 17f, Vellum, new Vector2(28f, -93f), new Vector2(319f, 26f), TextAlignmentOptions.Center);
+            }
+
+            // Tools: 20 selectable cells, 5 columns by 4 rows.
+            Text(c, "Tools/TMP_ToolsTitle", "ALAT · 01–20", 16f, InkSecondary, new Vector2(40f, -456f), new Vector2(400f, 24f), new Vector2(0f, 1f));
+            Transform tools = Holder(c, "Tools");
+            Transform grid = Holder(tools, "Grid");
+            for (int t = 1; t <= 20; t++)
+            {
+                int idx = t - 1;
+                int col = idx % 5;
+                int row = idx / 5;
+                ToolDefinition def = ToolCatalog.GetTool(t);
+                string label = t.ToString("00") + "  " + (def != null ? def.DisplayName : "Alat");
+                int price = def != null ? def.UnlockRupiah : 0;
+
+                GameObject cell = Panel(grid, "Tool_" + t.ToString("00"), new Vector2(0f, 1f), new Vector2(40f + col * 212f, -486f - row * 72f), new Vector2(200f, 64f), Track);
+                ButtonPanel(cell.transform, "Btn_Select", Vector2.zero, new Vector2(200f, 64f), Clear);
+                ShopLabel(cell.transform, "TMP_Name", label, 13f, Ink, new Vector2(10f, -7f), new Vector2(184f, 20f), TextAlignmentOptions.Left);
+                ShopLabel(cell.transform, "TMP_Status", "TERKUNCI", 12f, InkSecondary, new Vector2(10f, -34f), new Vector2(110f, 20f), TextAlignmentOptions.Left);
+                ShopLabel(cell.transform, "TMP_Price", price > 0 ? "Rp " + price.ToString("#,0").Replace(',', '.') : "—", 12f, InkSecondary, new Vector2(100f, -34f), new Vector2(90f, 20f), TextAlignmentOptions.Right);
+            }
+
+            Text(c, "Footer/TMP_Hint", string.Empty, 15f, InkSecondary, new Vector2(40f, -800f), new Vector2(1160f, 22f), new Vector2(0f, 1f));
+
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabFolder + "/Canvas_ShopBankSampah.prefab");
+            Object.DestroyImmediate(root);
+            AssetDatabase.Refresh();
+            Debug.Log("Canvas_ShopBankSampah prefab written to " + PrefabFolder + "/Canvas_ShopBankSampah.prefab");
+        }
+
+        // Button backed by a panel. The label sits on top and does not block clicks.
+        private static GameObject ButtonPanel(Transform parent, string name, Vector2 pos, Vector2 size, Color color)
+        {
+            GameObject go = Panel(parent, name, new Vector2(0f, 1f), pos, size, color);
+            Button button = go.AddComponent<Button>();
+            button.targetGraphic = go.GetComponent<Image>();
+            return go;
+        }
+
+        // Shop label: no raycast, so it never blocks the button under it.
+        private static void ShopLabel(Transform parent, string name, string value, float fontSize, Color color, Vector2 pos, Vector2 size, TextAlignmentOptions alignment)
+        {
+            Text(parent, name, value, fontSize, color, pos, size, new Vector2(0f, 1f));
+            Transform label = parent.Find(name);
+            if (label == null) return;
+            TMP_Text tmp = label.GetComponent<TMP_Text>();
+            if (tmp == null) return;
+            tmp.raycastTarget = false;
+            tmp.alignment = alignment;
         }
 
         private static void BuildSurvivalSheet(Transform parent)
