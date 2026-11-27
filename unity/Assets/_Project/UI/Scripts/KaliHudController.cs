@@ -49,6 +49,8 @@ namespace KaliRiverSweeper.UI
         private RectTransform pinM;
         private RectTransform pinK;
         private RectTransform pinP;
+        private RectTransform pinS;
+        private RectTransform pinT;
         private TMP_Text damLabel;
         private TMP_Text hpValue;
         private TMP_Text siagaLevel;
@@ -58,6 +60,7 @@ namespace KaliRiverSweeper.UI
         private TMP_Text monsunTimer;
         private TMP_Text monsunLabel;
         private GameObject biohazardStrip;
+        private Image biohazardHatchImage;
         private TMP_Text biohazardCountdown;
         private GameObject sellLockStrip;
         private TMP_Text normalCount;
@@ -95,6 +98,8 @@ namespace KaliRiverSweeper.UI
             pinM = Find<RectTransform>("BR_VellumHydroMap/Pin_M");
             pinK = Find<RectTransform>("BR_VellumHydroMap/Pin_K");
             pinP = Find<RectTransform>("BR_VellumHydroMap/Pin_P");
+            pinS = Find<RectTransform>("BR_VellumHydroMap/Pin_S");
+            pinT = Find<RectTransform>("BR_VellumHydroMap/Pin_T");
 
             hpValue = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_HP/TMP_HPValue");
             siagaLevel = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_SiagaLevel");
@@ -104,6 +109,7 @@ namespace KaliRiverSweeper.UI
             monsunTimer = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_MonsunTimer");
             monsunLabel = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_MonsunLabel");
             biohazardStrip = FindGo("TC_ContextualAlertRail/Strip_BiohazardTimer");
+            biohazardHatchImage = Find<Image>("TC_ContextualAlertRail/Strip_BiohazardTimer/Img_CrossHatch90");
             biohazardCountdown = Find<TMP_Text>("TC_ContextualAlertRail/Strip_BiohazardTimer/TMP_BiohazardCountdown");
             sellLockStrip = FindGo("TC_ContextualAlertRail/Strip_SellLockDump");
             normalCount = Find<TMP_Text>("TR_EconomyCargoLedger/Grid_Cargo3Class/Cell_Normal/TMP_NormalCount");
@@ -245,8 +251,8 @@ namespace KaliRiverSweeper.UI
                 {
                     keyLabel[i].color = legal ? Vellum : Ink;
                     string label = KeyBaseLabels[i];
-                    if (i == 3 && isGudang) label = "[E] JUAL SEMUA (MURAH · TURUN WARGA)";
-                    keyLabel[i].text = denda ? label + " · DENDA" : label;
+                    if (i == 3 && isGudang) label = "[E] JUAL SEMUA\n<size=70%>(MURAH \u00B7 TURUN WARGA)</size>";
+                    keyLabel[i].text = denda ? label + "\n<size=70%><color=#F43F5E>DENDA</color></size>" : label;
                 }
             }
         }
@@ -330,10 +336,12 @@ namespace KaliRiverSweeper.UI
             HudMapLayout.PlaceAt(pinM, MapToUi(HudMapLayout.MedisB3Pin));
             HudMapLayout.PlaceAt(pinK, MapToUi(HudMapLayout.KarantinaPin));
             HudMapLayout.PlaceAt(pinP, MapToUi(HudMapLayout.PengepulPin));
+            HudMapLayout.PlaceAt(pinS, MapToUi(HudMapLayout.PosSortirPin));
+            HudMapLayout.PlaceAt(pinT, MapToUi(HudMapLayout.TokoAlatPin));
 
             Vector2 dam = MapToUi(HudMapLayout.DamPoint());
             HudMapLayout.PlaceAt(damMarker, dam);
-            if (damLabelRect != null) damLabelRect.anchoredPosition = dam + new Vector2(-40f, -40f);
+            if (damLabelRect != null) damLabelRect.anchoredPosition = dam + new Vector2(-32f, -26f);
         }
 
         private Vector2 MapToUi(Vector2 mapPoint)
@@ -379,6 +387,13 @@ namespace KaliRiverSweeper.UI
             if (hasBiohazard)
             {
                 SetText(biohazardCountdown, Mathf.CeilToInt(manager.BiohazardGraceRemaining).ToString(Invariant) + "s");
+                if (biohazardHatchImage != null)
+                {
+                    float graceRatio = manager.biohazardGraceSeconds > 0f
+                        ? Mathf.Clamp01(manager.BiohazardGraceRemaining / manager.biohazardGraceSeconds)
+                        : 0f;
+                    biohazardHatchImage.fillAmount = graceRatio;
+                }
             }
 
             SetActive(sellLockStrip, manager.IsSellLocked);

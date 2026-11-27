@@ -14,13 +14,15 @@ namespace KaliRiverSweeper.UI
         public static readonly Vector2 MedisB3Pin = new Vector2(261f, 749f);
         public static readonly Vector2 KarantinaPin = new Vector2(803f, 505f);
         public static readonly Vector2 PengepulPin = new Vector2(319f, 1307f);
+        public static readonly Vector2 PosSortirPin = new Vector2(783f, 649f);
+        public static readonly Vector2 TokoAlatPin = new Vector2(234f, 1113f);
 
-        // The river choke that RiverMath narrows at map y = 740.
-        public const float DamChokeY = 740f;
+        // Upstream Gunung Sampah basin (Puncak Gunung Sampah at y = 150..325).
+        public const float DamChokeY = 237.5f;
 
-        // Contour art position and size inside the vellum map panel (top-left anchored).
+        // Contour art position and size inside the vellum map panel (top-left anchored, 1040:1440 portrait ratio).
         public static readonly Vector2 ContourOrigin = new Vector2(16f, -16f);
-        public static readonly Vector2 ContourArea = new Vector2(340f, 220f);
+        public static readonly Vector2 ContourArea = new Vector2(192f, 266f);
 
         public static Vector2 DamPoint()
         {

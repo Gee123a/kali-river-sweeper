@@ -37,7 +37,7 @@ namespace KaliRiverSweeper.UI.Editor
             Texture2D cross = CrossHatch90();
             WritePng("UI_CrossHatch90_Magenta.png", cross, sliced: false, wrapRepeat: true);
 
-            Texture2D contour = Contour(256);
+            Texture2D contour = Contour(256, 354);
             WritePng("UI_Contour.png", contour, sliced: false, wrapRepeat: false);
 
             Texture2D chevron = Chevron(32);
@@ -95,39 +95,81 @@ namespace KaliRiverSweeper.UI.Editor
             return tex;
         }
 
-        // Contour lines from a smooth field: a pixel is a line where the field sits near an integer level.
-        private static Texture2D Contour(int size)
+        // Anchors the minimap to the actual RiverMath S-curve, Jembatan Utama (y=740), and Pintu Air (y=1390).
+        // Texture y=0 is bottom (mapY = WorldH), y=height-1 is top (mapY = 0).
+        private static Texture2D Contour(int width, int height)
         {
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            for (int y = 0; y < size; y++)
+            var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            Color32 riverFill = new Color32(0x1B, 0x8A, 0x7A, 72);
+            Color32 bankLine = new Color32(0x1E, 0x1F, 0x1D, 210);
+            Color32 landContour = new Color32(0x1E, 0x1F, 0x1D, 64);
+            Color32 bridgeColor = new Color32(0x54, 0x53, 0x4E, 235);
+            Color32 sluiceColor = new Color32(0xE1, 0x1D, 0x8F, 220);
+
+            for (int py = 0; py < height; py++)
             {
-                for (int x = 0; x < size; x++)
+                float ny = 1f - (py / (float)(height - 1));
+                float mapY = ny * KaliRiverSweeper.Core.RiverMath.WorldH;
+                float centerX = KaliRiverSweeper.Core.RiverMath.RiverCenterMapX(mapY);
+                float halfW = KaliRiverSweeper.Core.RiverMath.RiverHalfWidthMap(mapY);
+                bool isBridge = Mathf.Abs(mapY - 740f) <= 20f;
+                bool isSluice = Mathf.Abs(mapY - 1390f) <= 16f;
+
+                for (int px = 0; px < width; px++)
                 {
-                    float u = x / (float)size * Mathf.PI * 2f;
-                    float v = y / (float)size * Mathf.PI * 2f;
-                    float field = Mathf.Sin(u * 1.3f + v * 0.4f) + Mathf.Cos(v * 1.1f - u * 0.3f) * 0.8f;
-                    float scaled = field * 3f;
-                    float distance = Mathf.Abs(scaled - Mathf.Round(scaled));
-                    bool line = distance < 0.035f;
-                    tex.SetPixel(x, y, line ? new Color32(0x1E, 0x1F, 0x1D, 200) : Clear);
+                    float nx = px / (float)(width - 1);
+                    float mapX = nx * KaliRiverSweeper.Core.RiverMath.WorldW;
+                    float dist = Mathf.Abs(mapX - centerX);
+
+                    if (isSluice && dist <= halfW + 25f)
+                    {
+                        tex.SetPixel(px, py, sluiceColor);
+                        continue;
+                    }
+
+                    if (isBridge && dist <= halfW + 45f)
+                    {
+                        tex.SetPixel(px, py, bridgeColor);
+                        continue;
+                    }
+
+                    if (dist <= halfW && mapY >= 110f)
+                    {
+                        bool bankEdge = Mathf.Abs(dist - halfW) <= 10f;
+                        tex.SetPixel(px, py, bankEdge ? bankLine : riverFill);
+                    }
+                    else
+                    {
+                        float u = nx * Mathf.PI * 2f;
+                        float v = ny * Mathf.PI * 2f;
+                        float field = Mathf.Sin(u * 1.3f + v * 0.4f) + Mathf.Cos(v * 1.1f - u * 0.3f) * 0.8f;
+                        float scaled = field * 3f;
+                        bool contourLine = Mathf.Abs(scaled - Mathf.Round(scaled)) < 0.032f;
+                        tex.SetPixel(px, py, contourLine ? landContour : Clear);
+                    }
                 }
             }
             tex.Apply();
             return tex;
         }
 
-        // Upward-pointing triangle (tip at the top row) in solid inverted Zone 0.
+        // High-contrast cyan directional arrow with dark outline so it reads over river, contours, and DAM hatch.
         private static Texture2D Chevron(int size)
         {
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color32 cyan = new Color32(0x06, 0xB6, 0xD4, 255);
             float center = (size - 1) * 0.5f;
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
-                    float halfWidth = (size - 1 - y) * 0.5f;
-                    bool inside = Mathf.Abs(x - center) <= halfWidth;
-                    tex.SetPixel(x, y, inside ? SolidInk : Clear);
+                    float halfWidth = (size - 1 - y) * 0.45f;
+                    float dx = Mathf.Abs(x - center);
+                    bool inOuter = y >= 2 && y <= size - 2 && dx <= halfWidth + 2.2f;
+                    bool inInner = y >= 4 && y <= size - 4 && dx <= Mathf.Max(0f, halfWidth - 0.5f);
+                    if (inInner) tex.SetPixel(x, y, cyan);
+                    else if (inOuter) tex.SetPixel(x, y, SolidInk);
+                    else tex.SetPixel(x, y, Clear);
                 }
             }
             tex.Apply();
