@@ -185,6 +185,40 @@ def trash_palette(seed=91):
     return np.clip(out * grain[..., None], 0, 1)
 
 
+def seng_gelombang(seed=101):
+    """Corrugated zinc sheet (light, tinted per material). Ribs vary along V so they run
+    down the roof slope (MeshKit projects roof faces on XZ: u = across, v = along the ridge);
+    16 ribs per tile = 12.5 cm pitch at the 2 m kit tile. Rust streaks drip along U."""
+    rng = np.random.default_rng(seed)
+    v = np.arange(SIZE)[:, None] / SIZE
+    rib = np.sin(v * 2 * np.pi * 16)
+    lum = 0.80 + rib * 0.13 + (np.abs(rib) > 0.96) * 0.04            # lit crest / shadowed valley
+    lum = lum * (0.92 + (_fbm(rng, SIZE, 4, 4) - 0.5) * 0.12)
+    streak = _value_noise(rng, SIZE, 32)                                # streaks: stretched along U
+    streak = np.repeat(streak[:, ::8], 8, axis=1)
+    rust_mask = np.clip((streak * _fbm(rng, SIZE, 3, 4) - 0.32) * 3.2, 0, 1) * 0.75
+    lap = (np.arange(SIZE)[None, :] % (SIZE // 2) < 6) * 0.55           # sheet overlap seam every 1 m
+    rust_mask = np.clip(rust_mask + lap * (0.4 + 0.6 * _fbm(rng, SIZE, 8, 3)), 0, 1)
+    paint = np.repeat(lum[..., None], 3, -1)
+    rust = np.array([0.56, 0.36, 0.24])
+    m = rust_mask[..., None]
+    return np.clip(paint * (1 - m) + rust * lum[..., None] * m, 0, 1)
+
+
+def kawat_jaring(seed=111):
+    """Welded wire mesh (RGBA, alpha-clipped): 16 cells per 2 m tile = 12.5 cm squares
+    (open enough to read the sorted trash inside the Bank Sampah cage)."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    cell = SIZE // 16
+    wire = ((xx % cell) < 4) | ((yy % cell) < 4)
+    lum = 0.62 + (_fbm(rng, SIZE, 8, 3) - 0.5) * 0.3
+    rust = np.clip((_fbm(rng, SIZE, 5, 4) - 0.6) * 3.0, 0, 1)
+    rgb = np.stack([lum, lum, lum * 1.02], -1) * (1 - rust[..., None] * 0.5) + \
+        np.array([0.45, 0.28, 0.17]) * rust[..., None] * 0.5
+    return np.concatenate([np.clip(rgb, 0, 1), wire[..., None].astype(float)], -1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -195,17 +229,22 @@ GENERATORS = {
     "T_Env_Kayu": kayu_lapuk,
     "T_Env_Tali": tali,
     "T_Env_TrashPalette": trash_palette,
+    "T_Env_SengGelombang": seng_gelombang,
+    "T_Env_KawatJaring": kawat_jaring,
 }
 
 
 def save_png(name, rgb, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, name + ".png")
-    img = bpy.data.images.new(name, SIZE, SIZE, alpha=False)
-    rgba = np.concatenate([np.clip(rgb, 0, 1), np.ones((SIZE, SIZE, 1))], -1)
+    has_alpha = rgb.shape[-1] == 4
+    img = bpy.data.images.new(name, SIZE, SIZE, alpha=has_alpha)
+    rgba = np.clip(rgb, 0, 1) if has_alpha else np.concatenate([np.clip(rgb, 0, 1), np.ones((SIZE, SIZE, 1))], -1)
     img.pixels.foreach_set(rgba[::-1].astype(np.float32).ravel())   # Blender rows start at the bottom
     img.filepath_raw = path
     img.file_format = "PNG"
+    if has_alpha:
+        img.alpha_mode = "STRAIGHT"
     img.save()
     bpy.data.images.remove(img)
     return path
