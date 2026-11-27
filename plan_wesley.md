@@ -42,7 +42,7 @@
 - **Required Prefab Names & Colliders**:
   - `Bank Sampah` prefab GameObject name must contain `"Bank Sampah"` + Collider (Normal waste station).
   - **`Koperasi Desa (Kopdes)`** prefab GameObject name must contain **`"Koperasi Desa"`** or **`"Kopdes"`** + Collider (upgrade/gear shop).
-  - **`Dermaga`** (`SM_Env_Dermaga`) prefab GameObject name must contain **`"Dermaga"`** + solid Collider (exclusive river port for entering/exiting the river and boarding/disembarking boats).
+  - **`Dermaga`** (`SM_Env_Dermaga`) prefab GameObject name must contain **`"Dermaga"`** + solid Collider (exclusive river port for boarding/disembarking boats and dry-dock swim stamina recovery).
   - **`Pos Medis B3`** prefab GameObject name must contain **`"Pos Medis"`** + Collider (dedicated Medical B3 waste clinic near `Jembatan Utama` West approach).
   - **`Karantina Biohazard`** prefab GameObject name must contain **`"Karantina Biohazard"`** + Collider (dedicated Biohazard/Radioactive containment bunker on East bank).
   - **`Gudang Pengepul`** prefab GameObject name must contain **`"Gudang Pengepul"`** + Collider (located near Spawn / `Bank Sampah` on West bank; cheap all-in-one bulk collector).
@@ -68,7 +68,7 @@ Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPrevie
 - [ ] **Step 2: Landmarks & Bridge**: `SM_Env_PintuAirSiaga1.fbx` (`+Z` sluice gate, clear tower pad for JC beacon), `SM_Env_GunungSampah_3Tiers.fbx` (`-Z` upstream, bottom-anchored `Y = 0` pivot), `SG_TrashTriplanar.shadergraph`, and `SM_Env_JembatanUtama.fbx` (`Y >= +3.60m` deck, `>= 12m` center channel clear).
 
 ### Priority 3: Kampung Dressing, Prefab Packaging & Sidang Q&A
-- [ ] **Step 3: Kampung Structures**: `SM_Env_KoperasiDesa` (`Koperasi Desa / Kopdes`), `SM_Env_RumahPanggung` (stilts to `-0.5m`, x11 nodes), `SM_Env_WarungMadura` (24-jam Warung Madura kiosk w/ clear roof overhang for lantern, x7 nodes), `SM_Env_Dermaga` (`Y = 0.0m` waterline pivot, exclusive river port, x2 nodes).
+- [ ] **Step 3: Kampung Structures**: `SM_Env_KoperasiDesa` (`Koperasi Desa / Kopdes`), `SM_Env_RumahPanggung` (stilts to `-0.5m`, x11 nodes), `SM_Env_WarungMadura` (24-jam Warung Madura kiosk w/ clear roof overhang for lantern, x7 nodes), `SM_Env_Dermaga` (`Y = 0.0m` waterline pivot, exclusive boat port, x2 nodes).
 - [ ] **Step 4: Blender `Ctrl + A -> All Transforms` (`-Z Forward`, `Y Up`, Lightmap UV2) & `Environment/Prefabs/` Verification**.
 
 ---

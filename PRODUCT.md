@@ -4,7 +4,7 @@
 
 ## Platform
 
-web
+desktop (Unity 2022.3.46f1 LTS URP at 1920x1080 / 1280x720) + browser preview (`tools/play-3d.html`)
 
 ## Users
 
@@ -13,7 +13,7 @@ web
 
 ## Product Purpose
 
-KALI: Indonesian River Sweeper is a first-person desktop river-cleanup simulation and crisis management game set along a tropical Indonesian urban river (Kalimas Nusantara). Players scoop three distinct waste classes drifting downstream (+Z), sort them at dedicated waste stations (or dump cheaply at Gudang Pengepul at the cost of community trust), manage linear flood water rise across Siaga 4 to Siaga 1 thresholds, auto-unlock 20 authentic Indonesian scavenging tools, and dismantle an upstream Gunung Sampah before monsoon flooding submerges the village.
+KALI: Indonesian River Sweeper is a first-person desktop river-cleanup simulation and crisis management game set along a tropical Indonesian urban river (Kalimas Nusantara). Players walk, sprint, swim on the river surface (managing swim stamina against drowning), or steer vessels to scoop three distinct waste classes drifting downstream (+Z), sort them at dedicated waste stations (or dump cheaply at Gudang Pengepul at the cost of community trust), manage linear flood water rise across Siaga 4 to Siaga 1 thresholds, unlock and purchase 20 authentic Indonesian scavenging tools at Kopdes (`BuyTool`), and dismantle an upstream Gunung Sampah before monsoon flooding submerges the village.
 
 ## Positioning
 

@@ -47,12 +47,12 @@ Restrict all your work strictly to:
 ### `RiverGameManager.Instance` Event Subscriptions
 Do not modify Ivan's core systems (`Scripts/Core/RiverGameManager.cs`). Instead, subscribe to these public events and properties from your UI/VFX scripts:
 
-- **`OnStateChanged`** (`Action`): Throttled ~10Hz ticker. Drive HUD meters (`playerHealth`, `rupiah`, cargo counts, water height `currentWaterLevelY`, `SiagaLevel` 4..1, `monsoonCountdownRemaining`).
-- **`OnToolUnlocked`** (`Action<ToolDefinition>`): Trigger auto-unlock celebration toasts for tools `#01..#20`.
+- **`OnStateChanged`** (`Action`): Throttled ~10Hz ticker. Drive HUD meters (`playerHealth`, `swimStamina`, `IsSwimming`, `IsDrowning`, `rupiah`, cargo counts, water height `currentWaterLevelY`, `SiagaLevel` 4..1, `monsoonCountdownRemaining`).
+- **`OnToolUnlocked`** (`Action<ToolDefinition>`): Trigger Kopdes tool-availability notification toasts for tools `#01..#20` (purchased via `BuyTool(int)`).
 - **`OnEquippedToolChanged`** (`Action<ToolDefinition>`): Update bottom tool bar active slot badges.
-- **`OnHazardOrAlert`** (`Action<string msg, bool isDanger>`): Display immediate warning banners for Medical needle pricks, Biohazard DoT ticks, or Sell-Lock blocks (`[Q] Dump Cargo on High Ground`).
+- **`OnHazardOrAlert`** (`Action<string msg, bool isDanger>`): Display immediate warning banners for Medical needle pricks, Biohazard DoT ticks, swim stamina / drowning alerts, wrong-station fines, or Sell-Lock blocks (`[Q] Dump Cargo on High Ground`).
 - **`OnWeatherChanged`** (`Action<bool isMonsoonStorm>`): Toggle `VFX_MonsoonRain` and storm audio ambient loops.
-- **`OnEndingTriggered`** (`Action<GameEnding ending>`): Display `Canvas_SDGImpactReport` (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`) summarizing recycled vs flushed kg and SDG metrics.
+- **`OnEndingTriggered`** (`Action<GameEnding ending>`): Display `Canvas_SDGImpactReport` (`TrueSdgVictory`, `PartialSurvival`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`) summarizing recycled vs flushed kg and SDG metrics.
 
 ---
 *End of Quickstart Guide. Follow this procedure strictly to maintain zero-conflict collaboration.*

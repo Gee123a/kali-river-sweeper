@@ -69,6 +69,7 @@ Every flood alert badge pairs color with an explicit uppercase label (`SIAGA 4 -
 2. **Uniform Pivot Rules**:
    - **20 Scavenging Tools (`JC`)**: Pivot `(0, 0, 0)` placed directly at the player hand grip, shaft extending cleanly along `+Z` / `+Y`.
    - **Kampung Buildings (`Wesley`)**: Pivot `(0, 0, 0)` at bottom-center ground plane; stilts extend slightly below `Y = 0` (`-0.5m`) so slope margins never float.
-   - **Boat Pier `SM_Env_Dermaga` (`Wesley`)**: Pivot `(0, 0, 0)` at exact waterline height (`Y = 0.0m`); acts as the exclusive embark/disembark port between land and river.
-3. **Typography & HUD Layout (`Niki`)**:
-   - Clean sans-serif for Rupiah / capacity numbers (`TextMeshPro` bold tabular digits) + dark translucent glass cards (`#0F172A` at 85% opacity, `2px` accent border) pinned cleanly to corners (`18px` safe margins) leaving the central `70%` viewport completely unobstructed for river sweeping.
+   - **Boat Pier `SM_Env_Dermaga` (`Wesley`)**: Pivot `(0, 0, 0)` at exact waterline height (`Y = 0.0m`); acts as the exclusive boat embark/disembark port and dry-dock stamina recovery platform.
+3. **Typography & HUD Layout (`Niki` — SSOT: `docs/HUD_SPEC_NIKI.md`)**:
+   - **Lembar Kalkir Zona Cahaya**: `Barlow Condensed` (Bold/SemiBold display headers & numerals) + `IBM Plex Mono` (`<mspace=0.62em>` tabular telemetry) on backlit warm vellum sheets (`#F4F2EC` at `90%` alpha, `1px` `#1E1F1D` charcoal borders, `#B50E6F`/`#E11D8F` dichroic alert accent) pinned to screen edges (`36px`/`32px` safe margins) leaving the central `>68%` viewport unobstructed.
+   - **Swim Stamina & Drowning Tokens**: `River Teal` (`#1B8A7A`) stamina fill while swimming (`> 25%`), `Siaga Amber` (`#B45309`) warning (`<= 25%`), and `Dichroic Alert` (`#B50E6F` / `#E11D8F`) drowning hazard state (`swimStamina <= 0`).

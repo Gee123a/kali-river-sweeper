@@ -91,6 +91,18 @@ namespace KaliRiverSweeper.Core
         public float biohazardGraceSeconds = 10f;
         public float biohazardExposureTimer;
 
+        [Header("Swim Stamina & Drowning")]
+        public float swimStamina = 100f;
+        public float maxSwimStamina = 100f;
+        public float swimStaminaDrainPerSecond = 8f;
+        public float swimSprintStaminaDrainPerSecond = 16f;
+        public float swimTreadStaminaDrainPerSecond = 4f;
+        public float swimStaminaRegenPerSecond = 18f;
+        public float drowningDamagePerSecond = 14f;
+        public bool isPlayerSwimming;
+        public bool isPlayerMovingInWater;
+        public bool isPlayerSprintingInWater;
+
         [Header("20-Tool Milestones (1..20)")]
         [Range(1, 20)] public int equippedToolIndex = 1;
         [Range(1, 20)] public int highestUnlockedToolIndex = 1;
@@ -131,6 +143,9 @@ namespace KaliRiverSweeper.Core
         public bool IsSellLocked => currentWaterLevelY >= sellLockWaterY;
         public bool IsBiohazardDotActive => biohazardCargo > 0 && biohazardExposureTimer >= biohazardGraceSeconds;
         public float BiohazardGraceRemaining => biohazardCargo > 0 ? Mathf.Max(0f, biohazardGraceSeconds - biohazardExposureTimer) : biohazardGraceSeconds;
+        public float SwimStaminaNormalized => maxSwimStamina > 0f ? Mathf.Clamp01(swimStamina / maxSwimStamina) : 0f;
+        public bool IsSwimming => isPlayerSwimming;
+        public bool IsDrowning => isPlayerSwimming && swimStamina <= 0f && activeEnding == GameEnding.None;
         public ToolDefinition EquippedTool => ToolCatalog.GetTool(equippedToolIndex);
         public int SiagaLevel => floodPressure >= 0.85f ? 1 : floodPressure >= 0.60f ? 2 : floodPressure >= 0.35f ? 3 : 4;
         public bool IsDemoHotkeyBusy => demoHotkeysArmed || demoJumpConsumedFrame == Time.frameCount;
@@ -157,6 +172,9 @@ namespace KaliRiverSweeper.Core
         private int demoJumpConsumedFrame = -1;
         private bool isTrustAuditPenaltyActive;
         private float nextEmergencyTriageTime;
+        private bool lowSwimStaminaWarned;
+        private float drowningAlertCooldown;
+        private bool lastDamageWasDrowning;
         private readonly bool[] ownedTools = new bool[21];
         private const float NotifyIntervalSeconds = 0.10f; // ~10 Hz throttle for Update ticks
         private const int MaxVisualBarrierProps = 22;
@@ -246,11 +264,51 @@ namespace KaliRiverSweeper.Core
                     biohazardExposureTimer = Mathf.Max(0f, biohazardExposureTimer - 3f * dt);
                     MarkStateDirty();
                 }
-                if (!IsBankOverflowing && playerHealth < maxPlayerHealth)
+                if (!IsBankOverflowing && !isPlayerSwimming && !IsDrowning && playerHealth < maxPlayerHealth)
                 {
                     playerHealth = Mathf.Min(maxPlayerHealth, playerHealth + 0.8f * dt);
                     MarkStateDirty();
                 }
+            }
+
+            // 3b. Surface swimming stamina & drowning damage
+            if (drowningAlertCooldown > 0f) drowningAlertCooldown = Mathf.Max(0f, drowningAlertCooldown - dt);
+            if (isPlayerSwimming)
+            {
+                float drainRate = isPlayerSprintingInWater
+                    ? swimSprintStaminaDrainPerSecond
+                    : (isPlayerMovingInWater ? swimStaminaDrainPerSecond : swimTreadStaminaDrainPerSecond);
+                if (swimStamina > 0f)
+                {
+                    swimStamina = Mathf.Max(0f, swimStamina - drainRate * dt);
+                    if (!lowSwimStaminaWarned && SwimStaminaNormalized <= 0.25f && swimStamina > 0f)
+                    {
+                        lowSwimStaminaWarned = true;
+                        RaiseAlert("Stamina renang menipis! Segera naik ke darat atau Dermaga.", true);
+                    }
+                    if (swimStamina <= 0f)
+                    {
+                        drowningAlertCooldown = 2.5f;
+                        RaiseAlert("Stamina renang habis — TENGGELAM! Segera ke tepi sungai atau Dermaga!", true);
+                    }
+                    MarkStateDirty();
+                }
+                else
+                {
+                    if (drowningAlertCooldown <= 0f)
+                    {
+                        drowningAlertCooldown = 2.5f;
+                        RaiseAlert("TENGGELAM! Naik ke darat/Dermaga sebelum kehabisan HP!", true);
+                    }
+                    ApplyDamageCore(drowningDamagePerSecond * dt, notifyImmediate: false, fromDrowning: true);
+                    if (activeEnding != GameEnding.None) return;
+                }
+            }
+            else if (swimStamina < maxSwimStamina)
+            {
+                swimStamina = Mathf.Min(maxSwimStamina, swimStamina + swimStaminaRegenPerSecond * dt);
+                if (SwimStaminaNormalized >= 0.35f) lowSwimStaminaWarned = false;
+                MarkStateDirty();
             }
 
             // 4. Fatal Flood drowning check
@@ -978,13 +1036,33 @@ namespace KaliRiverSweeper.Core
             }
         }
 
+        public void SetPlayerSwimming(bool swimming, bool movingInWater = false, bool sprintingInWater = false)
+        {
+            bool changed = isPlayerSwimming != swimming;
+            isPlayerSwimming = swimming;
+            isPlayerMovingInWater = swimming && movingInWater;
+            isPlayerSprintingInWater = swimming && movingInWater && sprintingInWater;
+            if (!swimming) drowningAlertCooldown = 0f;
+            if (changed) NotifyState();
+        }
+
         private void ApplyPlayerDamage(float amount, bool notifyImmediate)
         {
+            ApplyDamageCore(amount, notifyImmediate, fromDrowning: false);
+        }
+
+        private void ApplyDamageCore(float amount, bool notifyImmediate, bool fromDrowning)
+        {
             if (amount <= 0f || activeEnding != GameEnding.None) return;
+            lastDamageWasDrowning = fromDrowning;
             playerHealth = Mathf.Max(0f, playerHealth - amount);
             if (playerHealth <= 0f)
             {
-                RaiseAlert("HP habis! Paparan limbah B3/infeksi berakibat fatal.", true);
+                RaiseAlert(
+                    fromDrowning
+                        ? "HP habis! Kamu tenggelam karena kehabisan stamina renang."
+                        : "HP habis! Paparan limbah B3/infeksi berakibat fatal.",
+                    true);
                 TriggerEnding(GameEnding.HealthFail);
                 return;
             }
@@ -1036,13 +1114,15 @@ namespace KaliRiverSweeper.Core
             }
         }
 
-        private static string BuildEndingDiagnosis(GameEnding ending) => ending switch
+        private string BuildEndingDiagnosis(GameEnding ending) => ending switch
         {
             GameEnding.TrueSdgVictory => "Semua target SDG tercapai: Gunung Sampah berhasil dikeruk bersih tanpa membuang limbah ke laut. Pertahankan pemilahan di 3 stasiun!",
             GameEnding.PartialSurvival => "Badai Monsun berhasil dilewati, tetapi Gunung Sampah masih tersisa. Buka Pindad Excavator (Rp 120rb) atau alat #13+ untuk mengeruk Gunung Sampah hingga 0%!",
             GameEnding.CompromisedOceanFlush => "Pintu Air dibuka paksa saat krisis: desa selamat dari banjir, tetapi ribuan kg sampah mengalir ke laut. Turunkan level air lebih awal dengan Trash Boom & setoran rutin!",
             GameEnding.FloodFail => "Tinggi air sungai melampaui +2.45m karena penumpukan sampah. Pasang Trash Boom / Kampung Bins dan tahan [Q] saat Sell-Lock!",
-            GameEnding.HealthFail => "HP habis akibat tusukan limbah medis atau paparan Biohazard >10 detik. Buka #10 Capitan Ular (Rp 80rb) & segera setor ke Pos Medis B3 / Karantina!",
+            GameEnding.HealthFail => lastDamageWasDrowning
+                ? "HP habis karena tenggelam setelah kehabisan stamina renang! Naik ke Dermaga, daratan, atau gunakan perahu untuk beristirahat."
+                : "HP habis akibat tusukan limbah medis atau paparan Biohazard >10 detik. Buka #10 Capitan Ular (Rp 80rb) & segera setor ke Pos Medis B3 / Karantina!",
             _ => string.Empty
         };
 
@@ -1207,6 +1287,13 @@ namespace KaliRiverSweeper.Core
             LastEndingDiagnosis = string.Empty;
             SetWeather(monsoon);
             playerHealth = maxPlayerHealth;
+            swimStamina = maxSwimStamina;
+            isPlayerSwimming = false;
+            isPlayerMovingInWater = false;
+            isPlayerSprintingInWater = false;
+            lowSwimStaminaWarned = false;
+            drowningAlertCooldown = 0f;
+            lastDamageWasDrowning = false;
             normalCargo = 0;
             medicalCargo = 0;
             biohazardCargo = 0;

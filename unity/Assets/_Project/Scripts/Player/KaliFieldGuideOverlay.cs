@@ -89,6 +89,28 @@ namespace KaliRiverSweeper.Player
                 GUI.Box(r, toastMessage, toastIsDanger ? alertStyle : infoStyle);
             }
 
+            // 1b. Contextual Swim Stamina gauge (only visible while swimming or recovering stamina)
+            RiverGameManager gm = subscribedManager != null ? subscribedManager : RiverGameManager.Instance;
+            if (gm != null && (gm.isPlayerSwimming || gm.swimStamina < gm.maxSwimStamina - 0.1f))
+            {
+                float pct = gm.SwimStaminaNormalized;
+                Rect stamBox = new Rect(18f, Screen.height - 84f, 228f, 34f);
+                GUI.Box(stamBox, GUIContent.none, panelStyle);
+
+                Rect barBg = new Rect(stamBox.x + 8f, stamBox.y + 20f, stamBox.width - 16f, 8f);
+                GUI.DrawTexture(barBg, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, new Color(0.86f, 0.85f, 0.82f, 1f), 0f, 0f);
+                Color barCol = gm.IsDrowning
+                    ? new Color(0.71f, 0.055f, 0.435f, 1f)
+                    : (pct <= 0.25f ? new Color(0.706f, 0.325f, 0.035f, 1f) : new Color(0.106f, 0.541f, 0.478f, 1f));
+                Rect barFill = new Rect(barBg.x, barBg.y, barBg.width * pct, barBg.height);
+                GUI.DrawTexture(barFill, Texture2D.whiteTexture, ScaleMode.StretchToFill, true, 0f, barCol, 0f, 0f);
+
+                string stamText = gm.IsDrowning
+                    ? "TENGGELAM! NAIK KE DARAT!"
+                    : $"STAMINA RENANG: {Mathf.RoundToInt(pct * 100f)}%";
+                GUI.Label(new Rect(stamBox.x + 8f, stamBox.y + 2f, stamBox.width - 16f, 18f), stamText, bodyStyle);
+            }
+
             // 2. Compact [H] hint pill (bottom-left)
             Rect pillRect = new Rect(18f, Screen.height - 44f, 228f, 28f);
             if (GUI.Button(pillRect, showGuide ? "[H] Tutup Panduan Kontrol" : "[H] Kontrol & Pemilahan", pillStyle))
@@ -100,21 +122,22 @@ namespace KaliRiverSweeper.Player
 
             // 3. Toggleable Controls & Waste-Sorting Guide
             float gw = Mathf.Min(470f, Screen.width - 36f);
-            float gh = 290f;
-            Rect guideRect = new Rect(18f, Screen.height - gh - 52f, gw, gh);
+            float gh = 300f;
+            Rect guideRect = new Rect(18f, Screen.height - gh - 90f, gw, gh);
             GUI.Box(guideRect, GUIContent.none, panelStyle);
 
             GUILayout.BeginArea(new Rect(guideRect.x + 14f, guideRect.y + 10f, gw - 28f, gh - 20f));
             GUILayout.Label("PANDUAN KONTROL & PEMILAHAN SAMPAH", titleStyle);
             GUILayout.Space(4f);
             GUILayout.Label(
-                "GERAK & SEROK:\n" +
-                "  WASD + Shift/Space : Jalan / Lari / Lompat (atau Setir Perahu)\n" +
+                "GERAK, RENANG & SEROK:\n" +
+                "  WASD + Shift/Space : Jalan / Lari / Lompat / Berenang Permukaan / Perahu\n" +
+                "  Berenang di Sungai  : Menguras stamina (habis = tenggelam! Pulih di darat/perahu)\n" +
                 "  Klik Kanan (Tahan/Klik) : Putar & Kunci Kamera\n" +
                 "  Klik Kiri : Serok Sampah / Keruk Gunung (#13+ / Excavator)\n" +
-                "  Scroll / [ ] : Ganti Alat (#01-#20)\n\n" +
+                "  Scroll / [ ] : Ganti Alat Terbeli (#01-#20)\n\n" +
                 "STASIUN & PEMILAHAN (SALAH STASIUN = DENDA!):\n" +
-                "  [E] Setor Aman (otomatis jenis yg cocok) / Naik-Turun Dermaga / Kopdes\n" +
+                "  [E] Setor Aman (otomatis jenis yg cocok) / Naik-Turun Perahu di Dermaga / Kopdes\n" +
                 "  [1] Normal -> Bank Sampah [B]   |   [2] Medis -> Pos Medis B3 [M]\n" +
                 "  [3] Biohazard -> Karantina [K]  |   Gudang Pengepul [P]: Beli semua (Penalti Trust!)\n" +
                 "  Tahan [Q] 0.5s : Buang Kargo Darurat  |  Tahan [Shift+X] 1.5s : Flush (Sell-Lock)\n" +

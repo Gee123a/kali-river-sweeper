@@ -86,7 +86,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyF9StageTwoReset,
                 VerifyPrefabHitboxProportions,
                 VerifyDermagaRiverPortLimits,
-                VerifyTask4dAnd4fUxContracts
+                VerifyTask4dAnd4fUxContracts,
+                VerifySwimmingStaminaAndDrowning
             };
 
             assertCount = 0;
@@ -689,14 +690,14 @@ namespace KaliRiverSweeper.Editor
                 bool offDockBoard = (bool)toggleBoat.Invoke(player, new object[] { gm });
                 Assert(!offDockBoard && !player.isInBoat, "Cannot board boat off-dock along riverbank");
 
-                // 2. Off-dock foot guard: cannot walk or jump straight from dry bank into RiverMath.IsInRiver
+                // 2. Foot entry into river: walking or jumping off bank into RiverMath.IsInRiver IS permitted (triggers swimming instead of invisible wall)
                 Vector3 stepIntoRiver = new Vector3(5.0f, 0f, 0f);
                 Vector3 permittedStep = (Vector3)resolveFoot.Invoke(player, new object[] { offDockBank, stepIntoRiver, gm });
-                Assert(permittedStep.x < 0.01f, "Foot movement cannot cross from bank into river off-dock");
+                Assert(permittedStep.x > 4.9f, "Foot movement can enter river off-dock to swim");
 
                 Vector3 midAirOffDock = new Vector3(offDockBank.x, 3.5f, offDockBank.z);
                 Vector3 jumpStep = (Vector3)resolveFoot.Invoke(player, new object[] { midAirOffDock, stepIntoRiver, gm });
-                Assert(jumpStep.x < 0.01f, "Jumping off-dock bank cannot bypass river entry guard");
+                Assert(jumpStep.x > 4.9f, "Jumping off-dock bank can enter river to swim");
 
                 // 2b. Jembatan crossing: walking across an elevated bridge over RiverMath.IsInRiver IS permitted
                 const float bridgeMapY = 740f;
@@ -711,14 +712,14 @@ namespace KaliRiverSweeper.Editor
                 Vector3 bridgeStep = (Vector3)resolveFoot.Invoke(player, new object[] { onBridgePos, stepIntoRiver, gm });
                 Assert(bridgeStep.x > 4.9f, "Foot movement across Jembatan over river is permitted");
 
-                // 2c. Dermaga pier: walking on pier is permitted, walking off pier river-edge into open river is blocked
+                // 2c. Dermaga pier: walking on pier AND stepping off pier into water on foot is permitted (boats remain Dermaga-only)
                 Vector3 onPierPos = new Vector3(dockCenter.x + 3.5f, 2.25f, dockCenter.z);
                 Vector3 stepToPierTip = new Vector3(0.5f, 0f, 0f);
                 Vector3 stepPastPier = new Vector3(4.0f, 0f, 0f);
                 Vector3 ontoPierStep = (Vector3)resolveFoot.Invoke(player, new object[] { onPierPos, stepToPierTip, gm });
                 Vector3 offPierStep = (Vector3)resolveFoot.Invoke(player, new object[] { onPierPos, stepPastPier, gm });
                 Assert(ontoPierStep.x > 0.4f, "Walking onto Dermaga pier is permitted");
-                Assert(offPierStep.x < 0.01f, "Walking off Dermaga pier into open river on foot is blocked");
+                Assert(offPierStep.x > 3.9f, "Walking off Dermaga pier into river to swim is permitted");
 
                 // 3. On Dermaga: OnNearbyDermagaChanged emits and boarding succeeds into RiverMath.IsInRiver
                 int dockEvents = 0;
@@ -804,6 +805,146 @@ namespace KaliRiverSweeper.Editor
                 gm.RestartRun();
                 Assert(gm.activeEnding == GameEnding.None && gm.rupiah == 0 && gm.wrongDiscardCount == 0 && gm.unpaidFineDebt == 0 && gm.communityTrust == 40,
                     "RestartRun resets ending, economy, audit debt, and trust");
+            }
+        }
+
+        private static void VerifySwimmingStaminaAndDrowning()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "Initial swimStamina is full");
+                Assert(!gm.IsSwimming && !gm.IsDrowning, "Initially not swimming or drowning");
+
+                // 1. Setup dry bank ground and player controller
+                GameObject bankGo = ctx.Track(new GameObject("QA_DryBank"));
+                bankGo.transform.position = new Vector3(-45f, 0.9f, 0f);
+                BoxCollider bankCol = bankGo.AddComponent<BoxCollider>();
+                bankCol.size = new Vector3(30f, 1.0f, 40f); // top at Y = 1.40f
+
+                GameObject playerGo = ctx.Track(new GameObject("QA_SwimPlayer"));
+                playerGo.transform.position = new Vector3(-45f, 2.30f, 0f);
+                CharacterController cc = playerGo.AddComponent<CharacterController>();
+                cc.height = 1.8f;
+                cc.radius = 0.4f;
+                KaliPlayerController player = playerGo.AddComponent<KaliPlayerController>();
+                InvokeNonPublic(player, "Awake");
+                Physics.SyncTransforms();
+
+                int swimEvents = 0;
+                bool lastSwimEvent = false;
+                player.OnSwimStateChanged += sw => { swimEvents++; lastSwimEvent = sw; };
+
+                // 2. Walking & sprinting on dry land preserves running/sprinting and never drains swimStamina
+                Vector3 beforeLandWalk = playerGo.transform.position;
+                InvokeNonPublic(player, "StepMovement", new Vector2(0f, 1f), true, false, 0.2f);
+                Assert(!player.isSwimming && !gm.IsSwimming, "Sprinting on dry bank stays out of swim mode");
+                Assert(playerGo.transform.position.z > beforeLandWalk.z + 1.5f, "Running/sprinting moves player along dry bank");
+                InvokeNonPublic(gm, "Tick", 1.0f);
+                AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "Dry land sprinting does not drain swimStamina");
+
+                // 3. Entering open river water at surface triggers surface-only swimming + OnSwimStateChanged
+                Vector3 riverCenter = RiverMath.ToWorld3D(RiverMath.RiverCenterMapX(720f), 720f);
+                float expectedSurfaceY = gm.currentWaterLevelY + player.swimSurfaceOffset;
+                playerGo.transform.position = new Vector3(riverCenter.x, expectedSurfaceY - 0.5f, riverCenter.z);
+                Physics.SyncTransforms();
+
+                InvokeNonPublic(player, "StepMovement", new Vector2(0f, 1f), false, true, 0.1f);
+                Assert(player.isSwimming && gm.IsSwimming && swimEvents == 1 && lastSwimEvent,
+                    "Entering RiverMath.IsInRiver off-bridge/dock triggers surface swimming and OnSwimStateChanged(true)");
+                Assert(playerGo.transform.position.y >= expectedSurfaceY - 0.06f,
+                    "Surface-only swimming clamps swimmer up to water surface (never underwater)");
+
+                // Pressing jump mid-river must NOT launch out of water or dive below surface
+                float zBeforeSwim = playerGo.transform.position.z;
+                InvokeNonPublic(player, "StepMovement", Vector2.zero, false, true, 0.25f);
+                Assert(player.isSwimming && playerGo.transform.position.y <= expectedSurfaceY + 0.15f && playerGo.transform.position.y >= expectedSurfaceY - 0.06f,
+                    "Mid-river jump stays strictly surface-only");
+                Assert(playerGo.transform.position.z > zBeforeSwim, "River current drifts surface swimmer toward +Z downstream");
+
+                // Shore climb-out assist near bank exits swim state cleanly and lifts swimmer toward bank top
+                float westShoreX = (RiverMath.RiverCenterMapX(720f) - RiverMath.RiverHalfWidthMap(720f) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale + 0.5f;
+                playerGo.transform.position = new Vector3(westShoreX, expectedSurfaceY, 0f);
+                Physics.SyncTransforms();
+                InvokeNonPublic(player, "StepMovement", new Vector2(-1f, 0f), false, true, 0.15f);
+                Assert(!player.isSwimming && playerGo.transform.position.y > expectedSurfaceY + 0.3f,
+                    "Pressing jump while swimming into shoreline triggers climb-out lift");
+                for (int step = 0; step < 6; step++)
+                {
+                    InvokeNonPublic(player, "StepMovement", new Vector2(-1f, 0f), false, false, 0.12f);
+                }
+                Assert(!RiverMath.IsInRiver(playerGo.transform.position) && !player.isSwimming,
+                    "Climb-out finishes onto riverbank out of swim state");
+
+                // 4. Swim stamina drain rates: treading (4/s), moving (8/s), sprinting (16/s)
+                gm.swimStamina = 100f;
+                gm.SetPlayerSwimming(true, movingInWater: false, sprintingInWater: false);
+                InvokeNonPublic(gm, "Tick", 1.0f);
+                AssertApprox(96f, gm.swimStamina, 0.01f, "Treading water drains 4 swimStamina/s");
+
+                gm.SetPlayerSwimming(true, movingInWater: true, sprintingInWater: false);
+                InvokeNonPublic(gm, "Tick", 1.0f);
+                AssertApprox(88f, gm.swimStamina, 0.01f, "Swimming drains 8 swimStamina/s");
+
+                gm.SetPlayerSwimming(true, movingInWater: true, sprintingInWater: true);
+                InvokeNonPublic(gm, "Tick", 2.0f);
+                AssertApprox(56f, gm.swimStamina, 0.01f, "Sprint-swimming drains 16 swimStamina/s");
+
+                // 5. Exiting water onto dry land/bridge/Dermaga/boat recovers swimStamina
+                playerGo.transform.position = new Vector3(-45f, 2.30f, 0f);
+                Physics.SyncTransforms();
+                InvokeNonPublic(player, "StepMovement", Vector2.zero, false, false, 0.1f);
+                Assert(!player.isSwimming && !gm.IsSwimming && !lastSwimEvent, "Returning to dry bank exits swimming");
+                float staminaBeforeRegen = gm.swimStamina;
+                InvokeNonPublic(gm, "Tick", 2.0f);
+                AssertApprox(Mathf.Min(gm.maxSwimStamina, staminaBeforeRegen + 36f), gm.swimStamina, 0.01f,
+                    "Swim stamina regenerates at 18/s out of water");
+
+                // Boarding a boat while swimming clears swim state immediately
+                playerGo.transform.position = new Vector3(riverCenter.x, expectedSurfaceY, riverCenter.z);
+                Physics.SyncTransforms();
+                InvokeNonPublic(player, "StepMovement", new Vector2(0f, 1f), false, false, 0.1f);
+                Assert(player.isSwimming, "Back in river swimming before boarding boat");
+                Vector3 dockPos = RiverMath.ToWorld3D(RiverMath.RiverCenterMapX(1000f) - RiverMath.RiverHalfWidthMap(1000f), 1000f, 0.625f);
+                GameObject swimDock = ctx.Track(new GameObject("Dermaga SwimQA"));
+                swimDock.transform.position = dockPos;
+                swimDock.AddComponent<BoxCollider>().size = new Vector3(8f, 1.25f, 4f);
+                playerGo.transform.position = new Vector3(dockPos.x + 2f, expectedSurfaceY, dockPos.z);
+                Physics.SyncTransforms();
+                MethodInfo toggleBoat = typeof(KaliPlayerController).GetMethod("TryToggleBoat", BindingFlags.Instance | BindingFlags.NonPublic);
+                bool boarded = (bool)toggleBoat.Invoke(player, new object[] { gm });
+                Assert(boarded && player.isInBoat && !player.isSwimming && !gm.IsSwimming,
+                    "Boarding boat at Dermaga clears swimming state");
+                InvokeNonPublic(player, "StepMovement", Vector2.zero, false, false, 0.1f);
+                Assert(!player.isSwimming && !gm.IsSwimming, "Boat ride stays non-swimming");
+
+                // 6. Exhausting swim stamina triggers drowning alerts, blocks passive HP regen, and causes HealthFail with drowning diagnosis
+                player.ResetToInitialSpawn();
+                gm.swimStamina = 10f;
+                gm.playerHealth = 50f;
+                int dangerAlerts = 0;
+                string lastAlert = string.Empty;
+                gm.OnHazardOrAlert += (msg, danger) => { if (danger) { dangerAlerts++; lastAlert = msg; } };
+                gm.SetPlayerSwimming(true, movingInWater: true, sprintingInWater: true); // drains 16/s
+                InvokeNonPublic(gm, "Tick", 1.0f); // 10 - 16 -> 0 stamina
+                Assert(gm.swimStamina == 0f && gm.IsDrowning && dangerAlerts >= 1,
+                    "Exhausting swim stamina triggers IsDrowning and danger alert");
+                Assert(lastAlert.Contains("TENGGELAM"), "Drowning alert warns player");
+
+                // Subsequent tick deals drowning damage (14 HP/s) without passive HP recovery
+                InvokeNonPublic(gm, "Tick", 2.0f); // 50 - 28 = 22 HP
+                AssertApprox(22f, gm.playerHealth, 0.05f, "Drowning deals 14 HP/s without passive HP regen");
+
+                InvokeNonPublic(gm, "Tick", 2.0f); // 22 - 28 -> 0 HP -> HealthFail
+                Assert(gm.playerHealth == 0f && gm.activeEnding == GameEnding.HealthFail,
+                    "Drowning to 0 HP triggers HealthFail");
+                Assert(gm.LastEndingDiagnosis.Contains("tenggelam"),
+                    "HealthFail caused by drowning records drowning-specific diagnosis");
+
+                // 7. RestartRun restores full swimStamina and clears swim/drowning state
+                gm.RestartRun();
+                AssertApprox(gm.maxSwimStamina, gm.swimStamina, 0.001f, "RestartRun restores full swimStamina");
+                Assert(!gm.IsSwimming && !gm.IsDrowning, "RestartRun clears swimming and drowning state");
             }
         }
 

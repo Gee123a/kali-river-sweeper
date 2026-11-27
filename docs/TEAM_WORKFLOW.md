@@ -8,10 +8,10 @@
 
 | Track | Member | Owned Unity Folders | Primary Deliverables |
 | :--- | :--- | :--- | :--- |
-| **Core & Integration** | **Ivan** | `Scripts/`, `Data/`, `tools/` | C# game loop (`RiverGameManager`, `ToolCatalog`, `RiverTrashSpawner`), `+Z` `RiverMath` buoyancy, linear water rise / Sell-Lock / `Q` dump, 3-class waste & stations, Dermaga river port limits, `MapJsonImporter`, `kali-river-map.json` (53 nodes), `tools/play-3d.html`, `F9` Sidang demo, Academic Report |
+| **Core & Integration** | **Ivan** | `Scripts/`, `Data/`, `tools/` | C# game loop (`RiverGameManager`, `ToolCatalog`, `RiverTrashSpawner`, `KaliFieldGuideOverlay`), `+Z` `RiverMath` buoyancy, surface swimming/stamina/drowning, linear water rise / Sell-Lock / `Q` dump, 3-class waste & stations, `Dermaga` boat port, `MapJsonImporter`, `kali-river-map.json` (53 nodes), `tools/play-3d.html`, `F9` Sidang demo, Academic Report |
 | **Props, Rig & Lighting** | **JC** | `Props/`, `Rigging/`, `Lighting/` | Trash + Medical (`MedicalBag`, `SyringeBox`) & Biohazard props, 20 tools (`PF_Tool_*` with `isTrigger=true`/disabled collider while equipped), vessels (`Rakit`, `Sampan`), `PF_Prop_TrashBoomSegment`, `SK_ExcavatorAmfibi` 3-bone IK + `Damped Track` hydraulic rig, `KaliLightingBuilder` + `PF_LightingRig` (`Pintu Air` beacon at `+Z`) |
 | **Environment & Shaders** | **Wesley** | `Environment/`, `Shaders/` | `SM_Env_*` FBX meshes synced to `130m × 180m` `RiverMath` curve (`+Z` `Pintu Air`, `Pos Medis B3`, `Karantina Biohazard`, `Gudang Pengepul` near Spawn, elevated `Jembatan Utama`), `SG_KaliWater` (`_WaterClarity`, `+V` normal scroll), `SG_TrashTriplanar` |
-| **VFX, UI & Audio** | **Niki** | `VFX/`, `UI/`, `Audio/` | 4 particle VFX prefabs (`MonsoonRain`, `WaterSplashMuddy`, `MethaneSludgeBubbles`, `TrashAvalanche`), 3 UI Canvases (`HUD` w/ `playerHealth`, 3-class cargo, DoT/Sell-Lock/`Q` dump/Monsoon timer/auto-unlock toast; `ShopBankSampah` w/ `1/2/3/E` station & Pengepul; `SDGImpactReport` w/ 4 endings), SFX triggers & Sidang script |
+| **VFX, UI & Audio** | **Niki** | `VFX/`, `UI/`, `Audio/` | 4 particle VFX prefabs (`MonsoonRain`, `WaterSplashMuddy`, `MethaneSludgeBubbles`, `TrashAvalanche`), 3 UI Canvases (`HUD` w/ `playerHealth`, `swimStamina`, 3-class cargo, DoT/Sell-Lock/`Q` dump/Monsoon timer/Kopdes milestone toast; `ShopBankSampah` w/ `BuyTool`, `1/2/3/E` station & Pengepul; `SDGImpactReport` w/ 5 endings), SFX triggers & Sidang script |
 
 ---
 
@@ -41,7 +41,7 @@ I am Ivan (Coordinator & Core Lead). Stay inside my assigned paths:
 - tools/ (play-3d.html, map-editor.html) and docs/
 
 Help me finish my remaining milestones cleanly:
-1. Keep RiverGameManager.cs, ToolCatalog.cs, KaliPlayerController.cs, and RiverFlowBuoyancy.cs synced with JC's 20 auto-unlocking tools (#01 SendokMakanBengkok .. #20 GarukSkimmerHidrolik; #10 Capitan Ular mitigates Medical prick to 0%), Wesley's colliders ("Bank Sampah", "Pos Medis B3", "Karantina Biohazard", "Gudang Pengepul", "Koperasi Desa", "Dermaga", "Gunung Sampah"), and Niki's UI events.
+1. Keep RiverGameManager.cs, ToolCatalog.cs, KaliPlayerController.cs, and RiverFlowBuoyancy.cs synced with JC's 20 milestone-unlocked / Kopdes-purchased tools (`BuyTool`, #01 SendokMakanBengkok .. #20 GarukSkimmerHidrolik; #10 Capitan Ular milestone mitigates Medical prick to 0%), Wesley's colliders ("Bank Sampah", "Pos Medis B3", "Karantina Biohazard", "Gudang Pengepul", "Koperasi Desa", "Dermaga", "Gunung Sampah"), surface swimming/stamina/drowning, and Niki's UI events.
 2. Extend MapJsonImporter.cs so Wesley's SM_Env_* prefabs and SG_KaliWater material attach cleanly alongside JC's PF_LightingRig and PF_Trash_* (Normal, MedicalBag, SyringeBox, Biohazard) prefabs.
 3. Verify F9 Stage Jump (1..4) and standalone browser preview (tools/play-3d.html) match every finalized game requirement for 85-100 rubric score.
 ```
@@ -86,9 +86,9 @@ I am Niki (VFX, UI & Audio/Narrative Lead). Work strictly inside:
 My deliverables (guide me click-by-click in Unity 2022.3.46f1 URP):
 1. 4 VFX Systems: VFX_MonsoonRain (reacts to RiverGameManager.OnWeatherChanged), VFX_WaterSplashMuddy (scoop/boat wake), VFX_MethaneSludgeBubbles (anaerobic sludge gas), VFX_TrashAvalanche (Gunung Sampah breach).
 2. 3 UI Canvases (following docs/DESIGN.md Siaga 4->1 alert tokens & RiverGameManager events):
-   - Canvas_HUD (playerHealth HP bar, 3-class Cargo Normal/Medical/Biohazard, Rupiah, Siaga 4->1 + linear currentWaterLevelY, Water Clarity %, Biohazard DoT countdown/alert, Sell-Lock banner + [Q] High-Ground Dump hint, Monsoon countdown timer, active tool badge #01..#20 + auto-unlock toast on OnToolUnlocked, station [1/2/3/E] prompt).
-   - Canvas_ShopBankSampah (3-station quick-discard & fines vs Gudang Pengepul bulk sell; Vessels, Kampung Bins & 20-tool milestone drawer; Emergency Flush).
-   - Canvas_SDGImpactReport (Triggered by OnEndingTriggered: handles TrueSdgVictory, CompromisedOceanFlush, FloodFail, and HealthFail metrics for SDGs 6.3, 11.5, 14.1).
+   - Canvas_HUD (playerHealth HP bar, swimStamina gauge, 3-class Cargo Normal/Medical/Biohazard, Rupiah, Siaga 4->1 + linear currentWaterLevelY, Water Clarity %, Biohazard DoT countdown/alert, Sell-Lock banner + [Q] High-Ground Dump hint, Monsoon countdown timer, active tool badge #01..#20 + Kopdes availability toast on OnToolUnlocked, station [1/2/3/E] prompt).
+   - Canvas_ShopBankSampah (3-station quick-discard & fines vs Gudang Pengepul bulk sell; Vessels, Kampung Bins & 20-tool Kopdes shop via BuyTool/IsToolUnlocked/IsToolOwned/SelectTool; Emergency Flush).
+   - Canvas_SDGImpactReport (Triggered by OnEndingTriggered: handles TrueSdgVictory, PartialSurvival, CompromisedOceanFlush, FloodFail, and HealthFail metrics for SDGs 6.3, 11.5, 14.1).
 3. Ambient river audio, scoop splash, medical prick / biohazard DoT warning, wrong-station buzzer, tool unlock chime, Pintu Air siren + 3-minute Sidang presentation flow synced to F9 + 1..4 hotkeys.
 ```
 
