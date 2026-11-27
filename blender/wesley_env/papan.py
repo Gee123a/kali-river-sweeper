@@ -1,4 +1,5 @@
-"""T_Env_PapanBankSampah - sign atlas for SM_Env_BankSampah (1024 x 1024, PIL).
+"""Sign atlases for Wesley's stations (1024 x 1024, PIL):
+T_Env_PapanBankSampah (SM_Env_BankSampah) and T_Env_PapanKopdes (SM_Env_KoperasiDesa).
 
 Run with any Python that has Pillow (not Blender):
     python3 blender/wesley_env/papan.py
@@ -24,7 +25,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 FONTS = os.path.join(ROOT, "unity", "Assets", "_Project", "UI", "Fonts")
-OUT = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment", "Textures", "T_Env_PapanBankSampah.png")
+TEX = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment", "Textures")
+OUT = os.path.join(TEX, "T_Env_PapanBankSampah.png")
 
 W = 1024
 GREEN = (34, 197, 94)          # DESIGN 2.4 Bank Sampah sign
@@ -183,7 +185,75 @@ def weather(img, seed=7):
     return base
 
 
-def main():
+RED = (196, 32, 38)
+WALL_GREY = (128, 131, 134)
+INK = (34, 34, 36)
+
+
+def kopdes_emblem(d, cx, top, s):
+    """Original co-op emblem: red house outline with a window grid and a red-white flag."""
+    w, h = s, s * 0.82
+    x0, x1, yb = cx - w / 2, cx + w / 2, top + h
+    ridge = (cx, top + h * 0.12)
+    lw = max(4, int(s * 0.07))
+    d.line([(x0 - lw, top + h * 0.5), ridge, (x1 + lw, top + h * 0.5)], fill=RED, width=lw, joint="curve")
+    d.line([(x0 + lw * 0.6, top + h * 0.45), (x0 + lw * 0.6, yb)], fill=RED, width=lw)
+    d.line([(x0, yb), (x1, yb)], fill=RED, width=lw)
+    g = s * 0.11
+    for i in range(2):
+        for j in range(2):
+            gx, gy = x0 + w * 0.18 + i * (g + 6), top + h * 0.56 + j * (g + 6)
+            d.rectangle((gx, gy, gx + g, gy + g), fill=RED)
+    pole = (cx - w * 0.18, top - s * 0.05)
+    d.line([pole, (pole[0], top + h * 0.2)], fill=INK, width=3)
+    d.rectangle((pole[0], pole[1], pole[0] + s * 0.22, pole[1] + s * 0.07), fill=RED)
+    d.rectangle((pole[0], pole[1] + s * 0.07, pole[0] + s * 0.22, pole[1] + s * 0.14), fill=(245, 245, 245))
+    return x0 + w * 0.42, yb
+
+
+def kopdes():
+    img = Image.new("RGB", (W, W), WALL_GREY)
+    noise = Image.effect_noise((W // 4, W // 4), 30).resize((W, W), Image.BICUBIC).filter(ImageFilter.GaussianBlur(4))
+    img = Image.composite(Image.new("RGB", (W, W), (108, 110, 112)), img, noise.point(lambda v: int(max(0, v - 110) * 0.8)))
+    d = ImageDraw.Draw(img)
+    # ---- sign wall art (0,0)-(512,640): emblem + KOPDES, KOPERASI / MERAH PUTIH / DESA ----
+    bx0, by0, bx1 = 0, 0, 512
+    cx, top, size = 236, 150, 200
+    kopdes_emblem(d, cx, top, size)
+    fk = font("BarlowCondensed-Bold.ttf", 46)
+    for i, word in enumerate(("KOP", "DES")):
+        d.text((cx - 2, top + 64 + i * 44), word, font=fk, fill=RED)
+    text_center(d, (bx0, 330, bx1, 372), "KOPERASI", font("BarlowCondensed-Bold.ttf", 44), INK)
+    fm = font("BarlowCondensed-Bold.ttf", 76)
+    l1 = d.textbbox((0, 0), "MERAH ", font=fm)
+    l2 = d.textbbox((0, 0), "PUTIH", font=fm)
+    wtot = (l1[2] - l1[0]) + (l2[2] - l2[0])
+    x = (bx1 - wtot) / 2
+    d.text((x, 368), "MERAH ", font=fm, fill=RED)
+    d.text((x + (l1[2] - l1[0]), 368), "PUTIH", font=fm, fill=(250, 250, 248), stroke_width=2, stroke_fill=(96, 98, 100))
+    text_center(d, (bx0, 466, bx1, 508), "DESA KALI BERSIH", font("BarlowCondensed-SemiBold.ttf", 40), INK)
+    # ---- veranda banner (0,656)-(1024,728) ----
+    d.rectangle((0, 656, 1024, 728), fill=(250, 248, 240))
+    d.rectangle((0, 656, 1024, 668), fill=RED)
+    d.rectangle((0, 716, 1024, 728), fill=RED)
+    text_center(d, (0, 668, 1024, 716), "PERAHU  \u2022  TONG KAMPUNG  \u2022  TRASH BOOM  \u2022  ALAT", font("BarlowCondensed-Bold.ttf", 44), RED)
+    # rain streaks + grime at the bottom of the wall art
+    rng = random.Random(11)
+    grime = Image.new("L", (W, W), 0)
+    g = ImageDraw.Draw(grime)
+    for i in range(30):
+        g.rectangle((0, 560 + i * 2.6, 512, 563 + i * 2.6), fill=int(3 + i * 2.2))
+    for _ in range(14):
+        dx = rng.randint(10, 500)
+        g.rectangle((dx, rng.randint(0, 60), dx + rng.randint(2, 5), rng.randint(200, 640)), fill=rng.randint(14, 34))
+    grime = grime.filter(ImageFilter.GaussianBlur(2))
+    img = Image.composite(Image.new("RGB", (W, W), (70, 62, 52)), img, grime)
+    out = os.path.join(TEX, "T_Env_PapanKopdes.png")
+    img.save(out, optimize=True)
+    return out
+
+
+def bank_sampah():
     img = Image.new("RGBA", (W, W), FRAME + (255,))
     board(img, (0, 0, 1024, 256), "BANK SAMPAH", "BERKAH")
     for (x, y), word in zip([(0, 256), (512, 256), (0, 384), (512, 384)], ["BOTOL", "PLASTIK", "KERTAS", "DAUN"]):
@@ -193,7 +263,18 @@ def main():
     out = weather(img)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     out.save(OUT, optimize=True)
-    print(os.path.relpath(OUT, ROOT))
+    return OUT
+
+
+ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes}
+
+
+def main():
+    """python3 papan.py [bank_sampah] [kopdes] - Image.effect_noise is not seeded, so only
+    regenerate the atlas you are changing to keep the others' git diff clean."""
+    import sys
+    for key in sys.argv[1:] or ATLASES:
+        print(os.path.relpath(ATLASES[key](), ROOT))
 
 
 if __name__ == "__main__":

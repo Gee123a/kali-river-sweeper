@@ -197,7 +197,7 @@ def seng_gelombang(seed=101):
     streak = _value_noise(rng, SIZE, 32)                                # streaks: stretched along U
     streak = np.repeat(streak[:, ::8], 8, axis=1)
     rust_mask = np.clip((streak * _fbm(rng, SIZE, 3, 4) - 0.32) * 3.2, 0, 1) * 0.75
-    lap = (np.arange(SIZE)[None, :] % (SIZE // 2) < 6) * 0.55           # sheet overlap seam every 1 m
+    lap = (np.arange(SIZE)[None, :] % (SIZE // 2) < 5) * 0.22           # sheet overlap seam every 1 m
     rust_mask = np.clip(rust_mask + lap * (0.4 + 0.6 * _fbm(rng, SIZE, 8, 3)), 0, 1)
     paint = np.repeat(lum[..., None], 3, -1)
     rust = np.array([0.56, 0.36, 0.24])
