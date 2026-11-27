@@ -2,7 +2,8 @@
 signage so players know what each station is for.
 T_Env_PapanBankSampah (SM_Env_BankSampah), T_Env_PapanKopdes (SM_Env_KoperasiDesa),
 T_Env_PapanPosMedis (SM_Env_PosMedisB3), T_Env_PapanKarantina (SM_Env_KarantinaBiohazard),
-T_Env_PapanUmum (name boards on SM_Env_PintuAirSiaga1 + SM_Env_JembatanUtama).
+T_Env_PapanUmum (name boards on SM_Env_PintuAirSiaga1 + SM_Env_JembatanUtama),
+T_Env_PapanWarung (SM_Env_WarungMadura), T_Env_PapanPengepul (SM_Env_GudangPengepul).
 
 Run with any Python that has Pillow (not Blender):
     python3 blender/wesley_env/papan.py
@@ -464,11 +465,191 @@ def umum():
     return path
 
 
-ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum}
+# ---------------------------------------------------------------- warung madura + gudang pengepul
+PACK = [(214, 40, 40), (247, 189, 30), (30, 110, 200), (40, 160, 80), (240, 120, 30), (250, 250, 245),
+        (160, 40, 160), (20, 150, 190), (230, 70, 120), (120, 70, 40)]
+
+
+def goods_shelf(img, box, seed, rows=5):
+    """Shelves packed with colourful sembako: boxes, bottles, snack packs, jars."""
+    rng = random.Random(seed)
+    d = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = box
+    d.rectangle(box, fill=(70, 46, 28))
+    rh = (y1 - y0) / rows
+    for r in range(rows):
+        top, base = y0 + r * rh + 6, y0 + (r + 1) * rh - 10
+        x = x0 + 6
+        while x < x1 - 12:
+            kind = rng.random()
+            c = rng.choice(PACK)
+            if kind < 0.35:                                   # carton box with label band
+                w, h = rng.randint(22, 40), rng.uniform(0.55, 0.95) * (base - top)
+                d.rectangle((x, base - h, x + w, base), fill=c)
+                d.rectangle((x, base - h * 0.62, x + w, base - h * 0.42), fill=rng.choice(PACK))
+            elif kind < 0.65:                                 # bottle
+                w, h = rng.randint(10, 16), rng.uniform(0.6, 0.92) * (base - top)
+                d.rectangle((x, base - h * 0.78, x + w, base), fill=c)
+                d.rectangle((x + w * 0.3, base - h, x + w * 0.7, base - h * 0.78), fill=c)
+                d.rectangle((x + w * 0.25, base - h, x + w * 0.75, base - h * 0.94), fill=(240, 240, 240))
+            elif kind < 0.88:                                 # pillow snack pack
+                w, h = rng.randint(24, 38), rng.uniform(0.5, 0.8) * (base - top)
+                d.rounded_rectangle((x, base - h, x + w, base), radius=6, fill=c)
+                d.ellipse((x + w * 0.25, base - h * 0.7, x + w * 0.75, base - h * 0.3), fill=rng.choice(PACK))
+            else:                                             # glass jar of crackers
+                w, h = rng.randint(26, 34), rng.uniform(0.55, 0.75) * (base - top)
+                d.rectangle((x, base - h, x + w, base), fill=(200, 216, 214))
+                d.rectangle((x + 3, base - h * 0.85, x + w - 3, base - 3), fill=(222, 170, 90))
+                d.rectangle((x - 1, base - h - 6, x + w + 1, base - h), fill=(200, 40, 40))
+            x += w + rng.randint(1, 4)
+        d.rectangle((x0, base, x1, base + 10), fill=(150, 104, 62))       # shelf board
+        d.rectangle((x0, base + 10, x1, base + 13), fill=(60, 40, 24))
+
+
+def warung():
+    """T_Env_PapanWarung - must match warung_madura.UV_*."""
+    img = Image.new("RGB", (W, W), (60, 42, 28))
+    d = ImageDraw.Draw(img)
+    # main sign (0,0)-(1024,196): green frame, cream board, SEMBAKO / WARUNG MADURA
+    d.rectangle((0, 0, 1024, 196), fill=(24, 120, 60))
+    d.rectangle((12, 12, 1012, 184), fill=(250, 240, 205))
+    for i, cx in enumerate((60, 964)):                                    # leaf corners like the reference
+        leaf(d, cx, 98, 36, (44, 150, 70))
+    text_center(d, (100, 14, 924, 58), "SEMBAKO  •  BUKA 24 JAM", font("BarlowCondensed-Bold.ttf", 40), (24, 120, 60))
+    text_center(d, (100, 52, 924, 182), "WARUNG MADURA", fit_font(d, "WARUNG MADURA", "BarlowCondensed-Bold.ttf", 800, 122), (206, 30, 36),
+                shadow=(120, 20, 20))
+    # banner (0,212)-(1024,306)
+    d.rectangle((0, 212, 1024, 306), fill=(247, 196, 30))
+    d.rectangle((0, 212, 1024, 220), fill=(206, 30, 36))
+    d.rectangle((0, 298, 1024, 306), fill=(206, 30, 36))
+    t = "SEDIA PULSA • KUOTA • TOKEN LISTRIK • GAS • GALON • ES BATU"
+    text_center(d, (8, 220, 1016, 298), t, fit_font(d, t, "BarlowCondensed-Bold.ttf", 990, 64, 70), (180, 20, 26))
+    # goods shelf (0,320)-(512,832) and etalase (528,320)-(1024,576)
+    goods_shelf(img, (0, 320, 512, 832), 21, rows=5)
+    goods_shelf(img, (528, 320, 1024, 576), 22, rows=2)
+    glass = Image.new("L", (496, 256), 0)
+    gd = ImageDraw.Draw(glass)
+    for k in range(4):                                                    # glass reflections
+        gx = 40 + k * 130
+        gd.polygon([(gx, 256), (gx + 40, 256), (gx + 140, 0), (gx + 100, 0)], fill=60)
+    img.paste(Image.new("RGB", (496, 256), (235, 245, 250)), (528, 320), glass)
+    d = ImageDraw.Draw(img)
+    d.rectangle((528, 320, 1024, 576), outline=(150, 104, 62), width=10)
+    # A-frame BUKA 24 JAM (528,592)-(784,976)
+    d.rectangle((528, 592, 784, 976), fill=(206, 30, 36))
+    d.rectangle((544, 608, 768, 960), fill=(250, 248, 240))
+    text_center(d, (544, 620, 768, 720), "BUKA", font("BarlowCondensed-Bold.ttf", 92), (206, 30, 36))
+    text_center(d, (544, 712, 768, 870), "24", font("BarlowCondensed-Bold.ttf", 170), (206, 30, 36))
+    text_center(d, (544, 870, 768, 950), "JAM", font("BarlowCondensed-Bold.ttf", 80), (206, 30, 36))
+    # awning stripes (800,592)-(1024,816): 8 red / white bands
+    for i in range(8):
+        d.rectangle((800 + i * 28, 592, 828 + i * 28, 816), fill=(214, 40, 40) if i % 2 == 0 else (250, 246, 236))
+    # rencengan sachet strips (0,848)-(512,1024): 8 vertical strips of sachets
+    rng = random.Random(9)
+    for c in range(8):
+        sx = c * 64
+        d.rectangle((sx, 848, sx + 64, 1024), fill=(60, 42, 28))
+        col = rng.choice(PACK)
+        for r in range(5):
+            sy = 852 + r * 34
+            d.rectangle((sx + 8, sy, sx + 56, sy + 30), fill=col)
+            d.rectangle((sx + 8, sy + 10, sx + 56, sy + 18), fill=rng.choice(PACK))
+    # flat colours: LPG lime (800,832)-(900,932), dark wood (900,832)-(1000,932)
+    d.rectangle((800, 832, 900, 932), fill=(146, 196, 60))
+    d.rectangle((900, 832, 1000, 932), fill=(70, 46, 28))
+    out = grime(img, [(0, 0, 1024, 196), (0, 212, 1024, 306), (528, 592, 784, 976)], 6)
+    path = os.path.join(TEX, "T_Env_PapanWarung.png")
+    out.save(path, optimize=True)
+    return path
+
+
+def bale_stack(img, box, seed, kind):
+    """Stacked recyclables for the Gudang Pengepul racks: plastic bales, cardboard, sacks."""
+    rng = random.Random(seed)
+    ox, oy = box[0], box[1]
+    tile = Image.new("RGB", (box[2] - box[0], box[3] - box[1]), (36, 30, 24))   # clip to the cell
+    d = ImageDraw.Draw(tile)
+    x0, y0, x1, y1 = 0, 0, tile.width, tile.height
+    if kind == "plastik":
+        bh = (y1 - y0) / 3
+        for r in range(3):
+            x = x0 + rng.randint(-30, 0)
+            while x < x1:
+                w = rng.randint(90, 130)
+                by0, by1 = y0 + r * bh + 4, y0 + (r + 1) * bh - 4
+                d.rectangle((x, by0, x + w, by1), fill=(150, 150, 146))
+                for _ in range(int(w * (by1 - by0) / 70)):       # crushed bottles / film speckle
+                    px, py = rng.uniform(x, x + w), rng.uniform(by0, by1)
+                    c = rng.choice([(60, 120, 190), (220, 220, 215), (40, 140, 80), (200, 60, 50), (130, 190, 210), (240, 200, 60)])
+                    d.rectangle((px, py, px + rng.randint(4, 12), py + rng.randint(3, 8)), fill=c)
+                for sy in (0.3, 0.7):                             # wire straps
+                    d.line([(x, by0 + (by1 - by0) * sy), (x + w, by0 + (by1 - by0) * sy)], fill=(60, 60, 60), width=3)
+                x += w + 6
+    elif kind == "kardus":
+        y = y0
+        while y < y1:
+            h = rng.randint(8, 16)
+            c = rng.choice([(170, 128, 80), (150, 110, 66), (186, 146, 98), (120, 90, 56)])
+            d.rectangle((x0 + rng.randint(0, 8), y, x1 - rng.randint(0, 8), y + h), fill=c)
+            y += h + 2
+        for tx in range(int(x0) + 60, int(x1), 120):              # string ties
+            d.rectangle((tx, y0, tx + 4, y1), fill=(220, 210, 180))
+    else:                                                         # karung sacks
+        bh = (y1 - y0) / 2
+        for r in range(2):
+            x = x0 + (40 if r else 0) - 40
+            while x < x1:
+                w = rng.randint(110, 140)
+                c = rng.choice([(232, 228, 214), (220, 214, 196), (236, 236, 228), (200, 120, 60)])
+                d.rounded_rectangle((x, y0 + r * bh + 4, x + w, y0 + (r + 1) * bh - 4), radius=30, fill=c)
+                d.line([(x + 14, y0 + r * bh + bh * 0.5), (x + w - 14, y0 + r * bh + bh * 0.5)], fill=(180, 172, 150), width=3)
+                x += w + 4
+    img.paste(tile, (ox, oy))
+
+
+def pengepul():
+    """T_Env_PapanPengepul - must match gudang_pengepul.UV_*. Accent #A87018 (DESIGN 2.4)."""
+    AMBER = (168, 112, 24)
+    img = Image.new("RGB", (W, W), (36, 30, 24))
+    d = ImageDraw.Draw(img)
+    # main hand-painted board (0,0)-(1024,400)
+    d.rectangle((0, 0, 1024, 400), fill=(92, 58, 20))
+    d.rectangle((14, 14, 1010, 386), fill=AMBER)
+    text_center(d, (20, 20, 1004, 140), "GUDANG", font("BarlowCondensed-Bold.ttf", 120), (250, 238, 210), shadow=(92, 58, 20))
+    text_center(d, (20, 130, 1004, 270), "PENGEPUL", font("BarlowCondensed-Bold.ttf", 150), (250, 238, 210), shadow=(92, 58, 20))
+    d.rectangle((60, 282, 964, 288), fill=(250, 238, 210))
+    text_center(d, (20, 292, 1004, 380), "TERIMA SEMUA SAMPAH • SEKALI SETOR", font("BarlowCondensed-Bold.ttf", 64), (40, 26, 10))
+    # price board (0,416)-(640,816)
+    d.rectangle((0, 416, 640, 816), fill=(92, 58, 20))
+    d.rectangle((12, 428, 628, 804), fill=(246, 238, 218))
+    d.rectangle((12, 428, 628, 512), fill=AMBER)
+    text_center(d, (12, 432, 628, 510), "HARGA BORONGAN", font("BarlowCondensed-Bold.ttf", 70), (250, 238, 210))
+    rows = (("NORMAL", "Rp 2.000"), ("MEDIS", "Rp 3.000"), ("BIOHAZARD", "Rp 4.500"))
+    for i, (k, v) in enumerate(rows):
+        y = 524 + i * 64
+        d.text((48, y), k, font=font("BarlowCondensed-Bold.ttf", 56), fill=(40, 26, 10))
+        l, t, r, b = d.textbbox((0, 0), v, font=font("IBMPlexMono-Bold.ttf", 46))
+        d.text((592 - (r - l), y + 6), v, font=font("IBMPlexMono-Bold.ttf", 46), fill=(40, 26, 10))
+    d.rectangle((12, 724, 628, 804), fill=(206, 30, 36))
+    t = "TANPA DENDA - TAPI WARGA KECEWA KALAU B3 DICAMPUR"
+    text_center(d, (20, 728, 620, 800), t, fit_font(d, t, "BarlowCondensed-Bold.ttf", 590, 60, 50), (255, 255, 255))
+    # rack stacks: plastic bales (656,416)-(1024,656), cardboard (656,672)-(1024,912), sacks (0,832)-(640,1024)
+    bale_stack(img, (656, 416, 1024, 656), 31, "plastik")
+    bale_stack(img, (656, 672, 1024, 912), 32, "kardus")
+    bale_stack(img, (0, 832, 640, 1024), 33, "karung")
+    d = ImageDraw.Draw(img)
+    d.rectangle((656, 928, 1024, 1024), fill=(52, 38, 26))           # dark timber / edge
+    out = grime(img, [(0, 0, 1024, 400), (0, 416, 640, 816)], 7)
+    path = os.path.join(TEX, "T_Env_PapanPengepul.png")
+    out.save(path, optimize=True)
+    return path
+
+
+ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul}
 
 
 def main():
-    """python3 papan.py [bank_sampah] [kopdes] [pos_medis] [karantina] [umum] - Image.effect_noise is not seeded, so only
+    """python3 papan.py [bank_sampah] [kopdes] [pos_medis] [karantina] [umum] [warung] [pengepul] - Image.effect_noise is not seeded, so only
     regenerate the atlas you are changing to keep the others' git diff clean."""
     import sys
     for key in sys.argv[1:] or ATLASES:
