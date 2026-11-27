@@ -54,7 +54,7 @@ Nomor = urutan di PRD / index from the PRD. Modul ada di `kali_blender/tools/` (
   `KALI > JC > Build Trash Prefabs` (skrip: `unity/Assets/_Project/Props/Editor/KaliPropPrefabBuilder.cs`), bukan dari Blender.
 
 ## Sampah bermerek / Branded trash (trash stage)
-Sembilan sampah kemasan Indonesia, kotor dan lusuh tapi mereknya langsung terbaca. Nine Indonesian packaging props,
+Sebelas sampah kemasan Indonesia (9 + 2 air mineral AQUO dari prop lama), kotor dan lusuh tapi mereknya langsung terbaca. Eleven Indonesian packaging props (9 + 2 AQUO water bottles ported from the old props),
 dirty and worn, brand readable at a glance.
 Semua merek adalah PARODI (nama diganti) agar aman hak cipta/merek. All brands are PARODIES (renamed) to avoid trademark strikes. Pose = posisi mengapung (label menghadap atas), karena spawner hanya memutar yaw.
 Pose = floating pose (print facing up): the spawner only adds a random yaw.
@@ -70,6 +70,8 @@ Pose = floating pose (print facing up): the spawner only adds a random yaw.
 | 09 | `SM_Trash_StyrofoamMakanan` | Kotak nasi styrofoam, tutup terbuka, sudut patah, noda makanan | 0.19 x 0.29 x 0.21 | 194 |
 | 10 | `SM_Trash_BotolSprit` | Botol PET soda lemon-lime "Sprit" 1.5 L, gepeng, penyok | 0.32 x 0.10 x 0.10 | 332 |
 | 11 | `SM_Trash_KotakRokok` | Bungkus rokok "GUDANG GULA International", remuk, tutup terbuka sedikit | 0.06 x 0.10 x 0.04 | 220 |
+| 12 | `SM_Trash_AquaBottle_600ml` | Botol PET air mineral 600 ml, label parodi "AQUO", tutup biru, gepeng, penyok, rebah | 0.22 x 0.07 x 0.05 | 236 |
+| 13 | `SM_Trash_AquaGalon_19L` | Galon polikarbonat biru 19 L, rib, stiker "AQUO", tutup putih, penyok, rebah (mengapung tinggi) | 0.48 x 0.27 x 0.27 | 332 |
 
 Prefab `PF_Trash_<nama>` dibuat dengan menu Unity yang sama (`KALI > JC > Build Trash Prefabs`).
 

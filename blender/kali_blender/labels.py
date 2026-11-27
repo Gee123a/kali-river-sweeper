@@ -719,6 +719,30 @@ def _styrofoam(c, used=True):
     c.paint(c.stroke([(6.4, 8.6), (7.3, 8.1)], 0.05), "#4f4636")
 
 
+def _aquo_face(c, w, h, big):
+    """Parody mineral-water wrap: pale blue sky, two blue hill bands, white-outlined blue AQUO, top/bottom bars."""
+    c.paint(c.full(), c.vgrad(h, 0, "#eef7fc", "#bfe0f2"))
+    c.paint(c.poly([(0, 0), (0, h * 0.36), (w * 0.22, h * 0.6), (w * 0.4, h * 0.42), (w * 0.62, h * 0.68),
+                    (w * 0.82, h * 0.46), (w, h * 0.56), (w, 0)]), "#8cc0ea")
+    c.paint(c.poly([(0, 0), (0, h * 0.24), (w * 0.3, h * 0.4), (w * 0.55, h * 0.26), (w * 0.76, h * 0.42),
+                    (w, h * 0.3), (w, 0)]), "#2f7fd0")
+    c.paint(c.rect(0, h * 0.88, w, h), "#1f5fd6")
+    c.paint(c.rect(0, 0, w, h * 0.07), "#1f5fd6")
+    c.paint(c.rect(0, h * 0.86, w, h * 0.88), "#e2231a")
+    word = c.text("AQUO", w / 2, h * 0.62, h * (0.36 if big else 0.26), "ariblk.ttf", max_w=w * (0.62 if big else 0.4), shear=0.1)
+    c.outlined(word, "#1f5fd6", [("#ffffff", h * 0.035)])
+    c.paint(c.text("AIR MINERAL", w / 2, h * 0.3, h * 0.085, "arialbd.ttf", max_w=w * 0.5), "#ffffff")
+
+
+def _aquo(c, units):
+    w, h = units
+    c.panel("front", units)
+    _aquo_face(c, w, h, True)
+    c.protect(w * 0.15, h * 0.4, w * 0.85, h * 0.85)
+    c.panel("back", units)
+    _aquo_face(c, w, h, False)
+
+
 ARTS = {
     "indomy": (_indomy, "pack", "film"),
     "bingo": (_bingo, "pack", "film"),
@@ -729,6 +753,8 @@ ARTS = {
     "sprit": (_sprit, "wrap", "bottle"),
     "gudang_gula": (_gudang_gula, "box", "carton"),
     "styrofoam": (_styrofoam, "pair", "foam"),
+    "aquo": (lambda c: _aquo(c, (10.0, 5.0)), "wrap", "bottle"),             # 600 ml bottle band (parody brand)
+    "aquo_galon": (lambda c: _aquo(c, (42.0, 10.0)), "wrap", "bottle"),      # 19 L jug sticker band
     # clean product variants (render with dirty=False): bread in the window, unused foam
     "sari_boti_full": (lambda c: _sari_boti(c, full=True), "pack", "film"),
     "styrofoam_new": (lambda c: _styrofoam(c, used=False), "pair", "foam"),

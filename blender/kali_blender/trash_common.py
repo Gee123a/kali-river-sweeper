@@ -48,6 +48,8 @@ TRASH_MODULES = [
     "trash_09_styrofoam_makanan",
     "trash_10_botol_sprit",
     "trash_11_kotak_rokok",
+    "trash_12_aqua_bottle_600ml",
+    "trash_13_aqua_galon_19l",
 ]
 
 
