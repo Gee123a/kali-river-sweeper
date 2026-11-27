@@ -42,23 +42,17 @@ namespace KaliRiverSweeper.Editor
             public string color;
         }
 
-        private static readonly string[] TrashPrefabNames = new[]
-        {
-            "PF_Trash_SandalSwallow",
-            "PF_Trash_AquaBottle_600ml",
-            "PF_Trash_AquaGalon_19L",
-            "PF_Trash_PopMieCup",
-            "PF_Trash_KresekBag",
-            "PF_Trash_KasurKapuk",
-            "PF_Trash_BanBekas",
-            "PF_Trash_EcengGondok",
-            "PF_Trash_BatangPisang",
-            "PF_Trash_MedicalBag",
-            "PF_Trash_SyringeBox"
-        };
-
         private static readonly string[] NormalTrashNames = new[]
         {
+            "PF_Trash_BungkusIndomy",
+            "PF_Trash_SachetKecapBingo",
+            "PF_Trash_SachetMoli",
+            "PF_Trash_BotolLifeman",
+            "PF_Trash_BungkusSariBoti",
+            "PF_Trash_BungkusRisol",
+            "PF_Trash_StyrofoamMakanan",
+            "PF_Trash_BotolSprit",
+            "PF_Trash_KotakRokok",
             "PF_Trash_SandalSwallow",
             "PF_Trash_AquaBottle_600ml",
             "PF_Trash_AquaGalon_19L",
@@ -600,19 +594,14 @@ namespace KaliRiverSweeper.Editor
             {
                 // Ensure each cluster guarantees Normal + Medical + Biohazard variety
                 WasteClass wc = i == 3 ? WasteClass.Medical : (i == 4 ? WasteClass.Biohazard : WasteClass.Normal);
-                string prefabName = wc switch
+                GameObject[] pool = LoadTrashPrefabPool(wc switch
                 {
-                    WasteClass.Medical => MedicalTrashNames[(i + Mathf.Abs(item.name.GetHashCode())) % MedicalTrashNames.Length],
-                    WasteClass.Biohazard => BiohazardTrashNames[(i + Mathf.Abs(item.name.GetHashCode())) % BiohazardTrashNames.Length],
-                    _ => NormalTrashNames[(i + Mathf.Abs(item.name.GetHashCode())) % NormalTrashNames.Length]
-                };
-
-                GameObject prefab = LoadFirstPrefab($"Assets/_Project/Props/Trash/Prefabs/{prefabName}.prefab");
-                if (prefab == null && wc == WasteClass.Normal)
-                {
-                    string alt = TrashPrefabNames[(i + Mathf.Abs(item.name.GetHashCode())) % TrashPrefabNames.Length];
-                    prefab = LoadFirstPrefab($"Assets/_Project/Props/Trash/Prefabs/{alt}.prefab");
-                }
+                    WasteClass.Medical => MedicalTrashNames,
+                    WasteClass.Biohazard => BiohazardTrashNames,
+                    _ => NormalTrashNames
+                });
+                int seed = i + Mathf.Abs(item.name.GetHashCode());
+                GameObject prefab = pool.Length > 0 ? pool[seed % pool.Length] : null;
 
                 Vector3 offset = new Vector3(UnityEngine.Random.Range(-2.2f, 2.2f), 0f, UnityEngine.Random.Range(-2.2f, 2.2f));
                 GameObject trashObj;
