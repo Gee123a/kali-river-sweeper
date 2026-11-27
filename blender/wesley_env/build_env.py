@@ -1,10 +1,15 @@
 """Build Wesley's environment meshes headlessly (Blender 5.3 / bpy wheel).
 
-    python blender/wesley_env/build_env.py            # bpy 5.3 wheel
-    blender -b -P blender/wesley_env/build_env.py     # Blender app, no GUI
+    blender -b -P blender/wesley_env/build_env.py                      # everything
+    blender -b -P blender/wesley_env/build_env.py -- pintu_air         # only re-export these FBX
+    blender -b -P blender/wesley_env/build_env.py -- textures          # only regenerate textures
+
+Every mesh is always rebuilt into blender/SM_Env_Pack.blend; only the selected assets are
+re-exported (FBX files embed a timestamp, so untouched assets keep a clean git diff).
 
 Outputs (repo-relative):
-    unity/Assets/_Project/Environment/Meshes/SM_Env_RiverValleyTerrain.fbx
+    unity/Assets/_Project/Environment/Meshes/SM_Env_*.fbx
+    unity/Assets/_Project/Environment/Textures/T_Env_*.png
     blender/SM_Env_Pack.blend
 """
 import json
@@ -18,10 +23,17 @@ sys.path.insert(0, BLENDER_DIR)
 
 import bpy  # noqa: E402  (must be imported before bmesh / mathutils)
 from kali_blender.export_fbx import FBX_SETTINGS  # noqa: E402  same settings as JC's exports
-from wesley_env import terrain  # noqa: E402
+from wesley_env import pintu_air, terrain, textures  # noqa: E402
 
-MESH_DIR = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment", "Meshes")
+ENV_DIR = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment")
+MESH_DIR = os.path.join(ENV_DIR, "Meshes")
+TEX_DIR = os.path.join(ENV_DIR, "Textures")
 BLEND_PATH = os.path.join(BLENDER_DIR, "SM_Env_Pack.blend")
+
+ASSETS = {
+    "terrain": terrain,
+    "pintu_air": pintu_air,
+}
 
 
 def reset_scene():
@@ -42,12 +54,18 @@ def export(ob):
 
 
 def main():
+    args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    selected = set(args) or set(ASSETS) | {"textures"}
     reset_scene()
     report = []
-    ob = terrain.build()
-    info = terrain.stats(ob)
-    info["fbx"] = export(ob)
-    report.append(info)
+    if "textures" in selected:
+        report.append({"textures": [os.path.relpath(p, ROOT) for p in textures.build_all(TEX_DIR)]})
+    for key, module in ASSETS.items():
+        ob = module.build()
+        info = module.stats(ob)
+        if key in selected:
+            info["fbx"] = export(ob)
+        report.append(info)
     bpy.ops.wm.save_as_mainfile(filepath=BLEND_PATH)
     print(json.dumps(report, indent=2))
 
