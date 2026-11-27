@@ -9727,7 +9727,7 @@
     "m_SourceType": 1,
     "m_FunctionName": "KaliWaterSkyGlint",
     "m_FunctionSource": "",
-    "m_FunctionBody": "float3 n = normalize(NormalWS);\nfloat3 nSoft = normalize(lerp(float3(0.0, 1.0, 0.0), n, 0.40));\nfloat3 v = normalize(ViewDirWS);\nfloat3 l = normalize(SunDir);\nfloat ndotlSharp = saturate(dot(reflect(-v, n), l));\nfloat ndotlBroad = saturate(dot(reflect(-v, nSoft), l));\nfloat glint = pow(ndotlSharp, 64.0) * 1.55 + pow(ndotlBroad, 22.0) * 0.95 + pow(ndotlBroad, 6.0) * 0.24;\nfloat fresnel = pow(1.0 - saturate(dot(n, v)), 3.2);\nfloat sunUp = saturate(l.y * 8.0 + 0.35);\nOutEmission = SunColor * (glint * sunUp) + SkyTint * (fresnel * 0.36);\nOutBaseColor = lerp(BaseColorIn, BaseColorIn * lerp(float3(1.0, 1.0, 1.0), SkyTint, 0.85), 0.24);"
+    "m_FunctionBody": "float3 n = normalize(NormalWS);\nfloat3 nSoft = normalize(lerp(float3(0.0, 1.0, 0.0), n, 0.30));\nfloat3 v = normalize(ViewDirWS);\nfloat3 l = normalize(SunDir);\nfloat rDotLSharp = saturate(dot(reflect(-v, n), l));\nfloat rDotLBroad = saturate(dot(reflect(-v, nSoft), l));\nfloat coreGlint = pow(rDotLSharp, 80.0) * 2.10 + pow(rDotLBroad, 48.0) * 1.45;\nfloat goldShoulders = pow(rDotLBroad, 16.0) * 0.75;\nfloat fresnel = pow(1.0 - saturate(dot(n, v)), 4.5);\nfloat sunUp = saturate(l.y * 8.0 + 0.25);\nfloat3 warmGold = SunColor * float3(1.0, 0.68, 0.18);\nOutEmission = (SunColor * coreGlint + warmGold * goldShoulders) * sunUp + SkyTint * (fresnel * 0.08);\nOutBaseColor = lerp(BaseColorIn, BaseColorIn * lerp(float3(0.85, 0.92, 0.78), SkyTint * float3(1.05, 0.82, 0.42), 0.55), 0.22);"
 }
 
 {

@@ -212,10 +212,11 @@ Shader "KALI/Sky"
                 float sx = d.x * invXZ;                                 // sin(azimuth): 0 along the river (Z axis)
                 float up = saturate(0.5 - 0.5 * d.z * invXZ);           // 1 toward -Z (upstream), 0 toward +Z
                 up = up * up * (3.0 - 2.0 * up);
-                float valley = 1.0 - 0.5 * exp(-sx * sx * 30.0);        // river valley notch keeps the setting sun clear
-                float h0 = (0.030 + 0.030 * up + 0.010 * sin(2.0 * az + 1.3) + 0.008 * sin(5.0 * az + 0.4) + 0.004 * sin(11.0 * az + 2.1)) * valley;
-                float h1 = (0.018 + 0.026 * up + 0.010 * sin(4.0 * az + 2.2) + 0.007 * sin(9.0 * az + 0.9) + 0.003 * sin(19.0 * az + 1.7)) * valley;
-                float h2 = (0.008 + 0.022 * up + 0.009 * sin(6.0 * az + 0.3) + 0.005 * sin(13.0 * az + 2.6) + 0.002 * sin(29.0 * az + 1.1)) * valley;
+                float dxSun = sx - _KaliSunDir.x;
+                float valley = 1.0 - 0.52 * exp(-dxSun * dxSun * 12.0); // valley notch aligned to setting sun
+                float h0 = (0.075 + 0.065 * up + 0.022 * sin(2.0 * az + 1.3) + 0.014 * sin(5.0 * az + 0.4) + 0.008 * sin(11.0 * az + 2.1)) * valley;
+                float h1 = (0.052 + 0.048 * up + 0.018 * sin(4.0 * az + 2.2) + 0.011 * sin(9.0 * az + 0.9) + 0.006 * sin(19.0 * az + 1.7)) * valley;
+                float h2 = (0.030 + 0.035 * up + 0.014 * sin(6.0 * az + 0.3) + 0.008 * sin(13.0 * az + 2.6) + 0.004 * sin(29.0 * az + 1.1)) * valley;
                 float m0 = saturate((h0 - y) / pixAng + 0.5);
                 float m1 = saturate((h1 - y) / pixAng + 0.5);
                 float m2 = saturate((h2 - y) / pixAng + 0.5);
@@ -236,9 +237,10 @@ Shader "KALI/Sky"
                 float sunMax = MaxC(_KaliSunColor.rgb);
                 float3 sunHue = _KaliSunColor.rgb / max(sunMax, 1e-4);
                 float spread = 1.0 - 0.4 * smog;
-                float halo = 0.62 * exp(-sAng * 1.85 * spread) + 0.38 * exp(-sAng * 6.0 * spread);
-                float haloAmt = saturate(_KaliSunGlow * halo) * saturate(sunMax) * (1.0 - 0.85 * storm) * (1.0 - 0.3 * smog) * (1.0 - 0.35 * nearness);
-                col = lerp(col, lerp(sunHue * sunHue, _KaliSkyHorizon.rgb, 0.20), haloAmt);
+                float halo = 0.68 * exp(-sAng * 1.45 * spread) + 0.32 * exp(-sAng * 4.8 * spread);
+                float haloAmt = saturate(_KaliSunGlow * halo) * saturate(sunMax) * (1.0 - 0.85 * storm) * (1.0 - 0.3 * smog) * (1.0 - 0.30 * nearness);
+                float3 haloTarget = max(_KaliSkyHorizon.rgb, sunHue * 1.65);
+                col = lerp(col, haloTarget, haloAmt);
 
                 float sz = max(_KaliSunSize, 1e-4);
                 float soft = sz * (0.14 + 0.6 * smog) + pixAng;
@@ -246,7 +248,7 @@ Shader "KALI/Sky"
                 float corona = sz * sz / (sAng * sAng + sz * sz);
                 corona *= corona;                                    // tight glare, ~0.25 at the disc edge
                 float sunVis = (1.0 - cov) * (1.0 - 0.7 * storm);
-                col += _KaliSunColor.rgb * (sunVis * (1.0 - ground) * (1.0 - 0.8 * smog) * (disc * (1.0 - sunOcc) + corona * 0.65 * (1.0 - 0.45 * nearness)));
+                col += _KaliSunColor.rgb * (sunVis * (1.0 - ground) * (1.0 - 0.75 * smog) * (disc * (1.0 - sunOcc) + corona * 0.75 * (1.0 - 0.40 * nearness)));
 
                 // 7. Smog grade: desaturate, brown, dim.
                 float l = Lum(col);

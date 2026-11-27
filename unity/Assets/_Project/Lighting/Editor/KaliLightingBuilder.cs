@@ -122,6 +122,7 @@ namespace KaliRiverSweeper.Lighting.Editor
                 vol.priority = 1f;
                 vol.sharedProfile = profile;
 
+                cycle.enabled = true;
                 cycle.sunLight = sun;
                 cycle.globalVolume = vol;
                 cycle.SetHour(cycle.startHour);

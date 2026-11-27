@@ -51,8 +51,8 @@ namespace KaliRiverSweeper.Core
 
         [Header("Clock (Independent of 300s Run)")]
         [Min(1f)] public float dayLengthSeconds = 720f;
-        [Range(0f, 24f)] public float startHour = 17.50f;
-        [Range(0f, 24f)] public float currentHour = 17.50f;
+        [Range(0f, 24f)] public float startHour = 17.4f;
+        [Range(0f, 24f)] public float currentHour = 17.4f;
 
         [Header("Scene References")]
         public Light sunLight;
@@ -63,7 +63,7 @@ namespace KaliRiverSweeper.Core
 
         public float CurrentHour => currentHour;
         public int ClockMinuteOfDay { get; private set; } = -1;
-        public string ClockText { get; private set; } = "17:36";
+        public string ClockText { get; private set; } = "17:24";
         public string CurrentPhaseName { get; private set; } = "GOLDEN HOUR";
         public Vector3 SunDirection { get; private set; } = new Vector3(0.026f, 0.099f, -0.995f);
         public Vector3 MoonDirection { get; private set; } = new Vector3(-0.026f, -0.099f, 0.995f);
@@ -104,6 +104,8 @@ namespace KaliRiverSweeper.Core
         private ColorAdjustments cachedColorAdj;
         private Tonemapping cachedTonemapping;
         private readonly PhaseTarget[] phaseCycle = new PhaseTarget[5];
+        private bool phaseTableInitialized;
+        private float phaseTableStartHour = -1f;
 
         private void Awake()
         {
@@ -152,7 +154,7 @@ namespace KaliRiverSweeper.Core
         private void Update()
         {
             if (!Application.isPlaying) return;
-            Step(Time.deltaTime);
+            Step(Mathf.Min(Time.unscaledDeltaTime, 0.25f));
         }
 
         public void SetHour(float hour)
@@ -165,7 +167,10 @@ namespace KaliRiverSweeper.Core
         public void SkipToNextPhase()
         {
             EnsureInitialized();
-            RefreshPhaseCycleTable();
+            if (!phaseTableInitialized || !Mathf.Approximately(phaseTableStartHour, startHour))
+            {
+                RefreshPhaseCycleTable();
+            }
 
             float h = NormalizeHour(currentHour);
             int nextIdx = 0;
@@ -204,40 +209,49 @@ namespace KaliRiverSweeper.Core
             {
                 StormBlend = Mathf.MoveTowards(StormBlend, targetStorm, dt / 6f);
             }
-            else if (Application.isPlaying && gm != null)
-            {
-                // Keep current StormBlend on instantaneous jumps unless initialized
-            }
 
             float clarity = gm != null ? gm.waterClarity : 0.65f;
             SmogFactor = Mathf.Clamp01((0.60f - clarity) / 0.50f);
+            float visSmog = Mathf.Pow(SmogFactor, 1.6f);
 
-            // Sun & moon vectors: toward-sun = normalize(0.25*sin(theta), sin(theta)*sin(72deg), cos(theta))
-            float theta = (currentHour - 6f) / 12f * Mathf.PI;
+            // Sun & moon vectors: sunrise +Z (06:00) -> sunset -Z (17:48), with subtle +X sunset bias behind Jembatan Utama
+            const float SunriseHour = 6.0f;
+            const float SunsetHour = 17.80f;
+            float theta;
+            if (currentHour >= SunriseHour && currentHour <= SunsetHour)
+            {
+                theta = ((currentHour - SunriseHour) / (SunsetHour - SunriseHour)) * Mathf.PI;
+            }
+            else
+            {
+                float nightSpan = 24f - (SunsetHour - SunriseHour);
+                float nightElapsed = currentHour > SunsetHour ? (currentHour - SunsetHour) : (currentHour + 24f - SunsetHour);
+                theta = Mathf.PI + (nightElapsed / nightSpan) * Mathf.PI;
+            }
             float sinT = Mathf.Sin(theta);
             float cosT = Mathf.Cos(theta);
-            Vector3 sunDir = new Vector3(0.25f * sinT, sinT * SinTilt, cosT).normalized;
+            float sunsetBiasX = 0.24f * Mathf.Max(0f, -cosT);
+            Vector3 sunDir = new Vector3(0.25f * sinT + sunsetBiasX, sinT * SinTilt, cosT).normalized;
             SunDirection = sunDir;
             MoonDirection = -sunDir;
 
             TimeKeyframe k = EvaluateKeyframes(currentHour);
 
-            // Apply storm and smog onto atmosphere and lighting
+            // Apply storm and visual smog onto atmosphere and lighting
             float storm = Mathf.Clamp01(StormBlend);
-            float smog = Mathf.Clamp01(SmogFactor);
 
             Color zenith = Color.Lerp(k.skyZenith, StormZenith, storm * 0.85f);
             Color horizon = Color.Lerp(k.skyHorizon, StormHorizon, storm * 0.82f);
             Color haze = Color.Lerp(k.skyHaze, StormHaze, storm * 0.88f);
-            haze = Color.Lerp(haze, SmogHazeTint, smog * 0.55f);
+            haze = Color.Lerp(haze, SmogHazeTint, visSmog * 0.55f);
 
             Color sunCol = k.sunColor * k.sunHdrIntensity;
-            sunCol *= (1f - storm * 0.85f) * (1f - smog * 0.45f);
+            sunCol *= (1f - storm * 0.85f);
 
             Color moonCol = k.moonColor * k.moonHdrIntensity;
             moonCol *= (1f - storm * 0.90f);
 
-            CurrentStars = k.stars * (1f - storm) * (1f - smog * 0.70f);
+            CurrentStars = k.stars * (1f - storm) * (1f - visSmog * 0.70f);
 
             // Directional light crossfade between sun (day) and moon (night)
             bool useSun = sunDir.y >= -0.02f;
@@ -252,8 +266,8 @@ namespace KaliRiverSweeper.Core
             float elevFade = useSun ? dayFade : nightFade;
 
             Color lightCol = Color.Lerp(k.lightColor, StormLight, storm * 0.75f);
-            lightCol = Color.Lerp(lightCol, SmogHazeTint, smog * 0.25f);
-            float lightInt = k.lightIntensity * elevFade * (1f - storm * 0.55f) * (1f - smog * 0.22f);
+            lightCol = Color.Lerp(lightCol, SmogHazeTint, visSmog * 0.25f);
+            float lightInt = k.lightIntensity * elevFade * (1f - storm * 0.55f) * (1f - visSmog * 0.20f);
 
             if (sunLight != null)
             {
@@ -273,8 +287,8 @@ namespace KaliRiverSweeper.Core
             RenderSettings.ambientGroundColor = ambGnd;
 
             Color fogCol = Color.Lerp(k.fogColor, StormFog, storm * 0.88f);
-            fogCol = Color.Lerp(fogCol, SmogFogTint, smog * 0.50f);
-            float fogDens = k.fogDensity + storm * 0.0085f + smog * 0.0065f;
+            fogCol = Color.Lerp(fogCol, SmogFogTint, visSmog * 0.50f);
+            float fogDens = k.fogDensity + storm * 0.0085f + visSmog * 0.0065f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogColor = fogCol;
@@ -293,8 +307,13 @@ namespace KaliRiverSweeper.Core
             Shader.SetGlobalFloat(StarsId, CurrentStars);
             Shader.SetGlobalColor(HillColorId, k.hillColor);
             Shader.SetGlobalFloat(StormId, storm);
-            Shader.SetGlobalFloat(SmogId, smog);
-            Shader.SetGlobalColor(SkyTintId, horizon);
+            Shader.SetGlobalFloat(SmogId, visSmog);
+            Color waterSkyTint = new Color(
+                Mathf.Min(horizon.r, 1.15f),
+                Mathf.Min(horizon.g, 0.95f),
+                Mathf.Min(horizon.b, 0.72f),
+                1f);
+            Shader.SetGlobalColor(SkyTintId, waterSkyTint);
 
             // URP Volume overrides (runtime clone only; never mutate shared asset)
             if (Application.isPlaying)
@@ -306,8 +325,8 @@ namespace KaliRiverSweeper.Core
                 }
                 if (cachedColorAdj != null)
                 {
-                    cachedColorAdj.postExposure.Override(k.postExposure - storm * 0.25f - smog * 0.12f);
-                    cachedColorAdj.saturation.Override(k.saturation - storm * 22f - smog * 18f);
+                    cachedColorAdj.postExposure.Override(k.postExposure - storm * 0.25f - visSmog * 0.12f);
+                    cachedColorAdj.saturation.Override(k.saturation - storm * 22f - visSmog * 18f);
                     cachedColorAdj.colorFilter.Override(Color.Lerp(k.colorFilter, Color.white, storm * 0.5f));
                 }
                 if (cachedTonemapping != null)
@@ -331,7 +350,10 @@ namespace KaliRiverSweeper.Core
             {
                 globalVolume = GetComponentInChildren<Volume>(true);
             }
-            RefreshPhaseCycleTable();
+            if (!phaseTableInitialized || !Mathf.Approximately(phaseTableStartHour, startHour))
+            {
+                RefreshPhaseCycleTable();
+            }
         }
 
         private void RefreshPhaseCycleTable()
@@ -341,6 +363,8 @@ namespace KaliRiverSweeper.Core
             phaseCycle[2] = new PhaseTarget { name = "GOLDEN HOUR", hour = Mathf.Clamp(startHour, 15.6f, 18.4f) };
             phaseCycle[3] = new PhaseTarget { name = "SENJA", hour = 18f + 40f / 60f };
             phaseCycle[4] = new PhaseTarget { name = "MALAM", hour = 22f };
+            phaseTableInitialized = true;
+            phaseTableStartHour = startHour;
         }
 
         private void EnsureRuntimeVolume()
@@ -567,57 +591,57 @@ namespace KaliRiverSweeper.Core
                     saturation = 5f,
                     colorFilter = Hex(0xFFFBF2)
                 },
-                new TimeKeyframe // 17:24 Golden Hour Start (Reference Palette)
+                new TimeKeyframe // 17:24 Golden Hour Start (Reference Palette, HDR-compensated for Neutral tonemap)
                 {
                     hour = 17.4f,
-                    skyZenith = Hex(0xF7BC84),
-                    skyHorizon = Hex(0xFDDAA8),
-                    skyHaze = Hex(0xE6C39E),
+                    skyZenith = new Color(1.34f, 0.72f, 0.42f, 1f),
+                    skyHorizon = new Color(1.44f, 0.96f, 0.62f, 1f),
+                    skyHaze = new Color(1.16f, 0.80f, 0.56f, 1f),
                     hillColor = Hex(0x8D7059),
-                    sunColor = Hex(0xFFFBCC),
-                    sunHdrIntensity = 4.4f,
-                    sunSize = 0.062f,
-                    sunGlow = 1.40f,
+                    sunColor = Hex(0xFFFBCE),
+                    sunHdrIntensity = 5.4f,
+                    sunSize = 0.068f,
+                    sunGlow = 1.38f,
                     moonColor = Color.black,
                     moonHdrIntensity = 0f,
                     stars = 0f,
-                    lightColor = Hex(0xFFD699),
+                    lightColor = Hex(0xFFD08C),
                     lightIntensity = 1.95f,
                     ambientSky = Hex(0xF9CEA4),
                     ambientEquator = Hex(0xFEE5C5),
-                    ambientGround = Hex(0x7E664E),
-                    fogColor = Hex(0xE6C39E),
-                    fogDensity = 0.0046f,
-                    bloomIntensity = 0.70f,
-                    postExposure = 0.12f,
-                    saturation = 12f,
-                    colorFilter = Hex(0xFFF8EE)
+                    ambientGround = Hex(0x7C6047),
+                    fogColor = Hex(0xE8C7A8),
+                    fogDensity = 0.0040f,
+                    bloomIntensity = 0.65f,
+                    postExposure = 0.08f,
+                    saturation = 8f,
+                    colorFilter = Hex(0xFFF6EC)
                 },
-                new TimeKeyframe // 17:36 Golden Hour Peak (Reference Elevation ~5.7-7.1 deg)
+                new TimeKeyframe // 17:36 Golden Hour Peak (Reference Palette)
                 {
                     hour = 17.6f,
-                    skyZenith = Hex(0xF7BC84),
-                    skyHorizon = Hex(0xFDDAA8),
-                    skyHaze = Hex(0xE6C39E),
+                    skyZenith = new Color(1.30f, 0.68f, 0.38f, 1f),
+                    skyHorizon = new Color(1.40f, 0.92f, 0.58f, 1f),
+                    skyHaze = new Color(1.12f, 0.76f, 0.52f, 1f),
                     hillColor = Hex(0x8D7059),
-                    sunColor = Hex(0xFFFBCC),
-                    sunHdrIntensity = 4.4f,
-                    sunSize = 0.062f,
-                    sunGlow = 1.40f,
+                    sunColor = Hex(0xFFFBCE),
+                    sunHdrIntensity = 5.2f,
+                    sunSize = 0.068f,
+                    sunGlow = 1.38f,
                     moonColor = Color.black,
                     moonHdrIntensity = 0f,
                     stars = 0f,
-                    lightColor = Hex(0xFFD596),
-                    lightIntensity = 1.90f,
+                    lightColor = Hex(0xFFCC85),
+                    lightIntensity = 1.85f,
                     ambientSky = Hex(0xF9CEA4),
                     ambientEquator = Hex(0xFEE5C5),
-                    ambientGround = Hex(0x7C634C),
-                    fogColor = Hex(0xE6C39E),
-                    fogDensity = 0.0048f,
-                    bloomIntensity = 0.70f,
-                    postExposure = 0.12f,
-                    saturation = 12f,
-                    colorFilter = Hex(0xFFF8EE)
+                    ambientGround = Hex(0x785D45),
+                    fogColor = Hex(0xE4C3A4),
+                    fogDensity = 0.0042f,
+                    bloomIntensity = 0.65f,
+                    postExposure = 0.08f,
+                    saturation = 8f,
+                    colorFilter = Hex(0xFFF6EC)
                 },
                 new TimeKeyframe // 18:40 Dusk
                 {
