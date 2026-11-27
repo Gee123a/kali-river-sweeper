@@ -49,11 +49,14 @@ class Geo:
         for i in (range(len(self.v)) if sel is None else sel):
             self.v[i] = Vector(fn(self.v[i]))
 
-    def recentre(self):
+    def recentre(self, base=False):
+        """Origin to the bbox centre, or with base=True to the centre of the bbox bottom (standing products)."""
         used = sorted({i for _, f, _ in self.faces for i in f})
         lo = Vector([min(self.v[i][a] for i in used) for a in range(3)])
         hi = Vector([max(self.v[i][a] for i in used) for a in range(3)])
         c = (lo + hi) / 2
+        if base:
+            c.z = lo.z
         for i in used:
             self.v[i] = self.v[i] - c
         return hi - lo
@@ -175,6 +178,12 @@ def pillow(geo, W, H, xf, zf, depth, open_edges=(), tear=None, split=None, gusse
     return {"F": F, "B": B, "nx": nx, "nz": nz}
 
 
+def plateau(x, w):
+    """0 at both ends of 0..1, rising smoothly to 1 within w: the flat-topped puff of a full pack."""
+    t = min(max(min(x, 1 - x) / w, 0.0), 1.0)
+    return t * t * (3 - 2 * t)
+
+
 def corner_verts(grid, corner, k):
     """Vertex indices of a pack corner region (index diagonal d < k), both sheets."""
     nx, nz = grid["nx"], grid["nz"]
@@ -265,10 +274,13 @@ def fold(geo, sel, a, b, angle_deg, toward=(0, -1, 0)):
 def crumple(geo, amp, freq, seed, sel=None, axes=(0.45, 1.0, 0.45)):
     """Smooth noise displacement (same field for front and back sheets, so they never cross)."""
     off = Vector((seed * 7.31, seed * 3.17, seed * 5.53))
+    # one scalar noise per axis: noise.noise is reproducible, noise.noise_vector differs per Blender process
+    shift = (Vector((0.0, 0.0, 0.0)), Vector((31.7, 0.0, 0.0)), Vector((0.0, 47.3, 0.0)))
 
     def f(co):
-        n = noise.noise_vector(co * freq + off) + noise.noise_vector(co * freq * 2.3 + off * 1.7) * 0.45
-        return co + Vector((n.x * axes[0], n.y * axes[1], n.z * axes[2])) * amp
+        p, q = co * freq + off, co * freq * 2.3 + off * 1.7
+        n = [noise.noise(p + s) + noise.noise(q + s) * 0.45 for s in shift]
+        return co + Vector((n[0] * axes[0], n[1] * axes[1], n[2] * axes[2])) * amp
     geo.deform(f, sel)
 
 

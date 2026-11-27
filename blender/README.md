@@ -14,6 +14,9 @@ These scripts build the 3D assets for the Unity 2022.3 URP game with Blender 5.3
   Output: `unity/Assets/_Project/Props/Trash/Meshes/<SM_Trash_name>.fbx`,
   textures in `unity/Assets/_Project/Props/Trash/Textures/` (albedo, normal, mask),
   pack `blender/SM_Trash_Pack.blend` (collection `Trash_Preview`).
+- **Produk bersih / clean products** (`SM_Product_*`, 150-400 tris each): the 9 parody brands new and intact, origin on the base.
+  One shared atlas material `M_Products_Atlas`. Output: `unity/Assets/_Project/Props/Products/Meshes/`, `Props/Products/Textures/`,
+  pack `blender/SM_Products_Pack.blend` (collection `Products_Preview`).
 - **Report**: `blender/build_report.json` (status per asset, tri counts, validation issues, repo-relative output paths). Generated, git-ignored.
 
 ### Daftar 20 alat resmi / Official 20 tools (docs/PRD.md section 3)
@@ -70,6 +73,32 @@ Pose = floating pose (print facing up): the spawner only adds a random yaw.
 
 Prefab `PF_Trash_<nama>` dibuat dengan menu Unity yang sama (`KALI > JC > Build Trash Prefabs`).
 
+## Produk bersih / Clean products (products stage)
+Versi BARU dan utuh dari 9 barang yang sama (merek parodi yang sama): segel rapat, penuh, label bersih
+(`labels.render_label(..., dirty=False)`), tanpa kusut/sobek/penyok. Untuk toko / item dunia, bukan sampah mengapung.
+The same 9 parody-brand items, NEW and intact (sealed, full, clean labels, no crumple/tears/dents): shop and world items.
+- Modul / modules: `kali_blender/products/` (`PRODUCT_MODULES` in `products_common.py`); bentuk memakai ulang
+  builder dan profil dari modul trash (`trash_shapes`, ring botol, tray styrofoam, shell kotak rokok).
+- Material `M_Products_Atlas`, atlas `T_Products_Atlas_{Albedo,Normal,Mask}.png` 2048, skema sel sama dengan trash.
+- Output: `unity/Assets/_Project/Props/Products/Meshes/SM_Product_*.fbx`, `Props/Products/Textures/`, `blender/SM_Products_Pack.blend`.
+- Budget **150-400 tris**. **Pivot = tengah dasar bbox** (origin di lantai, tengah tapak): produk berdiri di rak / tanah.
+  Origin = centre of the bbox BOTTOM, so a prefab dropped at shelf or floor height stands on it (tolerance 0.02 m).
+- Berdiri tegak bila produk aslinya berdiri (botol, pouch, kotak rokok, kotak styrofoam); bungkus bantal, sachet dan roti
+  tidur dengan label menghadap atas. Upright where the real product stands; pillow packs, sachet and bread lie print-up.
+- Prefab `PF_Product_<nama>` dibuat di Unity: `KALI > JC > Build Product Prefabs` (BoxCollider padat, tanpa Rigidbody / RiverTrashItem).
+
+| # | Mesh / Prefab | Benda / Object | Ukuran / Size (m) | Tris |
+|---|---|---|---|---|
+| 01 | `SM_Product_Indomy` | Bungkus mi goreng "Indomy", tersegel, tebal, rebah | 0.12 x 0.10 x 0.02 | 256 |
+| 02 | `SM_Product_KecapBingo` | Pouch refill kecap manis "BINGO", penuh, berdiri, takik sobek | 0.17 x 0.07 x 0.25 | 176 |
+| 03 | `SM_Product_Moli` | Sachet "MOLI" 22 g, tersegel, rebah | 0.10 x 0.10 x 0.01 | 168 |
+| 04 | `SM_Product_Lifeman` | Botol sampo "Lifeman", tutup flip tertutup, berdiri | 0.06 x 0.04 x 0.20 | 260 |
+| 05 | `SM_Product_SariBoti` | Roti sobek "SARI BOTI" dalam plastik (4 x 2 roti), rebah | 0.28 x 0.15 x 0.05 | 288 |
+| 06 | `SM_Product_Risol` | Pouch deterjen "Risol", penuh, berdiri | 0.20 x 0.08 x 0.30 | 176 |
+| 07 | `SM_Product_StyrofoamMakanan` | Kotak nasi styrofoam baru, tertutup | 0.19 x 0.18 x 0.10 | 194 |
+| 08 | `SM_Product_Sprit` | Botol PET "Sprit" 1.5 L, penuh (badan hijau lebih tua di bawah garis isi), berdiri | 0.09 x 0.09 x 0.32 | 332 |
+| 09 | `SM_Product_GudangGula` | Bungkus rokok "GUDANG GULA International", tertutup, berdiri | 0.06 x 0.02 x 0.09 | 168 |
+
 ### Label (procedural)
 - `kali_blender/labels.py`: semua seni label dibuat dengan kode (tanpa foto). Rasteriser numpy kecil (poligon, elips, garis,
   teks) dengan glyph dari mesin font Blender; font Windows (`C:/Windows/Fonts`) bila ada, font bawaan Blender bila tidak.
@@ -92,6 +121,7 @@ Build all (headless, bpy wheel):
 Build all (Blender headless):
 ```
 blender -b --factory-startup -P blender/build_all.py -- --only trash
+blender -b --factory-startup -P blender/build_all.py -- --only products
 ```
 `--factory-startup` dianjurkan: add-on pengguna (mis. ekstensi MCP) bisa membuat Blender crash saat build headless.
 Recommended: a user add-on thread (e.g. an MCP extension) can crash headless builds (seen on Blender 5.2.1).
@@ -158,6 +188,7 @@ Before export, all transforms are applied. `verify_fbx` re-imports the file, che
 - `kali_blender/excavator_spec.py`, `kali_blender/tools_common.py`, `kali_blender/trash_common.py`: data dan helper bersama / shared data and helpers.
 - `kali_blender/tools/`, `kali_blender/trash/`: modul per aset / one module per asset.
 - `kali_blender/labels.py`, `kali_blender/trash_shapes.py`: label merek prosedural dan builder bentuk sampah / procedural brand labels and trash shape builders.
+- `kali_blender/products_common.py`, `kali_blender/products/`: produk bersih (stage `products`) / clean product props.
 - `tools_check.py`: cek dan render tool satu per satu / check and render tools one at a time.
 - `tests/test_export.py`: tes ekspor dengan stand-in / export tests with stand-ins.
 

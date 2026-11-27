@@ -1,13 +1,14 @@
-"""One-command build for the KALI Blender assets (excavator + 20 tools + trash props).
+"""One-command build for the KALI Blender assets (excavator + 20 tools + trash props + clean products).
 
-    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash] [--repo ROOT]
-    blender -b -P blender/build_all.py -- [--only excavator|tools|trash] [--repo ROOT]
+    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash|products] [--repo ROOT]
+    blender -b --factory-startup -P blender/build_all.py -- [--only excavator|tools|trash|products] [--repo ROOT]
     Blender GUI: open this file in the Text Editor (saved, so __file__ is known) and press Run Script.
 
 Outputs (paths relative to the repo root):
     excavator: S.BLEND_PATH, S.FBX_PATH (unity/Assets/_Project/Rigging/)
     tools:     tools_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, tools_common.BLEND_PATH
     trash:     trash_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, trash_common.BLEND_PATH
+    products:  products_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, products_common.BLEND_PATH
     report:    blender/build_report.json (repo-relative paths only)
 Exit code 1 if any asset failed.
 """
@@ -25,10 +26,11 @@ import bpy  # noqa: E402  (must be imported before bmesh / mathutils)
 from kali_blender import excavator_spec as S  # noqa: E402
 from kali_blender import tools_common as tc  # noqa: E402
 from kali_blender import trash_common as trc  # noqa: E402
+from kali_blender import products_common as pc  # noqa: E402
 from kali_blender.export_fbx import export_excavator, export_tool, verify_fbx  # noqa: E402
 
 DEFAULT_ROOT = os.path.dirname(HERE)
-STAGES = ["excavator", "tools", "trash"]
+STAGES = ["excavator", "tools", "trash", "products"]
 
 
 def _argv():
@@ -97,7 +99,7 @@ def _discard_collection(coll):
 
 
 def _pack_config(kind):
-    """Settings for one prop pack. 'tools' and 'trash' share the same build/export/atlas flow."""
+    """Settings for one prop pack. 'tools', 'trash' and 'products' share the same build/export/atlas flow."""
     if kind == "tools":
         return {
             "kind": "tool", "modules": tc.TOOL_MODULES, "load": tc.load_tool_module,
@@ -105,6 +107,14 @@ def _pack_config(kind):
             "validate": tc.validate_tool, "fbx_dir": tc.FBX_DIR, "tex_dir": tc.TEX_DIR,
             "blend_path": tc.BLEND_PATH, "material": tc.MATERIAL_NAME, "atlas_files": tc.ATLAS_FILES,
             "preview": "Tools_Preview",
+        }
+    if kind == "products":
+        return {
+            "kind": "product", "modules": pc.PRODUCT_MODULES, "load": pc.load_product_module,
+            "build": lambda mod, coll: pc.build_product(mod, collection=coll),
+            "validate": pc.validate_product, "fbx_dir": pc.FBX_DIR, "tex_dir": pc.TEX_DIR,
+            "blend_path": pc.BLEND_PATH, "material": pc.MATERIAL_NAME, "atlas_files": pc.ATLAS_FILES,
+            "preview": "Products_Preview",
         }
     return {
         "kind": "trash", "modules": trc.TRASH_MODULES, "load": trc.load_trash_module,
@@ -197,7 +207,7 @@ def _print_table(report):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build KALI excavator, tool and trash assets.")
+    parser = argparse.ArgumentParser(description="Build KALI excavator, tool, trash and product assets.")
     parser.add_argument("--only", choices=STAGES, default=None)
     parser.add_argument("--repo", default=DEFAULT_ROOT, help="repo root (default: parent of blender/)")
     args = parser.parse_args(_argv())
@@ -216,6 +226,8 @@ def main():
         build_pack(root, report, "tools")
     if args.only in (None, "trash"):
         build_pack(root, report, "trash")
+    if args.only in (None, "products"):
+        build_pack(root, report, "products")
 
     failed = any(a["status"] != "PASS" for a in report["assets"]) or \
         any(at["status"] != "PASS" for at in report["atlases"].values())

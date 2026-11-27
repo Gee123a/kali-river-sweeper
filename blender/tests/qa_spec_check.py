@@ -223,6 +223,36 @@ for k, fn in trc.ATLAS_FILES.items():
     if ok:
         img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
     check(ok, f"trash atlas {fn} 2048x2048")
+# ------------------------------------------------ products (clean shop / world items, origin on the base)
+from kali_blender import products_common as pc
+pspecs = []
+for name in pc.PRODUCT_MODULES:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    try:
+        mod = pc.load_product_module(name); obj = pc.build_product(name)
+        issues = pc.validate_product(obj, mod.SPEC); pspecs.append(mod.SPEC)
+        check(not issues, f"product {name} validate {issues} tris={tc.tri_count(obj)}")
+        check(mod.SPEC["index"] == pc.PRODUCT_MODULES.index(name) + 1, f"product {name} index")
+    except Exception as e:
+        check(False, f"product {name} builds ({e})"); continue
+    f = os.path.join(REPO, pc.FBX_DIR, mod.SPEC["name"] + ".fbx")
+    check(os.path.exists(f), f"product FBX {os.path.basename(f)} exists")
+    if os.path.exists(f):
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        bpy.ops.import_scene.fbx(filepath=f)
+        ms = [o for o in bpy.data.objects if o.type == "MESH"]
+        check(len(ms) == 1 and ms[0].name == mod.SPEC["name"], f"product FBX contains only {mod.SPEC['name']}")
+        if ms:
+            zmin = min((ms[0].matrix_world @ v.co).z for v in ms[0].data.vertices)
+            check(abs(zmin) < 0.002, f"product FBX {mod.SPEC['name']} stands on its origin (min z {zmin:.4f})")
+check(len({s["name"] for s in pspecs}) == len(pc.PRODUCT_MODULES) == 9, "9 unique product names")
+check(all(s["prefab"] == s["name"].replace("SM_Product_", "PF_Product_") for s in pspecs), "product prefabs PF_Product_<variant>")
+for k, fn in pc.ATLAS_FILES.items():
+    p = os.path.join(REPO, pc.TEX_DIR, fn)
+    ok = os.path.exists(p)
+    if ok:
+        img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
+    check(ok, f"product atlas {fn} 2048x2048")
 check(not os.path.exists(os.path.join(REPO, "unity/Assets/_Project/Art")), "no stale outputs under Art/ (JC folders are Props/, Rigging/)")
 print(f"\n{len(fails)} FAIL(s)")
 sys.exit(1 if fails else 0)
