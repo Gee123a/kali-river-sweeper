@@ -1,0 +1,215 @@
+"""Procedural, seamlessly tiling textures for Wesley's environment (no downloads).
+
+Style follows docs/DESIGN.md: weathered, humid kampung look (faded paint with rust
+specks, stained concrete, wet river-stone masonry). Albedo maps are mostly light/neutral
+so the URP material Base Color tint sets the final hue (one paint map -> blue & yellow).
+"""
+import os
+
+import bpy
+import numpy as np
+
+SIZE = 512
+
+
+def _value_noise(rng, size, cells):
+    """Tileable smooth value noise in [0,1]."""
+    g = rng.random((cells, cells))
+    t = np.arange(size) * cells / size
+    i0 = np.floor(t).astype(int)
+    f = t - i0
+    f = f * f * (3 - 2 * f)
+    i1 = (i0 + 1) % cells
+    a, b = g[np.ix_(i0, i0)], g[np.ix_(i0, i1)]
+    c, d = g[np.ix_(i1, i0)], g[np.ix_(i1, i1)]
+    fy, fx = f[:, None], f[None, :]
+    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy
+
+
+def _fbm(rng, size, base=4, octaves=5):
+    out, amp, tot = np.zeros((size, size)), 1.0, 0.0
+    for o in range(octaves):
+        out += _value_noise(rng, size, base * 2 ** o) * amp
+        tot += amp
+        amp *= 0.5
+    return out / tot
+
+
+def _voronoi(rng, size, n):
+    """Tileable Voronoi: returns (cell id, F2-F1 edge distance in pixels)."""
+    pts = rng.random((n, 2)) * size
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
+    d1 = np.full((size, size), 1e9, np.float32)
+    d2 = np.full((size, size), 1e9, np.float32)
+    cid = np.zeros((size, size), np.int32)
+    for k, (px, py) in enumerate(pts):
+        dx = np.abs(xx - px)
+        dy = np.abs(yy - py)
+        dx = np.minimum(dx, size - dx)
+        dy = np.minimum(dy, size - dy)
+        d = np.sqrt(dx * dx + dy * dy)
+        closer = d < d1
+        d2 = np.where(closer, d1, np.minimum(d2, d))
+        cid = np.where(closer, k, cid)
+        d1 = np.where(closer, d, d1)
+    return cid, d2 - d1
+
+
+def batu_kali(seed=11):
+    rng = np.random.default_rng(seed)
+    cid, edge = _voronoi(rng, SIZE, 34)
+    tone = rng.uniform(0.42, 0.68, 34)[cid]
+    warm = rng.uniform(-0.04, 0.05, 34)[cid]
+    grain = _fbm(rng, SIZE, 8, 4)
+    stone = np.clip(tone + (grain - 0.5) * 0.18, 0, 1)
+    t = np.clip((edge - 5.0) / 12.0, 0, 1)
+    bevel = t * t * (3 - 2 * t)                          # rounded stone shoulder near the joint
+    mortar = np.clip((edge - 3.0) / 2.5, 0, 1)           # 0 = thick dark mortar joint
+    lum = stone * (0.62 + 0.38 * bevel)
+    mortar_col = 0.24 + (grain - 0.5) * 0.08
+    lum = lum * mortar + mortar_col * (1 - mortar)
+    r, g, b = lum + warm, lum + warm * 0.6, lum - warm * 0.2
+    return np.stack([r, g, b], -1)
+
+
+def beton_kotor(seed=21):
+    rng = np.random.default_rng(seed)
+    base = 0.80 + (_fbm(rng, SIZE, 4, 6) - 0.5) * 0.18
+    stains = np.clip((_fbm(rng, SIZE, 3, 4) - 0.55) * 3.0, 0, 1)   # damp moss/dirt patches
+    pits = (rng.random((SIZE, SIZE)) > 0.996) * 0.25
+    lum = np.clip(base - stains * 0.28 - pits, 0, 1)
+    return np.stack([lum - stains * 0.02, lum + stains * 0.01, lum - stains * 0.06], -1)
+
+
+def cat_karat(seed=31):
+    """Faded paint (white, tinted by material colour) with rust specks + streaks."""
+    rng = np.random.default_rng(seed)
+    fade = 0.88 + (_fbm(rng, SIZE, 4, 5) - 0.5) * 0.14
+    rust_mask = np.clip((_fbm(rng, SIZE, 6, 5) - 0.70) * 3.0, 0, 1) * 0.7
+    specks = (rng.random((SIZE, SIZE)) > 0.996).astype(float) * 0.6
+    rust_mask = np.clip(rust_mask + specks * 0.8, 0, 1)
+    paint = np.stack([fade, fade, fade], -1)
+    rust = np.array([0.62, 0.42, 0.30])                  # orange-brown oxidation (DESIGN 2.3)
+    m = rust_mask[..., None]
+    return np.clip(paint * (1 - m) + rust * m, 0, 1)
+
+
+def _clutter(seed, n, palette, weights, shade=0.45, grime=0.25, cavity=1.0):
+    """Packed debris: each Voronoi cell is one piece of junk in a palette colour."""
+    rng = np.random.default_rng(seed)
+    cid, edge = _voronoi(rng, SIZE, n)
+    pick = rng.choice(len(palette), n, p=np.array(weights) / np.sum(weights))
+    col = np.array(palette)[pick][cid]
+    t = np.clip(edge / 5.0, 0, 1)
+    rim = t * t * (3 - 2 * t)                            # crumpled edges fall into shadow
+    dirt = _fbm(rng, SIZE, 6, 5)
+    out = col * (1 - shade + shade * rim)[..., None]
+    out *= (1 - grime * np.clip((dirt - 0.45) * 2.0, 0, 1))[..., None]
+    lum = out.mean(-1, keepdims=True)
+    out = out * 0.6 + lum * np.array([1.05, 0.95, 0.80]) * 0.4   # sun-faded, brown grime cast
+    gloss = (rng.random(n)[cid] > 0.7) & (t > 0.6) & (_value_noise(rng, SIZE, 64) > 0.8)
+    out = out * 0.92 + gloss[..., None] * 0.12
+    lum2 = out.mean(-1, keepdims=True)
+    return np.clip((out * 0.55 + lum2 * 0.45) * cavity, 0, 1)
+
+
+def trash_lumpur(seed=41):
+    """Bottom zone (< 0.8 m): black anaerobic silt #1C1917 with half-buried scraps."""
+    rng = np.random.default_rng(seed)
+    base = 0.09 + (_fbm(rng, SIZE, 5, 6) - 0.5) * 0.08
+    mud = np.stack([base * 1.10, base, base * 0.88], -1)
+    scraps = _clutter(seed + 1, 70, [(0.30, 0.27, 0.22), (0.22, 0.25, 0.28), (0.35, 0.30, 0.18)], [3, 2, 1], 0.5, 0.5)
+    mask = np.clip((_fbm(rng, SIZE, 8, 4) - 0.58) * 6.0, 0, 1)[..., None]
+    return mud * (1 - mask) + scraps * 0.55 * mask
+
+
+def trash_kasur_medis(seed=51):
+    """Middle zone (0.8-2.5 m): soggy kasur kapuk ticking + yellow B3 medical bags."""
+    rng = np.random.default_rng(seed)
+    pal = [(0.62, 0.55, 0.48), (0.55, 0.42, 0.40), (0.48, 0.50, 0.42),  # stained mattress fabric
+           (0.80, 0.62, 0.10), (0.75, 0.58, 0.08),                     # hazard yellow #EAB308, faded
+           (0.62, 0.16, 0.14), (0.28, 0.25, 0.22)]                     # red B3 stripe, dark rag
+    out = _clutter(seed, 160, pal, [3, 2, 2, 2, 1, 1, 2], 0.25, 0.45, cavity=0.55)
+    yy = np.arange(SIZE)[:, None] * np.ones((1, SIZE))
+    stripes = ((yy // 10) % 2 == 0)[..., None] * 0.06                  # faded ticking stripes
+    return np.clip(out - stripes, 0, 1)
+
+
+def trash_plastik(seed=61):
+    """Top zone (> 2.5 m): dry sun-faded PET bottles, kresek bags, sachets, styrofoam."""
+    pal = [(0.80, 0.80, 0.76), (0.42, 0.58, 0.70), (0.38, 0.58, 0.40), (0.12, 0.12, 0.13),
+           (0.70, 0.28, 0.24), (0.82, 0.74, 0.40), (0.55, 0.40, 0.62), (0.88, 0.86, 0.80)]
+    return _clutter(seed, 280, pal, [6, 2, 1, 3, 1, 1, 0.5, 5], 0.25, 0.5, cavity=0.5)
+
+
+def kayu_lapuk(seed=71):
+    """Weathered teak/plank grain (light, tinted per material); grain runs along V."""
+    rng = np.random.default_rng(seed)
+    u = np.arange(SIZE)[None, :] / SIZE
+    warp = (_fbm(rng, SIZE, 3, 4) - 0.5) * 0.08
+    rings = np.sin((u + warp) * 2 * np.pi * 22) * 0.5 + 0.5
+    fine = _fbm(rng, SIZE, 16, 3)
+    lum = 0.78 + (rings - 0.5) * 0.14 + (fine - 0.5) * 0.12
+    dry = np.clip((_fbm(rng, SIZE, 4, 5) - 0.55) * 3.0, 0, 1)          # sun-bleached / damp patches
+    lum = lum * (1 - 0.18 * dry)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    for _ in range(3):                                                  # knots
+        cx, cy, r = rng.integers(0, SIZE, 2).tolist() + [rng.integers(8, 16)]
+        dx = np.minimum(np.abs(xx - cx), SIZE - np.abs(xx - cx))
+        dy = np.minimum(np.abs(yy - cy), SIZE - np.abs(yy - cy))
+        lum -= np.clip(1 - np.sqrt((dx * 1.6) ** 2 + dy ** 2) / r, 0, 1) * 0.35
+    return np.clip(np.stack([lum, lum * 0.97, lum * 0.92], -1), 0, 1)
+
+
+def tali(seed=81):
+    """Twisted rope fibres (diagonal strands)."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE] / SIZE
+    strands = np.sin((xx + yy) * 2 * np.pi * 16) * 0.5 + 0.5
+    fibres = _fbm(rng, SIZE, 32, 2)
+    lum = 0.70 + (strands - 0.5) * 0.30 + (fibres - 0.5) * 0.15
+    return np.clip(np.stack([lum, lum * 0.95, lum * 0.85], -1), 0, 1)
+
+
+def trash_palette(seed=91):
+    """4x4 colour swatches for SM_Env_TrashPieces (index layout matches trash_pieces.PALETTE)."""
+    from wesley_env.trash_pieces import GRID, PALETTE
+    rng = np.random.default_rng(seed)
+    cell = SIZE // GRID
+    out = np.zeros((SIZE, SIZE, 3))
+    grain = 0.9 + (_fbm(rng, SIZE, 16, 3) - 0.5) * 0.2
+    for idx, col in enumerate(PALETTE):
+        cx, cy = idx % GRID, idx // GRID            # cy counts from the bottom (UV v)
+        r0 = SIZE - (cy + 1) * cell
+        out[r0:r0 + cell, cx * cell:(cx + 1) * cell] = col
+    return np.clip(out * grain[..., None], 0, 1)
+
+
+GENERATORS = {
+    "T_Env_BatuKali": batu_kali,
+    "T_Env_BetonKotor": beton_kotor,
+    "T_Env_CatKarat": cat_karat,
+    "T_Trash_Lumpur": trash_lumpur,
+    "T_Trash_KasurMedis": trash_kasur_medis,
+    "T_Trash_Plastik": trash_plastik,
+    "T_Env_Kayu": kayu_lapuk,
+    "T_Env_Tali": tali,
+    "T_Env_TrashPalette": trash_palette,
+}
+
+
+def save_png(name, rgb, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, name + ".png")
+    img = bpy.data.images.new(name, SIZE, SIZE, alpha=False)
+    rgba = np.concatenate([np.clip(rgb, 0, 1), np.ones((SIZE, SIZE, 1))], -1)
+    img.pixels.foreach_set(rgba[::-1].astype(np.float32).ravel())   # Blender rows start at the bottom
+    img.filepath_raw = path
+    img.file_format = "PNG"
+    img.save()
+    bpy.data.images.remove(img)
+    return path
+
+
+def build_all(out_dir):
+    return [save_png(name, fn(), out_dir) for name, fn in GENERATORS.items()]
