@@ -94,10 +94,59 @@ def cat_karat(seed=31):
     return np.clip(paint * (1 - m) + rust * m, 0, 1)
 
 
+def _clutter(seed, n, palette, weights, shade=0.45, grime=0.25):
+    """Packed debris: each Voronoi cell is one piece of junk in a palette colour."""
+    rng = np.random.default_rng(seed)
+    cid, edge = _voronoi(rng, SIZE, n)
+    pick = rng.choice(len(palette), n, p=np.array(weights) / np.sum(weights))
+    col = np.array(palette)[pick][cid]
+    t = np.clip(edge / 5.0, 0, 1)
+    rim = t * t * (3 - 2 * t)                            # crumpled edges fall into shadow
+    dirt = _fbm(rng, SIZE, 6, 5)
+    out = col * (1 - shade + shade * rim)[..., None]
+    out *= (1 - grime * np.clip((dirt - 0.45) * 2.0, 0, 1))[..., None]
+    lum = out.mean(-1, keepdims=True)
+    out = out * 0.6 + lum * np.array([1.05, 0.95, 0.80]) * 0.4   # sun-faded, brown grime cast
+    gloss = (rng.random(n)[cid] > 0.7) & (t > 0.6) & (_value_noise(rng, SIZE, 64) > 0.8)
+    return np.clip(out * 0.92 + gloss[..., None] * 0.12, 0, 1)
+
+
+def trash_lumpur(seed=41):
+    """Bottom zone (< 0.8 m): black anaerobic silt #1C1917 with half-buried scraps."""
+    rng = np.random.default_rng(seed)
+    base = 0.09 + (_fbm(rng, SIZE, 5, 6) - 0.5) * 0.08
+    mud = np.stack([base * 1.10, base, base * 0.88], -1)
+    scraps = _clutter(seed + 1, 70, [(0.30, 0.27, 0.22), (0.22, 0.25, 0.28), (0.35, 0.30, 0.18)], [3, 2, 1], 0.5, 0.5)
+    mask = np.clip((_fbm(rng, SIZE, 8, 4) - 0.58) * 6.0, 0, 1)[..., None]
+    return mud * (1 - mask) + scraps * 0.55 * mask
+
+
+def trash_kasur_medis(seed=51):
+    """Middle zone (0.8-2.5 m): soggy kasur kapuk ticking + yellow B3 medical bags."""
+    rng = np.random.default_rng(seed)
+    pal = [(0.62, 0.55, 0.48), (0.55, 0.42, 0.40), (0.48, 0.50, 0.42),  # stained mattress fabric
+           (0.80, 0.62, 0.10), (0.75, 0.58, 0.08),                     # hazard yellow #EAB308, faded
+           (0.62, 0.16, 0.14), (0.28, 0.25, 0.22)]                     # red B3 stripe, dark rag
+    out = _clutter(seed, 160, pal, [3, 2, 2, 2, 1, 1, 2], 0.25, 0.45)
+    yy = np.arange(SIZE)[:, None] * np.ones((1, SIZE))
+    stripes = ((yy // 10) % 2 == 0)[..., None] * 0.06                  # faded ticking stripes
+    return np.clip(out - stripes, 0, 1)
+
+
+def trash_plastik(seed=61):
+    """Top zone (> 2.5 m): dry sun-faded PET bottles, kresek bags, sachets, styrofoam."""
+    pal = [(0.80, 0.80, 0.76), (0.42, 0.58, 0.70), (0.38, 0.58, 0.40), (0.12, 0.12, 0.13),
+           (0.70, 0.28, 0.24), (0.82, 0.74, 0.40), (0.55, 0.40, 0.62), (0.88, 0.86, 0.80)]
+    return _clutter(seed, 280, pal, [3, 2, 2, 3, 1, 1, 1, 2], 0.25, 0.55)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
     "T_Env_CatKarat": cat_karat,
+    "T_Trash_Lumpur": trash_lumpur,
+    "T_Trash_KasurMedis": trash_kasur_medis,
+    "T_Trash_Plastik": trash_plastik,
 }
 
 
