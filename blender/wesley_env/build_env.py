@@ -23,7 +23,7 @@ sys.path.insert(0, BLENDER_DIR)
 
 import bpy  # noqa: E402  (must be imported before bmesh / mathutils)
 from kali_blender.export_fbx import FBX_SETTINGS  # noqa: E402  same settings as JC's exports
-from wesley_env import bank_sampah, gunung_sampah, koperasi_desa, jembatan, pintu_air, terrain, textures, trash_pieces  # noqa: E402
+from wesley_env import bank_sampah, gunung_sampah, karantina_biohazard, koperasi_desa, pos_medis_b3, jembatan, pintu_air, terrain, textures, trash_pieces  # noqa: E402
 
 ENV_DIR = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment")
 MESH_DIR = os.path.join(ENV_DIR, "Meshes")
@@ -38,6 +38,8 @@ ASSETS = {
     "trash_pieces": trash_pieces,
     "bank_sampah": bank_sampah,
     "koperasi_desa": koperasi_desa,
+    "pos_medis_b3": pos_medis_b3,
+    "karantina_biohazard": karantina_biohazard,
 }
 
 

@@ -1,5 +1,8 @@
-"""Sign atlases for Wesley's stations (1024 x 1024, PIL):
-T_Env_PapanBankSampah (SM_Env_BankSampah) and T_Env_PapanKopdes (SM_Env_KoperasiDesa).
+"""Sign atlases for Wesley's stations (1024 x 1024, PIL): every building gets readable
+signage so players know what each station is for.
+T_Env_PapanBankSampah (SM_Env_BankSampah), T_Env_PapanKopdes (SM_Env_KoperasiDesa),
+T_Env_PapanPosMedis (SM_Env_PosMedisB3), T_Env_PapanKarantina (SM_Env_KarantinaBiohazard),
+T_Env_PapanUmum (name boards on SM_Env_PintuAirSiaga1 + SM_Env_JembatanUtama).
 
 Run with any Python that has Pillow (not Blender):
     python3 blender/wesley_env/papan.py
@@ -266,11 +269,206 @@ def bank_sampah():
     return OUT
 
 
-ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes}
+# ---------------------------------------------------------------- hazard stations
+HAZ_YELLOW = (234, 179, 8)     # DESIGN 2.4 #EAB308 (Pos Medis sign) / hazard yellow
+CROSS_RED = (220, 38, 38)      # #DC2626 red cross
+BIO_PURPLE = (168, 85, 247)    # #A855F7 Karantina accent
+BIO_LIME = (132, 204, 22)      # #84CC16 Karantina accent
+BLACK = (24, 24, 24)
+
+
+def _mask_symbol(size, draw_fn):
+    """Draw a symbol on a 4x supersampled L mask and return it at `size`."""
+    ss = size * 4
+    m = Image.new("L", (ss, ss), 0)
+    draw_fn(ImageDraw.Draw(m), ss)
+    return m.resize((size, size), Image.LANCZOS)
+
+
+def biohazard_mask(size):
+    """Standard biohazard trefoil built from circles (units: symbol radius = 1)."""
+    def draw(d, ss):
+        c, u = ss / 2, ss / 2 / 1.02
+
+        def circ(cx, cy, r, fill):
+            d.ellipse((c + (cx - r) * u, c + (cy - r) * u, c + (cx + r) * u, c + (cy + r) * u), fill=fill)
+        dirs = [math.radians(a) for a in (-90, 30, 150)]          # top, lower-right, lower-left
+        for a in dirs:                                            # three outer discs
+            circ(math.cos(a) * 0.42, math.sin(a) * 0.42, 0.58, 255)
+        for a in dirs:                                            # hollow cuts through the rim -> open horns
+            circ(math.cos(a) * 0.68, math.sin(a) * 0.68, 0.44, 0)
+        ring_o, ring_i = 0.70, 0.60                               # ring crossing every hollow
+        d.ellipse((c - ring_o * u, c - ring_o * u, c + ring_o * u, c + ring_o * u), outline=255, width=int((ring_o - ring_i) * u))
+        circ(0, 0, 0.12, 0)                                       # centre hole
+        for a in dirs:                                            # thin gaps from the hole to each hollow
+            x0, y0 = c + math.cos(a) * 0.05 * u, c + math.sin(a) * 0.05 * u
+            x1, y1 = c + math.cos(a) * 0.3 * u, c + math.sin(a) * 0.3 * u
+            d.line([(x0, y0), (x1, y1)], fill=0, width=int(0.06 * u))
+    return _mask_symbol(size, draw)
+
+
+def radiation_mask(size):
+    def draw(d, ss):
+        c, r = ss / 2, ss / 2
+        d.ellipse((c - r * 0.18, c - r * 0.18, c + r * 0.18, c + r * 0.18), fill=255)
+        for a0 in (-120, 0, 120):
+            d.pieslice((c - r * 0.95, c - r * 0.95, c + r * 0.95, c + r * 0.95), a0 - 30 - 90 + 60, a0 + 30 - 90 + 60, fill=255)
+        d.ellipse((c - r * 0.3, c - r * 0.3, c + r * 0.3, c + r * 0.3), fill=0)
+        d.ellipse((c - r * 0.18, c - r * 0.18, c + r * 0.18, c + r * 0.18), fill=255)
+    return _mask_symbol(size, draw)
+
+
+def stamp(img, mask, xy, colour):
+    img.paste(Image.new("RGB", mask.size, colour), (int(xy[0]), int(xy[1])), mask)
+
+
+def red_cross(d, box, bg=(250, 250, 246)):
+    x0, y0, x1, y1 = box
+    d.rounded_rectangle(box, radius=(x1 - x0) * 0.12, fill=bg)
+    w, h = x1 - x0, y1 - y0
+    t = w * 0.24
+    d.rectangle((x0 + w / 2 - t / 2, y0 + h * 0.16, x0 + w / 2 + t / 2, y1 - h * 0.16), fill=CROSS_RED)
+    d.rectangle((x0 + w * 0.16, y0 + h / 2 - t / 2, x1 - w * 0.16, y0 + h / 2 + t / 2), fill=CROSS_RED)
+
+
+def hazard_stripes(img, box, band=48):
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    tile = Image.new("RGB", (w, h), HAZ_YELLOW)
+    td = ImageDraw.Draw(tile)
+    for k in range(-(h // band) - 2, w // band + 2, 2):
+        sx = k * band
+        td.polygon([(sx, h), (sx + band, h), (sx + band + h, 0), (sx + h, 0)], fill=BLACK)
+    img.paste(tile, (x0, y0))
+
+
+def grime(img, boxes, seed):
+    """Dirt gradient at the bottom of each board + drips, then a light sun fade."""
+    rng = random.Random(seed)
+    g = Image.new("L", img.size, 0)
+    gd = ImageDraw.Draw(g)
+    for (bx0, by0, bx1, by1) in boxes:
+        h = by1 - by0
+        for i in range(16):
+            yy = by1 - h * 0.3 + i * h * 0.3 / 16
+            gd.rectangle((bx0, yy, bx1, yy + h * 0.02), fill=int(3 + i * 3))
+        for _ in range(3):
+            dx = rng.randint(bx0 + 10, bx1 - 10)
+            gd.rectangle((dx, by0 + rng.randint(0, h // 3), dx + rng.randint(2, 5), by1), fill=rng.randint(20, 45))
+    g = g.filter(ImageFilter.GaussianBlur(2))
+    img = Image.composite(Image.new("RGB", img.size, (70, 54, 38)), img, g)
+    n = Image.effect_noise((W // 4, W // 4), 40).resize(img.size, Image.BICUBIC).filter(ImageFilter.GaussianBlur(3))
+    return Image.composite(Image.new("RGB", img.size, (238, 232, 216)), img, n.point(lambda v: int(max(0, v - 125) * 0.3)))
+
+
+def pos_medis():
+    """T_Env_PapanPosMedis - must match pos_medis_b3.UV_*."""
+    img = Image.new("RGB", (W, W), (46, 48, 52))
+    d = ImageDraw.Draw(img)
+    # main board (0,0)-(1024,224): yellow, red cross, POS MEDIS B3
+    d.rectangle((0, 0, 1024, 224), fill=BLACK)
+    d.rectangle((10, 10, 1014, 214), fill=HAZ_YELLOW)
+    red_cross(d, (30, 30, 194, 194))
+    text_center(d, (214, 22, 1004, 160), "POS MEDIS B3", fit_font(d, "POS MEDIS B3", "BarlowCondensed-Bold.ttf", 760, 132), BLACK)
+    text_center(d, (214, 154, 1004, 206), "LIMBAH MEDIS  •  INFEKSIUS  •  JARUM SUNTIK", font("BarlowCondensed-SemiBold.ttf", 40), BLACK)
+    # instruction board (0,240)-(512,752)
+    bx0, by0 = 0, 240
+    d.rectangle((bx0, by0, bx0 + 512, by0 + 512), fill=(248, 246, 238))
+    d.rectangle((bx0, by0, bx0 + 512, by0 + 96), fill=HAZ_YELLOW)
+    d.rectangle((bx0, by0 + 92, bx0 + 512, by0 + 100), fill=BLACK)
+    text_center(d, (bx0, by0 + 8, bx0 + 512, by0 + 90), "SETOR LIMBAH MEDIS", font("BarlowCondensed-Bold.ttf", 64), BLACK)
+    # icons: yellow medical bag + sharps box
+    d.polygon([(70, by0 + 150), (170, by0 + 150), (186, by0 + 270), (54, by0 + 270)], fill=HAZ_YELLOW, outline=BLACK, width=4)
+    d.line([(96, by0 + 150), (120, by0 + 128), (144, by0 + 150)], fill=BLACK, width=5)
+    red_cross(d, (96, by0 + 182, 144, by0 + 230), bg=HAZ_YELLOW)
+    d.rectangle((300, by0 + 160, 440, by0 + 270), fill=(240, 240, 236), outline=BLACK, width=4)
+    d.rectangle((300, by0 + 140, 440, by0 + 166), fill=CROSS_RED, outline=BLACK, width=4)
+    text_center(d, (300, by0 + 190, 440, by0 + 250), "JARUM", font("BarlowCondensed-Bold.ttf", 40), CROSS_RED)
+    text_center(d, (20, by0 + 280, 230, by0 + 320), "KANTONG KUNING", font("BarlowCondensed-Bold.ttf", 34), BLACK)
+    text_center(d, (280, by0 + 280, 470, by0 + 320), "KOTAK JARUM", font("BarlowCondensed-Bold.ttf", 34), BLACK)
+    d.rectangle((bx0 + 24, by0 + 344, bx0 + 488, by0 + 420), fill=CROSS_RED)
+    t = "WAJIB PAKAI CAPIT ULAR!"
+    text_center(d, (bx0 + 24, by0 + 344, bx0 + 488, by0 + 420), t, fit_font(d, t, "BarlowCondensed-Bold.ttf", 420, 56, 60), (255, 255, 255))
+    t = "Bukan sampah biasa • Denda bila salah setor"
+    text_center(d, (bx0, by0 + 430, bx0 + 512, by0 + 500), t, fit_font(d, t, "BarlowCondensed-SemiBold.ttf", 440, 40, 40), INK)
+    d.rectangle((bx0, by0, bx0 + 511, by0 + 511), outline=BLACK, width=8)
+    # red-cross decal (528,240)-(784,496): bins + gable
+    d.rectangle((528, 240, 784, 496), fill=HAZ_YELLOW)
+    red_cross(d, (556, 268, 756, 468))
+    # plain yellow (800,240)-(1008,448), edge dark (800,800)-(1000,1000)
+    d.rectangle((800, 240, 1008, 448), fill=HAZ_YELLOW)
+    out = grime(img, [(0, 0, 1024, 224), (0, 240, 512, 752), (528, 240, 784, 496)], 3)
+    path = os.path.join(TEX, "T_Env_PapanPosMedis.png")
+    out.save(path, optimize=True)
+    return path
+
+
+def karantina():
+    """T_Env_PapanKarantina - must match karantina_biohazard.UV_*."""
+    img = Image.new("RGB", (W, W), (90, 92, 94))
+    d = ImageDraw.Draw(img)
+    # main board (0,0)-(1024,180): yellow + trefoil + KARANTINA BIOHAZARD
+    d.rectangle((0, 0, 1024, 180), fill=BLACK)
+    d.rectangle((8, 8, 1016, 172), fill=HAZ_YELLOW)
+    stamp(img, biohazard_mask(150), (22, 15), BLACK)
+    d = ImageDraw.Draw(img)
+    text_center(d, (190, 10, 1006, 128), "KARANTINA BIOHAZARD", fit_font(d, "KARANTINA BIOHAZARD", "BarlowCondensed-Bold.ttf", 800, 112), BLACK)
+    text_center(d, (190, 124, 1006, 172), "SETOR DRUM BIOHAZARD & RADIOAKTIF DI SINI", font("BarlowCondensed-SemiBold.ttf", 38), BLACK)
+    # fence warning sign (0,224)-(512,736)
+    x0, y0 = 0, 224
+    d.rectangle((x0, y0, x0 + 512, y0 + 512), fill=BLACK)
+    d.rectangle((x0 + 14, y0 + 14, x0 + 498, y0 + 498), fill=HAZ_YELLOW)
+    d.rectangle((x0 + 14, y0 + 14, x0 + 498, y0 + 112), fill=BLACK)
+    text_center(d, (x0, y0 + 18, x0 + 512, y0 + 108), "PERINGATAN", font("BarlowCondensed-Bold.ttf", 84), HAZ_YELLOW)
+    stamp(img, biohazard_mask(230), (x0 + 141, y0 + 128), BLACK)
+    d = ImageDraw.Draw(img)
+    d.rectangle((x0 + 14, y0 + 372, x0 + 498, y0 + 498), fill=BLACK)
+    text_center(d, (x0, y0 + 374, x0 + 512, y0 + 440), "AREA KARANTINA", font("BarlowCondensed-Bold.ttf", 66), HAZ_YELLOW)
+    text_center(d, (x0, y0 + 436, x0 + 512, y0 + 494), "DILARANG MASUK TANPA APD", font("BarlowCondensed-SemiBold.ttf", 40), HAZ_YELLOW)
+    # radiation sign (528,224)-(784,480)
+    d.rectangle((528, 224, 784, 480), fill=BLACK)
+    d.rectangle((536, 232, 776, 472), fill=HAZ_YELLOW)
+    stamp(img, radiation_mask(160), (576, 246), BLACK)
+    d = ImageDraw.Draw(img)
+    text_center(d, (528, 410, 784, 468), "RADIOAKTIF", font("BarlowCondensed-Bold.ttf", 50), BLACK)
+    # hazard stripes (528,496)-(1024,752)
+    hazard_stripes(img, (528, 496, 1024, 752), band=40)
+    d = ImageDraw.Draw(img)
+    # accents (800,800)-(900,900) purple, (900,800)-(1000,900) lime, (800,900)-(1000,1000) dark steel
+    d.rectangle((800, 800, 900, 900), fill=BIO_PURPLE)
+    d.rectangle((900, 800, 1000, 900), fill=BIO_LIME)
+    d.rectangle((800, 900, 1000, 1000), fill=(52, 54, 58))
+    out = grime(img, [(0, 0, 1024, 180), (0, 224, 512, 736), (528, 224, 784, 480)], 4)
+    path = os.path.join(TEX, "T_Env_PapanKarantina.png")
+    out.save(path, optimize=True)
+    return path
+
+
+def umum():
+    """T_Env_PapanUmum - name boards retro-fitted on Pintu Air and Jembatan Utama."""
+    img = Image.new("RGB", (W, W), (40, 42, 46))
+    d = ImageDraw.Draw(img)
+    # PINTU AIR (0,0)-(1024,160): blue steel board like the gate, white + yellow text
+    d.rectangle((0, 0, 1024, 160), fill=(14, 46, 104))
+    d.rectangle((8, 8, 1016, 152), fill=(30, 84, 170))
+    text_center(d, (8, 6, 1016, 112), "PINTU AIR", font("BarlowCondensed-Bold.ttf", 104), (250, 250, 246), shadow=(14, 46, 104))
+    text_center(d, (8, 106, 1016, 152), "JANGAN BIARKAN SAMPAH MENYUMBAT  •  BANJIR!", font("BarlowCondensed-SemiBold.ttf", 38), HAZ_YELLOW)
+    # JEMBATAN UTAMA (0,176)-(1024,336): carved wooden board
+    d.rectangle((0, 176, 1024, 336), fill=(74, 50, 30))
+    for i in range(4):
+        d.rectangle((10, 186 + i * 36, 1014, 186 + i * 36 + 32), fill=(126 - i * 4, 88 - i * 3, 56))
+    text_center(d, (10, 180, 1014, 336), "JEMBATAN UTAMA", font("BarlowCondensed-Bold.ttf", 112), (244, 230, 196), shadow=(58, 38, 22))
+    out = grime(img, [(0, 0, 1024, 160), (0, 176, 1024, 336)], 5)
+    path = os.path.join(TEX, "T_Env_PapanUmum.png")
+    out.save(path, optimize=True)
+    return path
+
+
+ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum}
 
 
 def main():
-    """python3 papan.py [bank_sampah] [kopdes] - Image.effect_noise is not seeded, so only
+    """python3 papan.py [bank_sampah] [kopdes] [pos_medis] [karantina] [umum] - Image.effect_noise is not seeded, so only
     regenerate the atlas you are changing to keep the others' git diff clean."""
     import sys
     for key in sys.argv[1:] or ATLASES:

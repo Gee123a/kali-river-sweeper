@@ -14,18 +14,22 @@ plank ramps down to the +1.40 banks. Timber pile bents stand at +-7.2 m, so the 
 import math
 import random
 
+from wesley_env import papan_mesh as pm
 from wesley_env.meshkit import MeshKit
 
 NAME = "SM_Env_JembatanUtama"
 TRI_BUDGET = (1200, 2000)
 
-WOOD, WOOD_DARK, POST, ROPE = range(4)
+WOOD, WOOD_DARK, POST, ROPE, PAPAN = range(5)
 MATERIALS = (
     ("M_Env_KayuPapan", (0.55, 0.40, 0.27, 1.0)),
     ("M_Env_KayuPapanGelap", (0.42, 0.30, 0.20, 1.0)),
     ("M_Env_KayuTiang", (0.46, 0.31, 0.20, 1.0)),
     ("M_Env_Tali", (0.72, 0.60, 0.42, 1.0)),
+    ("M_Env_PapanUmum", (0.45, 0.31, 0.19, 1.0)),
 )
+UV_NAME = pm.px(0, 176, 1024, 336)      # "JEMBATAN UTAMA" board in T_Env_PapanUmum (papan.py)
+UV_EDGE = pm.px(800, 800, 1000, 1000)
 
 BANK_Y, BED_Y = 1.40, -2.0
 DECK_TOP = 3.8
@@ -125,6 +129,13 @@ def build():
             stake = (s * (HALF_SPAN + RAMP_LEN + 1.2), BANK_Y, z * 1.6)
             k.beam((s * HALF_SPAN, DECK_TOP + 1.7, z), (stake[0], stake[1] + 0.35, stake[2]), 0.06, ROPE)
             k.box(stake[0] - 0.12, stake[0] + 0.12, stake[1] - 0.3, stake[1] + 0.45, stake[2] - 0.12, stake[2] + 0.12, POST)
+
+    # "JEMBATAN UTAMA" gateway boards resting on the tall end posts (2.1 m head room)
+    top = DECK_TOP - 0.6 + 2.3 + 0.42
+    for s, face in ((-1, "-x"), (1, "+x")):
+        x = s * HALF_SPAN
+        pm.board(k, x - 0.07, x + 0.07, top + 0.02, top + 0.6, -(HALF_W + 0.25) - 0.15, HALF_W + 0.25 + 0.15,
+                 PAPAN, face, UV_NAME, UV_EDGE)
 
     return k.build(NAME, MATERIALS)
 
