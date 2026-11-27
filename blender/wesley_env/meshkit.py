@@ -128,9 +128,11 @@ class MeshKit:
             poly.material_index = m
             for li, (u, v) in zip(poly.loop_indices, fuv):
                 uv.data[li].uv = (u, v)
-        # every primitive is closed, so recalculated normals point outward
+        # weld each primitive's coincident corners first so it becomes one closed solid;
+        # only then can recalc_face_normals orient every face outward (loose faces get guessed)
         bm = bmesh.new()
         bm.from_mesh(me)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         bm.to_mesh(me)
         bm.free()

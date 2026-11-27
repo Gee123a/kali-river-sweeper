@@ -23,7 +23,7 @@ sys.path.insert(0, BLENDER_DIR)
 
 import bpy  # noqa: E402  (must be imported before bmesh / mathutils)
 from kali_blender.export_fbx import FBX_SETTINGS  # noqa: E402  same settings as JC's exports
-from wesley_env import gunung_sampah, jembatan, pintu_air, terrain, textures  # noqa: E402
+from wesley_env import gunung_sampah, jembatan, pintu_air, terrain, textures, trash_pieces  # noqa: E402
 
 ENV_DIR = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment")
 MESH_DIR = os.path.join(ENV_DIR, "Meshes")
@@ -35,6 +35,7 @@ ASSETS = {
     "pintu_air": pintu_air,
     "gunung_sampah": gunung_sampah,
     "jembatan": jembatan,
+    "trash_pieces": trash_pieces,
 }
 
 
@@ -44,13 +45,16 @@ def reset_scene():
     bpy.context.scene.unit_settings.scale_length = 1.0
 
 
-def export(ob):
+def export(obs, name):
+    """Export one object (or a list of objects) into <name>.fbx."""
+    obs = obs if isinstance(obs, list) else [obs]
     bpy.ops.object.select_all(action="DESELECT")
-    ob.select_set(True)
-    bpy.context.view_layer.objects.active = ob
+    for ob in obs:
+        ob.select_set(True)
+    bpy.context.view_layer.objects.active = obs[0]
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)  # Ctrl+A > All Transforms
     os.makedirs(MESH_DIR, exist_ok=True)
-    path = os.path.join(MESH_DIR, ob.name + ".fbx")
+    path = os.path.join(MESH_DIR, name + ".fbx")
     bpy.ops.export_scene.fbx(filepath=path, **FBX_SETTINGS)
     return os.path.relpath(path, ROOT)
 
@@ -66,7 +70,7 @@ def main():
         ob = module.build()
         info = module.stats(ob)
         if key in selected:
-            info["fbx"] = export(ob)
+            info["fbx"] = export(ob, module.NAME)
         report.append(info)
     bpy.ops.wm.save_as_mainfile(filepath=BLEND_PATH)
     print(json.dumps(report, indent=2))

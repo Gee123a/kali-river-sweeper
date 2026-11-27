@@ -68,7 +68,7 @@ def _big_post(k, x, z, base, height, fancy=True):
         k.box(x - 0.34, x + 0.34, base + height * 0.55, base + height * 0.55 + 0.22, z - 0.34, z + 0.34, ROPE)  # rope wrap
 
 
-def _rope_span(k, p0, p1, sag, segs, half=0.05):
+def _rope_span(k, p0, p1, sag, segs, half=0.075):
     pts = []
     for i in range(segs + 1):
         t = i / segs
@@ -119,11 +119,11 @@ def build():
             top_b = DECK_TOP + (rail_h + 0.35 if abs(xb) == HALF_SPAN else rail_h)
             pts = _rope_span(k, (xa, top_a, z), (xb, top_b, z), sag, segs)
             for p in pts[1:-1]:                               # vertical hangers down to the deck edge
-                k.beam(p, (p[0], DECK_TOP - 0.05, z * 0.97), 0.03, ROPE)
+                k.beam(p, (p[0], DECK_TOP - 0.05, z * 0.97), 0.045, ROPE)
         # guy ropes from the end posts down to stakes on the banks
         for s in (-1, 1):
             stake = (s * (HALF_SPAN + RAMP_LEN + 1.2), BANK_Y, z * 1.6)
-            k.beam((s * HALF_SPAN, DECK_TOP + 1.7, z), (stake[0], stake[1] + 0.35, stake[2]), 0.04, ROPE)
+            k.beam((s * HALF_SPAN, DECK_TOP + 1.7, z), (stake[0], stake[1] + 0.35, stake[2]), 0.06, ROPE)
             k.box(stake[0] - 0.12, stake[0] + 0.12, stake[1] - 0.3, stake[1] + 0.45, stake[2] - 0.12, stake[2] + 0.12, POST)
 
     return k.build(NAME, MATERIALS)

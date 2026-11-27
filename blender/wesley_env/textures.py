@@ -94,7 +94,7 @@ def cat_karat(seed=31):
     return np.clip(paint * (1 - m) + rust * m, 0, 1)
 
 
-def _clutter(seed, n, palette, weights, shade=0.45, grime=0.25):
+def _clutter(seed, n, palette, weights, shade=0.45, grime=0.25, cavity=1.0):
     """Packed debris: each Voronoi cell is one piece of junk in a palette colour."""
     rng = np.random.default_rng(seed)
     cid, edge = _voronoi(rng, SIZE, n)
@@ -108,7 +108,9 @@ def _clutter(seed, n, palette, weights, shade=0.45, grime=0.25):
     lum = out.mean(-1, keepdims=True)
     out = out * 0.6 + lum * np.array([1.05, 0.95, 0.80]) * 0.4   # sun-faded, brown grime cast
     gloss = (rng.random(n)[cid] > 0.7) & (t > 0.6) & (_value_noise(rng, SIZE, 64) > 0.8)
-    return np.clip(out * 0.92 + gloss[..., None] * 0.12, 0, 1)
+    out = out * 0.92 + gloss[..., None] * 0.12
+    lum2 = out.mean(-1, keepdims=True)
+    return np.clip((out * 0.55 + lum2 * 0.45) * cavity, 0, 1)
 
 
 def trash_lumpur(seed=41):
@@ -127,7 +129,7 @@ def trash_kasur_medis(seed=51):
     pal = [(0.62, 0.55, 0.48), (0.55, 0.42, 0.40), (0.48, 0.50, 0.42),  # stained mattress fabric
            (0.80, 0.62, 0.10), (0.75, 0.58, 0.08),                     # hazard yellow #EAB308, faded
            (0.62, 0.16, 0.14), (0.28, 0.25, 0.22)]                     # red B3 stripe, dark rag
-    out = _clutter(seed, 160, pal, [3, 2, 2, 2, 1, 1, 2], 0.25, 0.45)
+    out = _clutter(seed, 160, pal, [3, 2, 2, 2, 1, 1, 2], 0.25, 0.45, cavity=0.55)
     yy = np.arange(SIZE)[:, None] * np.ones((1, SIZE))
     stripes = ((yy // 10) % 2 == 0)[..., None] * 0.06                  # faded ticking stripes
     return np.clip(out - stripes, 0, 1)
@@ -137,7 +139,7 @@ def trash_plastik(seed=61):
     """Top zone (> 2.5 m): dry sun-faded PET bottles, kresek bags, sachets, styrofoam."""
     pal = [(0.80, 0.80, 0.76), (0.42, 0.58, 0.70), (0.38, 0.58, 0.40), (0.12, 0.12, 0.13),
            (0.70, 0.28, 0.24), (0.82, 0.74, 0.40), (0.55, 0.40, 0.62), (0.88, 0.86, 0.80)]
-    return _clutter(seed, 280, pal, [3, 2, 2, 3, 1, 1, 1, 2], 0.25, 0.55)
+    return _clutter(seed, 280, pal, [6, 2, 1, 3, 1, 1, 0.5, 5], 0.25, 0.5, cavity=0.5)
 
 
 def kayu_lapuk(seed=71):
@@ -169,6 +171,20 @@ def tali(seed=81):
     return np.clip(np.stack([lum, lum * 0.95, lum * 0.85], -1), 0, 1)
 
 
+def trash_palette(seed=91):
+    """4x4 colour swatches for SM_Env_TrashPieces (index layout matches trash_pieces.PALETTE)."""
+    from wesley_env.trash_pieces import GRID, PALETTE
+    rng = np.random.default_rng(seed)
+    cell = SIZE // GRID
+    out = np.zeros((SIZE, SIZE, 3))
+    grain = 0.9 + (_fbm(rng, SIZE, 16, 3) - 0.5) * 0.2
+    for idx, col in enumerate(PALETTE):
+        cx, cy = idx % GRID, idx // GRID            # cy counts from the bottom (UV v)
+        r0 = SIZE - (cy + 1) * cell
+        out[r0:r0 + cell, cx * cell:(cx + 1) * cell] = col
+    return np.clip(out * grain[..., None], 0, 1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -178,6 +194,7 @@ GENERATORS = {
     "T_Trash_Plastik": trash_plastik,
     "T_Env_Kayu": kayu_lapuk,
     "T_Env_Tali": tali,
+    "T_Env_TrashPalette": trash_palette,
 }
 
 

@@ -50,8 +50,8 @@ def build():
         for zs in (-1, 1):
             yaw = -s * zs * 25.0
             wx, wz = cx + s * (face + 1.6), zs * 6.6
-            k.box_yaw(wx, wz, 0.6, 2.8, yaw, BED_Y, 1.8, STONE)
-            k.box_yaw(wx, wz, 0.75, 2.85, yaw, 1.8, 2.05, CONCRETE)
+            k.box_yaw(wx, wz, 0.6, 2.8, yaw, BED_Y, 1.45, STONE)        # top flush with the +1.40 bank
+            k.box_yaw(wx, wz, 0.7, 2.85, yaw, 1.45, 1.6, CONCRETE)
 
         # --- blue steel gate leaf with stiffeners (one per bay) ---
         g0, g1 = sorted((cx + s * bay_in, cx + s * bay_out))
@@ -106,7 +106,7 @@ def build():
         k.box(col - 0.45, col + 0.45, 2.3, 2.5, -0.45, 0.45, BLUE)  # base plate
 
     # --- rounded concrete centre pier ---
-    k.stadium(cx, 0.0, pier_hw, 2.2, BED_Y, 3.2, CONCRETE, seg=16)
+    k.stadium(cx, 0.0, pier_hw, 2.2, BED_Y, 3.2, CONCRETE, seg=20)
     k.box(cx - 0.3, cx + 0.3, 3.2, 7.0, -0.3, 0.3, BLUE)          # centre portal column
     k.box(cx - 0.45, cx + 0.45, 3.2, 3.4, -0.45, 0.45, BLUE)
 
