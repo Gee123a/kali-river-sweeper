@@ -55,20 +55,20 @@
 ## 3. Milestone Tasks (Prioritized)
 
 ### Current Status & Unity Guardrail Note
-Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPreview.cs`) was reverted in `a04d46c`, so `origin/wesley-env-shaders` currently has 0 pushed environment assets. **Unity 6 Guardrail**: If working locally in Unity 6, only commit/push assets inside `Environment/` & `Shaders/` (plus their `.meta`s) - NEVER push `ProjectSettings/ProjectVersion.txt` alone without team-wide migration.
+Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPreview.cs`) was reverted in `a04d46c`. Environment assets are now on main via the `wesley-env-shaders` merge (`d4b1266`, `Main.unity` bake `e50ff50`). **Unity 6 Guardrail**: If working locally in Unity 6, only commit/push assets inside `Environment/` & `Shaders/` (plus their `.meta`s) - NEVER push `ProjectSettings/ProjectVersion.txt` alone without team-wide migration.
 
 ### Completed Onboarding
 - [x] **Step 0: Onboarding & Greybox Inspection** (`git pull origin main`, inspect 53-node greybox via `KALI > Load Default Purpose-Built Map`).
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
-- [ ] **Step 1A: Terrain & Hero Water Shader (`SM_Env_RiverValleyTerrain` + `SG_KaliWater`)**: model/export `SM_Env_RiverValleyTerrain.fbx` (`130m x 180m`, riverbed `-2.0m`, banks `+1.40m`) + prefab, and build `SG_KaliWater.shadergraph` (`_WaterClarity`, Beer-Lambert depth tint `#3B2818` -> `#1B6B63`, `+V` dual-flow normals, shoreline foam, `0.05m` sine wave).
-- [ ] **Step 1B: Core Interactive Station Hubs + Pengepul (`Environment/Prefabs/`)**: build & push collider-ready prefabs matching C# string hooks for `Bank Sampah` (`SM_Env_BankSampah`), `Pos Medis` (`SM_Env_PosMedisB3`), `Karantina Biohazard` (`SM_Env_KarantinaBiohazard`), and `Gudang Pengepul` (`SM_Env_GudangPengepul`).
+- [x] **Step 1A: Terrain & Hero Water Shader (`SM_Env_RiverValleyTerrain` + `SG_KaliWater`)**: model/export `SM_Env_RiverValleyTerrain.fbx` (`130m x 180m`, riverbed `-2.0m`, banks `+1.40m`) + prefab, and build `SG_KaliWater.shadergraph` (`_WaterClarity`, Beer-Lambert depth tint `#3B2818` -> `#1B6B63`, `+V` dual-flow normals, shoreline foam, `0.05m` sine wave).
+- [x] **Step 1B: Core Interactive Station Hubs + Pengepul (`Environment/Prefabs/`)**: build & push collider-ready prefabs matching C# string hooks for `Bank Sampah` (`SM_Env_BankSampah`), `Pos Medis` (`SM_Env_PosMedisB3`), `Karantina Biohazard` (`SM_Env_KarantinaBiohazard`), and `Gudang Pengepul` (`SM_Env_GudangPengepul`).
 
 ### Priority 2: Climax Landmarks, Triplanar Shader & Bridge (Setelah Terrain & Stations)
-- [ ] **Step 2: Landmarks & Bridge**: `SM_Env_PintuAirSiaga1.fbx` (`+Z` sluice gate, clear tower pad for JC beacon), `SM_Env_GunungSampah_3Tiers.fbx` (`-Z` upstream, bottom-anchored `Y = 0` pivot), `SG_TrashTriplanar.shadergraph`, and `SM_Env_JembatanUtama.fbx` (`Y >= +3.60m` deck, `>= 12m` center channel clear).
+- [x] **Step 2: Landmarks & Bridge**: `SM_Env_PintuAirSiaga1.fbx` (`+Z` sluice gate, clear tower pad for JC beacon), `SM_Env_GunungSampah_3Tiers.fbx` (`-Z` upstream, bottom-anchored `Y = 0` pivot), `SG_TrashTriplanar.shadergraph`, and `SM_Env_JembatanUtama.fbx` (`Y >= +3.60m` deck, `>= 12m` center channel clear).
 
 ### Priority 3: Kampung Dressing, Prefab Packaging & Sidang Q&A
-- [ ] **Step 3: Kampung Structures**: `SM_Env_KoperasiDesa` (`Koperasi Desa / Kopdes`), `SM_Env_RumahPanggung` (stilts to `-0.5m`, x11 nodes), `SM_Env_WarungMadura` (24-jam Warung Madura kiosk w/ clear roof overhang for lantern, x7 nodes), `SM_Env_Dermaga` (`Y = 0.0m` waterline pivot, exclusive boat port, x2 nodes).
+- [x] **Step 3: Kampung Structures**: `SM_Env_KoperasiDesa` (`Koperasi Desa / Kopdes`), `SM_Env_RumahPanggung` (stilts to `-0.5m`, x11 nodes), `SM_Env_WarungMadura` (24-jam Warung Madura kiosk w/ clear roof overhang for lantern, x7 nodes), `SM_Env_Dermaga` (`Y = 0.0m` waterline pivot, exclusive boat port, x2 nodes).
 - [ ] **Step 4: Blender `Ctrl + A -> All Transforms` (`-Z Forward`, `Y Up`, Lightmap UV2) & `Environment/Prefabs/` Verification**.
 
 ---

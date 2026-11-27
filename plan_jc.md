@@ -14,7 +14,7 @@
   1. Authentic Indonesian floating trash prefabs + **Medical B3 (`MedicalBag`, `SyringeBox`)** & **Biohazard/Radioactive** prefabs (`Assets/_Project/Props/Trash/`).
   2. 20 non-redundant tool models (from `Sendok Makan` and `Gayung` to `Capitan Ular` and `Garuk Skimmer Hidrolik`, with `PF_Tool_*` `BoxCollider` `isTrigger = true` or disabled while equipped), vessels (`Rakit Gabus`, `Perahu Sampan`), `Kampung Bins`, and `PF_Prop_TrashBoomSegment` (`Assets/_Project/Props/Equipment/`).
   3. Hero rigged `SK_ExcavatorAmfibi.fbx` with 3-bone IK arm, 4 vertical spud legs, and dual `Damped Track` hydraulic pistons (`Assets/_Project/Rigging/`).
-  4. Scene lighting & Post-FX prefabs (`KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour`, `VolumeProfile_MonsoonStorm`, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`) (`Assets/_Project/Lighting/`).
+  4. Scene lighting & Post-FX prefabs (`KaliLightingBuilder.cs`, `PF_LightingRig`, `VolumeProfile_GoldenHour` *(superseded by `VP_KaliSky`)*, `VolumeProfile_MonsoonStorm` *(superseded by `VP_KaliSky`)*, `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`) (`Assets/_Project/Lighting/`).
 
 ### Allowed Files & Directories (READ & WRITE)
 - `blender/**` *(Reproducible Blender 5.3 Python generators - `blender -b -P blender/build_all.py`)*
@@ -54,12 +54,12 @@
   - [x] Model **Medical Waste B3 (`WasteClass.Medical`)** props (`SM_Trash_MedicalBag` 372 tris, `SM_Trash_SyringeBox` 288 tris) in hazard yellow (`#EAB308`) with red accents $\to$ `Props/Trash/Meshes/`, `T_Trash_Atlas` 2048 (`0%` needle prick when using `#10 Capitan Ular`, sorted at **`Pos Medis B3`**).
 
 ### Priority 1: MVP Blockers (Kerjakan Sekarang)
-- [ ] **Task 2A: Biohazard Drum & 9 Missing Normal Trash FBXs & Prefabs**: model/export `SM_Trash_BiohazardDrum` (`WasteClass.Biohazard`, purple/lime) plus `PF_Trash_SandalSwallow`, `AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `KasurKapuk`, `BanBekas`, `EcengGondok`, `BatangPisang` (`+ BaledPlastic`), run `KALI > JC > Build All JC Prefabs`, and push `.fbx`, `.prefab`, `.meta`.
-- [ ] **Task 2B: Downstream Barrier Prop**: package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (`Waterline Y = 0` pivot).
+- [ ] **Task 2A: Biohazard Drum & 9 Missing Normal Trash FBXs & Prefabs** *(Status: `SM_Trash_BiohazardDrum` + `PF_Trash_BiohazardDrum` on main; 9 normal trash items still pending)*: model/export `SM_Trash_BiohazardDrum` (`WasteClass.Biohazard`, purple/lime) plus `PF_Trash_SandalSwallow`, `AquaBottle_600ml`, `AquaGalon_19L`, `PopMieCup`, `KresekBag`, `KasurKapuk`, `BanBekas`, `EcengGondok`, `BatangPisang` (`+ BaledPlastic`), run `KALI > JC > Build All JC Prefabs`, and push `.fbx`, `.prefab`, `.meta`.
+- [x] **Task 2B: Downstream Barrier Prop**: package `Assets/_Project/Props/Equipment/Prefabs/PF_Prop_TrashBoomSegment.prefab` (`Waterline Y = 0` pivot).
 
 ### Priority 2: Equipment & Lighting (Setelah Trash MVP)
-- [ ] **Task 2C: Vessels & Kampung Equipment**: `RakitGabus`, `PerahuSampan`, `TongSampahKampung`, `SpillBarrierFloat`, `PumpGenerator`.
-- [ ] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**: procedural skybox & 12-min day/night rig (`KaliSky.shader`, `M_KaliSky.mat`, `VP_KaliSky.asset`, `KaliLightingBuilder.cs`, `PF_LightingRig.prefab`) built by Ivan (`Scripts/Core/KaliDayNightCycle.cs`); **`PF_Lantern_Warung` and `PF_WarningBeacon_PintuAir`** remain JC's deliverables.
+- [ ] **Task 2C: Vessels & Kampung Equipment**: `RakitGabus`, `PerahuSampan`, `TongSampahKampung`, `SpillBarrierFloat`, `PumpGenerator`. *(Status: `RakitGabus` + `PerahuSampan` on main; 3 remaining pending.)*
+- [x] **Task 3: Lighting & Post-Processing Rigs (`Assets/_Project/Lighting/`)**: procedural skybox & 12-min day/night rig (`KaliSky.shader`, `M_KaliSky.mat`, `VP_KaliSky.asset`, `KaliLightingBuilder.cs`, `PF_LightingRig.prefab`) built by Ivan (`Scripts/Core/KaliDayNightCycle.cs`); `PF_Lantern_Warung` and `PF_WarningBeacon_PintuAir` on main. `VolumeProfile_GoldenHour` / `VolumeProfile_MonsoonStorm` are superseded by `VP_KaliSky`.
 
 ### Priority 3: Character Silhouettes, Rig Animations & Unity Version Guardrail
 - [ ] `SK_VillagerNPC`, `Anim_PlayerToolSwing`.
