@@ -543,17 +543,23 @@ def _lifeman(c):
     c.protect(0.4, 11.2, 6.0, 13.2)
 
 
-def _sari_boti(c):
+def _sari_boti(c, full=False):
     c.panel("front", (28.0, 15.0))
     c.paint(c.full(), c.vgrad(15, 0, "#3a2418", "#21140d"))
     for k in range(5):
         x = 2 + k * 6
         c.paint(c.poly([(x, 0), (x + 1.2, 0), (x + 5.2, 15), (x + 4.0, 15)]), "#6b4a34", 0.25)
-    # clear window (now empty, milky plastic) bordered by gold stripes
+    # clear window bordered by gold stripes: empty milky plastic (trash) or the golden pull-apart rolls (full)
     win = c.poly([(19.5, 4.6), (25.5, 4.2), (25.8, 9.4), (19.3, 9.9)])
     c.paint(c.grow(win, 0.4), "#e7a51e")
     c.paint(c.grow(win, 0.16), "#2a1a12")
-    c.paint(win, c.vgrad(9.9, 4.2, "#a9a49b", "#6f6a62"))
+    if full:
+        c.paint(win, c.vgrad(9.9, 4.2, "#e8b26a", "#b8742e"))
+        for rx, ry in ((20.9, 8.2), (23.1, 8.1), (25.0, 8.0), (20.8, 5.8), (23.0, 5.6), (25.1, 5.5)):
+            c.paint(c.ellipse(rx, ry, 1.0, 1.05) & win, "#9a5a22", 0.55)
+            c.paint(c.ellipse(rx - 0.15, ry + 0.2, 0.75, 0.75) & win, "#f2c584", 0.7)
+    else:
+        c.paint(win, c.vgrad(9.9, 4.2, "#a9a49b", "#6f6a62"))
     c.paint(c.poly([(20.5, 4.5), (21.3, 4.5), (23.0, 9.8), (22.2, 9.8)]) & win, "#ffffff", 0.3)
     c.paint(c.poly([(0, 12.2), (28, 11.4), (28, 11.8), (0, 12.6)]), "#e7a51e")
     c.paint(c.poly([(0, 2.0), (28, 1.4), (28, 1.75), (0, 2.35)]), "#e7a51e")
@@ -680,12 +686,18 @@ def _gudang_gula(c):
         c.paint(c.text("GUDANG GULA", 1.1, 4.6, 0.55, "timesbd.ttf", max_w=6.6, rot=90), "#f2dfa8")
 
 
-def _styrofoam(c):
+def _styrofoam(c, used=True):
     rng = np.random.default_rng(11)
-    c.panel("front", (10.0, 10.0))   # inside: leftover rice, sambal, kecap and oil
+    c.panel("front", (10.0, 10.0))   # inside: leftover rice, sambal, kecap and oil (used) or clean foam
     c.paint(c.full(), "#efece3")
     for _ in range(14):                                   # foam bead pattern
         c.paint(c.ellipse(rng.uniform(0, 10), rng.uniform(0, 10), 0.08, 0.08), "#d8d3c6", 0.6)
+    if not used:
+        c.panel("back", (10.0, 10.0))
+        c.paint(c.full(), "#e9e6de")
+        for _ in range(20):
+            c.paint(c.ellipse(rng.uniform(0, 10), rng.uniform(0, 10), 0.08, 0.08), "#dedad0", 0.6)
+        return
     for _ in range(7):                                    # grease yellowing
         x, y, r = rng.uniform(1, 9), rng.uniform(1, 9), rng.uniform(0.6, 1.8)
         c.paint(c.ellipse(x, y, r, r * rng.uniform(0.5, 1.0), rng.uniform(0, 180)), "#d9a42a", 0.22)
@@ -707,6 +719,30 @@ def _styrofoam(c):
     c.paint(c.stroke([(6.4, 8.6), (7.3, 8.1)], 0.05), "#4f4636")
 
 
+def _aquo_face(c, w, h, big):
+    """Parody mineral-water wrap: pale blue sky, two blue hill bands, white-outlined blue AQUO, top/bottom bars."""
+    c.paint(c.full(), c.vgrad(h, 0, "#eef7fc", "#bfe0f2"))
+    c.paint(c.poly([(0, 0), (0, h * 0.36), (w * 0.22, h * 0.6), (w * 0.4, h * 0.42), (w * 0.62, h * 0.68),
+                    (w * 0.82, h * 0.46), (w, h * 0.56), (w, 0)]), "#8cc0ea")
+    c.paint(c.poly([(0, 0), (0, h * 0.24), (w * 0.3, h * 0.4), (w * 0.55, h * 0.26), (w * 0.76, h * 0.42),
+                    (w, h * 0.3), (w, 0)]), "#2f7fd0")
+    c.paint(c.rect(0, h * 0.88, w, h), "#1f5fd6")
+    c.paint(c.rect(0, 0, w, h * 0.07), "#1f5fd6")
+    c.paint(c.rect(0, h * 0.86, w, h * 0.88), "#e2231a")
+    word = c.text("AQUO", w / 2, h * 0.62, h * (0.36 if big else 0.26), "ariblk.ttf", max_w=w * (0.62 if big else 0.4), shear=0.1)
+    c.outlined(word, "#1f5fd6", [("#ffffff", h * 0.035)])
+    c.paint(c.text("AIR MINERAL", w / 2, h * 0.3, h * 0.085, "arialbd.ttf", max_w=w * 0.5), "#ffffff")
+
+
+def _aquo(c, units):
+    w, h = units
+    c.panel("front", units)
+    _aquo_face(c, w, h, True)
+    c.protect(w * 0.15, h * 0.4, w * 0.85, h * 0.85)
+    c.panel("back", units)
+    _aquo_face(c, w, h, False)
+
+
 ARTS = {
     "indomy": (_indomy, "pack", "film"),
     "bingo": (_bingo, "pack", "film"),
@@ -717,6 +753,11 @@ ARTS = {
     "sprit": (_sprit, "wrap", "bottle"),
     "gudang_gula": (_gudang_gula, "box", "carton"),
     "styrofoam": (_styrofoam, "pair", "foam"),
+    "aquo": (lambda c: _aquo(c, (10.0, 5.0)), "wrap", "bottle"),             # 600 ml bottle band (parody brand)
+    "aquo_galon": (lambda c: _aquo(c, (42.0, 10.0)), "wrap", "bottle"),      # 19 L jug sticker band
+    # clean product variants (render with dirty=False): bread in the window, unused foam
+    "sari_boti_full": (lambda c: _sari_boti(c, full=True), "pack", "film"),
+    "styrofoam_new": (lambda c: _styrofoam(c, used=False), "pair", "foam"),
 }
 
 

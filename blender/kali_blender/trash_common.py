@@ -48,6 +48,8 @@ TRASH_MODULES = [
     "trash_09_styrofoam_makanan",
     "trash_10_botol_sprit",
     "trash_11_kotak_rokok",
+    "trash_12_aqua_bottle_600ml",
+    "trash_13_aqua_galon_19l",
 ]
 
 
@@ -69,7 +71,8 @@ def build_trash(mod_name, collection=None):
     return obj
 
 
-def validate_trash(obj, spec):
+def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_", pivot="centre"):
+    """Shared prop checks (products_common reuses them with its own material, prefix and pivot="base")."""
     issues = []
     me = obj.data
     tris = tc.tri_count(obj)
@@ -77,13 +80,13 @@ def validate_trash(obj, spec):
         issues.append(f"tris {tris} outside {TRI_MIN}-{TRI_MAX}")
     if obj.name != spec["name"]:
         issues.append(f"name {obj.name} != {spec['name']}")
-    if not spec.get("prefab", "").startswith("PF_Trash_"):
-        issues.append("SPEC['prefab'] must start with PF_Trash_")
+    if not spec.get("prefab", "").startswith(prefab_prefix):
+        issues.append(f"SPEC['prefab'] must start with {prefab_prefix}")
     if any(abs(v) > 1e-6 for v in obj.location) or any(abs(v) > 1e-6 for v in obj.rotation_euler) \
             or any(abs(v - 1) > 1e-6 for v in obj.scale):
         issues.append("transforms not applied")
-    if len(me.materials) != 1 or me.materials[0] is None or me.materials[0].name != MATERIAL_NAME:
-        issues.append(f"materials {[m.name if m else None for m in me.materials]} != [{MATERIAL_NAME}]")
+    if len(me.materials) != 1 or me.materials[0] is None or me.materials[0].name != material:
+        issues.append(f"materials {[m.name if m else None for m in me.materials]} != [{material}]")
     art = spec.get("label_art")
     if art:
         if not 1 <= art.get("rows", 0) <= 3:
@@ -104,8 +107,10 @@ def validate_trash(obj, spec):
     lo = Vector((min(v.co[i] for v in me.vertices) for i in range(3)))
     hi = Vector((max(v.co[i] for v in me.vertices) for i in range(3)))
     centre = (lo + hi) / 2
+    if pivot == "base":
+        centre.z = lo.z            # standing prop: origin at the middle of its footprint, on the ground
     if centre.length > PIVOT_TOLERANCE:
-        issues.append(f"origin not at bbox centre (centre {tuple(round(c, 3) for c in centre)})")
+        issues.append(f"origin not at bbox {pivot} (offset {tuple(round(c, 3) for c in centre)})")
     size = max(hi - lo)
     if not 0.05 <= size <= 1.5:
         issues.append(f"implausible size {size:.2f} m")
