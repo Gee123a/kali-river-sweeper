@@ -87,11 +87,7 @@ open -a Safari tools/map-editor.html
 # Open Unity Hub -> Add/Open folder: ./unity
 # Load greybox / level scene from menu:
 #   KALI > Load Default Purpose-Built Map
-# Sidang 3-Minute Live Demo Hotkeys (in Play Mode):
-#   F9       -> Arm Presentation Stage Jump
-#   F9 + 1   -> Act 1: Polluted Spawn Sightline (waterClarity = 0.12)
-#   F9 + 2   -> Act 2: #10 Capitan Ular + Sampan + Kampung Bins Root-Cause Fix
-#   F9 + 3   -> Act 3: Monsoon Storm + Siaga 1 Flood & Sell-Lock (~+2.09m)
-#   F9 + 4   -> Clean River SDG Victory (waterClarity = 1.00)
-#   Shift+X = Emergency Ocean Flush (Choice C, ends run as CompromisedOceanFlush); R = toggle monsoon (demo only, requires F9 armed)
+# Sidang 3-Minute Live Demo (in Play Mode):
+#   Shift+X = Emergency Ocean Flush (Choice C, ends run as CompromisedOceanFlush).
+# Demo: play normally; press T to cycle time of day (golden hour, dusk, night, dawn, noon).
 ```

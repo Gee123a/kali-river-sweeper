@@ -120,7 +120,7 @@ Subscribe in `OnEnable()` and unsubscribe in `OnDisable()` inside `unity/Assets/
    - Contextual panels (`TL_ToolUnlockToast`, `TC_ContextualAlertRail`, `BC_StationDockSheet`) enter from `scale = 0.97, alpha = 0` to `scale = 1.0, alpha = 1` over `180ms` (`EaseOutCubic`). Never pop from `scale = 0`.
    - Wrong-station fine feedback shakes the offending key slot horizontally (`0, -10, 10, -6, 6, -3, 0px` over `360ms`) and flashes magenta.
 3. **1280x720 Verification Gate**:
-   - Before committing `Canvas_HUD.prefab`, switch Unity Game View between `1920x1080` and `1280x720` in both Normal and Crisis (`F9 + 3`) states and confirm zero overlapping RectTransforms and crisp legible numerals.
+   - Before committing `Canvas_HUD.prefab`, switch Unity Game View between `1920x1080` and `1280x720` in both Normal and Crisis states and confirm zero overlapping RectTransforms and crisp legible numerals.
 
 ---
 

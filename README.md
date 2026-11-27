@@ -20,7 +20,7 @@ The game transforms real Indonesian river revitalization (*Citarum, Ciliwung, Ka
 
 | Member | Role | Student ID | Primary Track & Unity Folders |
 | :--- | :--- | :--- | :--- |
-| **Stevanus Ivan Santoso** (`Ivan`) | **Coordinator & Core Lead** | `0706012410029` | Game loop, `+Z` `RiverMath` buoyancy/drift, linear water rise & Sell-Lock, 3-class waste/stations, 20-tool milestones, `F9` Demo, `MapJsonImporter`, `tools/play-3d.html` (`Assets/_Project/Scripts/`, `Data/`, `tools/`) |
+| **Stevanus Ivan Santoso** (`Ivan`) | **Coordinator & Core Lead** | `0706012410029` | Game loop, `+Z` `RiverMath` buoyancy/drift, linear water rise & Sell-Lock, 3-class waste/stations, 20-tool milestones, `MapJsonImporter`, `tools/play-3d.html` (`Assets/_Project/Scripts/`, `Data/`, `tools/`) |
 | **Jason Christopher** (`JC`) | **Props, 3D, Rigging & Lighting Lead** | — | Indonesian trash props + Medical (`MedicalBag`, `SyringeBox`) & Biohazard props, 20 tool models (`PF_Tool_*` trigger/disabled collider rule), vessels, `SK_ExcavatorAmfibi` 3-bone IK + hydraulic rig, Golden Hour / Monsoon `PF_LightingRig` (`Assets/_Project/Props/`, `Rigging/`, `Lighting/`) |
 | **Wesley Goeinawan** (`Wesley`) | **Environment & Shader Lead** | `0706012410011` | `SM_Env_*` riverbank, `+Z` `Pintu Air`, `Pos Medis B3`, `Karantina Biohazard`, `Gudang Pengepul` FBX meshes synced to `130m × 180m` river curve, `SG_KaliWater` (`_WaterClarity`, `+V` flow) & `SG_TrashTriplanar` (`Assets/_Project/Environment/`, `Shaders/`) |
 | **Nicholas Gerwin Mawardji** (`Niki`) | **VFX, UI & Audio/Narrative Lead** | `0706012410015` | 4 particle VFX (`MonsoonRain`, `WaterSplashMuddy`, `MethaneSludgeBubbles`, `TrashAvalanche`), HUD Canvas (`playerHealth`, `swimStamina`, 3-class cargo, DoT/Sell-Lock/`Q` dump/Monsoon timer/Kopdes milestone toast), Shop/Station prompts, SDG Report (`5` endings), SFX & Sidang deck (`Assets/_Project/VFX/`, `UI/`, `Audio/`) |
@@ -64,5 +64,5 @@ open -a Safari tools/map-editor.html
 # 3. Unity 2022.3.46f1 LTS Workflow
 # - Open ./unity in Unity Hub (2022.3.46f1)
 # - Menu bar: KALI -> Load Default Purpose-Built Map
-# - Press Play; press F9 then keys 1 / 2 / 3 / 4 for live stage showcase
+# - Press Play. Demo: play normally; press T to cycle time of day (golden hour, dusk, night, dawn, noon).
 ```

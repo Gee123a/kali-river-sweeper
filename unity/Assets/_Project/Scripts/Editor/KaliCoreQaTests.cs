@@ -83,7 +83,6 @@ namespace KaliRiverSweeper.Editor
                 VerifyEventsGunungBreachAndFourEndings,
                 VerifyRiverMathSpawnerAndComponents,
                 VerifyChildColliderLookupAndSingleEndingGuard,
-                VerifyF9StageTwoReset,
                 VerifyPrefabHitboxProportions,
                 VerifyDermagaRiverPortLimits,
                 VerifyTask4dAnd4fUxContracts,
@@ -561,30 +560,6 @@ namespace KaliRiverSweeper.Editor
             }
         }
 
-        private static void VerifyF9StageTwoReset()
-        {
-            using (QaContext ctx = new QaContext())
-            {
-                RiverGameManager gm = ctx.Manager;
-                GameObject trashTemplate = ctx.Track(new GameObject("QA_F9TrashTemplate"));
-                GameObject spawnerGo = ctx.Track(new GameObject("QA_F9Spawner"));
-                RiverTrashSpawner spawner = spawnerGo.AddComponent<RiverTrashSpawner>();
-                spawner.normalPrefabs = new[] { trashTemplate };
-                spawner.medicalPrefabs = new[] { trashTemplate };
-                spawner.biohazardPrefabs = new[] { trashTemplate };
-
-                ctx.Track(spawner.SpawnTrashAt(Vector3.zero, WasteClass.Normal));
-                Assert(UnityEngine.Object.FindObjectsOfType<RiverTrashItem>().Length > 0, "F9 setup spawned live trash");
-
-                // Stage 2: 80,000 Rp cumulative, #10 Capitan Ular equipped, Kampung Bins on, no monsoon
-                InvokeNonPublic(gm, "ResetStageState", 80000, 45000, ToolCatalog.SnakeGrabberIndex, true, true, false, true, false, false);
-                Assert(gm.cumulativeEarnings == 80000, "F9 stage 2 cumulativeEarnings == 80000");
-                Assert(gm.equippedToolIndex == ToolCatalog.SnakeGrabberIndex, "F9 stage 2 equips #10 Capitan Ular");
-                // Destroy() in ResetStageState is deferred, so a scene-wide FindObjectsOfType count is not synchronous; check the synchronous registry instead.
-                Assert(gm.activeRiverTrashCount == 0, "F9 stage reset leaves no registered RiverTrashItem");
-            }
-        }
-
         private static void VerifyPrefabHitboxProportions()
         {
             string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/_Project/Props", "Assets/_Project/Rigging" });
@@ -802,7 +777,12 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.TriggerEmergencyFlush(confirmed: true) && gm.activeEnding == GameEnding.CompromisedOceanFlush,
                     "Confirmed EmergencyFlush during Sell-Lock triggers CompromisedOceanFlush");
 
+                GameObject rsTemplate = ctx.Track(new GameObject("QA_RestartTrashTemplate"));
+                RiverTrashSpawner rsSpawner = ctx.Track(new GameObject("QA_RestartSpawner")).AddComponent<RiverTrashSpawner>();
+                rsSpawner.normalPrefabs = new[] { rsTemplate };
+                ctx.Track(rsSpawner.SpawnTrashAt(Vector3.zero, WasteClass.Normal));
                 gm.RestartRun();
+                Assert(gm.activeRiverTrashCount == 0, "RestartRun leaves no registered RiverTrashItem");
                 Assert(gm.activeEnding == GameEnding.None && gm.rupiah == 0 && gm.wrongDiscardCount == 0 && gm.unpaidFineDebt == 0 && gm.communityTrust == 40,
                     "RestartRun resets ending, economy, audit debt, and trust");
             }

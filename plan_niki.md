@@ -15,7 +15,7 @@
   1. 4 VFX prefabs inside `Assets/_Project/VFX/`: `VFX_MonsoonRain`, `VFX_WaterSplashMuddy`, `VFX_MethaneSludgeBubbles`, `VFX_TrashAvalanche`.
   2. 3 Responsive UI Canvases inside `Assets/_Project/UI/`: `Canvas_HUD`, `Canvas_ShopBankSampah`, `Canvas_SDGImpactReport`.
   3. River/storm/siren/scoop audio clips & mixer triggers (`Assets/_Project/Audio/`).
-  4. Polished 3-minute Sidang live presentation script aligned to `F9 + 1..4` demo jumps.
+  4. Polished 3-minute Sidang live presentation script aligned to the normal-play demo flow (`T` time-of-day cycle).
 
 ### Allowed Files & Directories (READ & WRITE)
 - `unity/Assets/_Project/VFX/**`
@@ -67,9 +67,6 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 ### Priority 2: Economy Shop & Audio (Kerjakan Sekarang)
 - [ ] **Task 2: `Canvas_ShopBankSampah` (`Assets/_Project/UI/`)**: `KaliShopController.cs` + `Canvas_ShopBankSampah.prefab` for `Koperasi Desa (Kopdes)` & stations (`BuyKampungBins()`, `BuyUpgrade(UpgradeTier)`, 20-tool shop `BuyTool(int)` / `SelectTool(int)` / `IsToolUnlocked(int)` / `IsToolOwned(int)`, Choice A/C `TriggerEmergencyFlush()`, replacing the `[1-4]` Kopdes keyboard fallback in `KaliPlayerController.cs`). Hook: subscribe to `KaliPlayerController.OnShopRequested` to open the modal; read prices via `RiverGameManager.KampungBinsCost` / `GetUpgradeCost(UpgradeTier)` / `ToolDefinition.UnlockRupiah`.
 - [ ] **Task 3: Audio (`Assets/_Project/Audio/`)**: looping calm river vs heavy monsoon storm SFX, wet scoop splashes, needle-prick/Biohazard Geiger warning chime, wrong-station fine buzzer, tool unlock chime, and `Siaga 2/1` siren.
-
-### Priority 3: Sidang F9 Demo Flow
-- [ ] **Task 4: 3-Minute Live Sidang Demo Script**: synchronized to `F9 + 1`, `F9 + 2`, `F9 + 3` (Monsoon Overflow + Sell-Lock), `F9 + 4`.
 
 ---
 

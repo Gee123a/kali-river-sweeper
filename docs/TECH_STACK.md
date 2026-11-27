@@ -42,7 +42,7 @@
 
 ## 3. Core C# Scripts Inventory (`unity/Assets/_Project/Scripts/`)
 
-- `Core/RiverGameManager.cs` — Central state machine, linear water level (`waterLevelY = -0.25 + 0.020 * trash`), Overflow & Sell-Lock (`Q` dump), Rupiah & 3-station sorting (`DiscardLegalAtStation`) vs `Gudang Pengepul`, Medical prick, Biohazard DoT, swim stamina & drowning (`playerHealth`, `swimStamina`), Monsoon countdown, 20-tool milestone unlocks & Kopdes `BuyTool(int)` ownership, `_WaterClarity` global shader push (throttled ~10 Hz), `F9` Presentation hotkeys.
+- `Core/RiverGameManager.cs` — Central state machine, linear water level (`waterLevelY = -0.25 + 0.020 * trash`), Overflow & Sell-Lock (`Q` dump), Rupiah & 3-station sorting (`DiscardLegalAtStation`) vs `Gudang Pengepul`, Medical prick, Biohazard DoT, swim stamina & drowning (`playerHealth`, `swimStamina`), Monsoon countdown, 20-tool milestone unlocks & Kopdes `BuyTool(int)` ownership, `_WaterClarity` global shader push (throttled ~10 Hz).
 - `Core/ToolCatalog.cs` — Authoritative 20 official JC tools (`#01 SM_Tool_SendokMakanBengkok` .. `#20 SM_Tool_GarukSkimmerHidrolik`), cumulative Rupiah milestone costs (`UnlockRupiah`), reach/batch/cooldown/prick-mitigation stats, `WasteClass` & `DiscardStationType` enums.
 - `Core/RiverTrashItem.cs` & `Core/RiverTrashSpawner.cs` — Live active/piled trash registration (`TotalTrashInRiver`), `Normal`/`Medical`/`Biohazard` classification, and upstream `-Z` spawning slowed by `Kampung Bins`.
 - `Core/RiverFlowBuoyancy.cs` — `RiverMath` (`130m × 180m` spline projection & width profile) + `RiverFlowBuoyancy` (`+Z` downstream drift toward `Pintu Air`, dynamic water Y sync) + `RiverWaterSurfaceFollower` + `GunungNodeController` (bottom-anchored scaling).

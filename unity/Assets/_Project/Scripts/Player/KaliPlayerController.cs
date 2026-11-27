@@ -371,16 +371,11 @@ namespace KaliRiverSweeper.Player
         {
             RiverGameManager gm = RiverGameManager.Instance;
 
-            if (WasKeyPressed(KeyAction.F) && (isFreeCam || (gm != null && gm.demoHotkeysArmed)))
+            if (WasKeyPressed(KeyAction.F) && isFreeCam)
             {
                 isFreeCam = !isFreeCam;
                 OnFreeCamStateChanged?.Invoke(isFreeCam);
                 gm?.NotifyInfo(isFreeCam ? "Free-Cam Demo aktif (dibatasi di area sungai)." : "Kembali ke kamera gameplay.");
-            }
-
-            if (WasKeyPressed(KeyAction.R) && gm != null && gm.demoHotkeysArmed)
-            {
-                gm.SetWeather(!gm.isMonsoonStorm);
             }
 
             // Tool switching via Mouse Scroll or [ / ]
@@ -464,7 +459,7 @@ namespace KaliRiverSweeper.Player
             }
 
             // Station Quick-Discard (1/2/3), Kopdes explicit upgrade selection (1-4), & Safe Deposit / Boat Toggle (E)
-            if (gm != null && !isFreeCam && !gm.IsDemoHotkeyBusy)
+            if (gm != null && !isFreeCam)
             {
                 bool nearStation = TryFindNearestHub(out DiscardStationType station, out bool isKopdes);
                 if (nearStation && !isKopdes)

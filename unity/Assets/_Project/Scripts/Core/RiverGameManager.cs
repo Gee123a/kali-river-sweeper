@@ -1,8 +1,5 @@
 using System;
 using UnityEngine;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
 
 namespace KaliRiverSweeper.Core
 {
@@ -133,7 +130,6 @@ namespace KaliRiverSweeper.Core
         public bool trashBoomActive;
         public bool excavatorUnlocked;
         public bool kampungBinsInstalled;
-        public bool demoHotkeysArmed;
         public GameEnding activeEnding = GameEnding.None;
         public string lastStatusMessage = "Kumpulkan sampah dari sungai & jual ke stasiun yang tepat.";
         public string LastEndingDiagnosis { get; private set; } = string.Empty;
@@ -148,7 +144,6 @@ namespace KaliRiverSweeper.Core
         public bool IsDrowning => isPlayerSwimming && swimStamina <= 0f && activeEnding == GameEnding.None;
         public ToolDefinition EquippedTool => ToolCatalog.GetTool(equippedToolIndex);
         public int SiagaLevel => floodPressure >= 0.85f ? 1 : floodPressure >= 0.60f ? 2 : floodPressure >= 0.35f ? 3 : 4;
-        public bool IsDemoHotkeyBusy => demoHotkeysArmed || demoJumpConsumedFrame == Time.frameCount;
         public bool IsTrustAuditPenaltyActive => isTrustAuditPenaltyActive;
         public bool IsTrustTrustedBonusActive => communityTrust >= 70;
 
@@ -169,7 +164,6 @@ namespace KaliRiverSweeper.Core
         private float boomTimer;
         private bool stateDirty;
         private float notifyThrottleTimer;
-        private int demoJumpConsumedFrame = -1;
         private bool isTrustAuditPenaltyActive;
         private float nextEmergencyTriageTime;
         private bool lowSwimStaminaWarned;
@@ -202,7 +196,6 @@ namespace KaliRiverSweeper.Core
 
         private void Tick(float dt)
         {
-            HandleDemoHotkeys();
             if (activeEnding != GameEnding.None) return;
 
             // 1. Monsoon countdown & automatic storm trigger
@@ -1202,69 +1195,6 @@ namespace KaliRiverSweeper.Core
             OnStateChanged?.Invoke();
         }
 
-        // Built-in F9 Presentation Stage Jump for 3-minute Sidang Demo
-        private void HandleDemoHotkeys()
-        {
-            if (WasF9Pressed())
-            {
-                demoHotkeysArmed = !demoHotkeysArmed;
-                RaiseAlert(demoHotkeysArmed ? "F9 Stage Jump Armed: Tekan 1, 2, 3, atau 4" : "F9 Stage Jump Disarmed", false);
-                NotifyState();
-            }
-            if (!demoHotkeysArmed) return;
-
-            if (WasDigitPressed(1))
-            {
-                demoHotkeysArmed = false;
-                demoJumpConsumedFrame = Time.frameCount;
-                ResetStageState(targetCumulativeRupiah: 0, targetRupiah: 0, targetToolIdx: 1,
-                    galah: false, sampan: false, boom: false, bins: false, excavator: false, monsoon: false);
-                piledRiverTrashCount = 4;
-                monsoonCountdownRemaining = monsoonCountdownSeconds;
-                RestoreAllGunungNodes();
-                gunungSampahHealth = 1f;
-                RecalculateWaterMetrics();
-                NotifyState();
-            }
-            else if (WasDigitPressed(2))
-            {
-                demoHotkeysArmed = false;
-                demoJumpConsumedFrame = Time.frameCount;
-                ResetStageState(targetCumulativeRupiah: 80000, targetRupiah: 45000, targetToolIdx: ToolCatalog.SnakeGrabberIndex,
-                    galah: true, sampan: true, boom: false, bins: true, excavator: false, monsoon: false);
-                communityTrust = Mathf.Max(communityTrust, 65);
-                piledRiverTrashCount = 10;
-                monsoonCountdownRemaining = monsoonCountdownSeconds;
-                RestoreAllGunungNodes();
-                gunungSampahHealth = 1f;
-                RecalculateWaterMetrics();
-                NotifyState();
-            }
-            else if (WasDigitPressed(3))
-            {
-                demoHotkeysArmed = false;
-                demoJumpConsumedFrame = Time.frameCount;
-                ResetStageState(targetCumulativeRupiah: 360000, targetRupiah: 250000, targetToolIdx: 20,
-                    galah: true, sampan: true, boom: true, bins: true, excavator: true, monsoon: true);
-                piledRiverTrashCount = Mathf.Max(0, 117 - activeRiverTrashCount); // Places waterLevelY at ~2.09m (Siaga 1 + Sell-Lock)
-                monsoonCountdownRemaining = 45f;
-                RestoreAllGunungNodes();
-                gunungSampahHealth = 1f;
-                RecalculateWaterMetrics();
-                NotifyState();
-            }
-            else if (WasDigitPressed(4))
-            {
-                demoHotkeysArmed = false;
-                demoJumpConsumedFrame = Time.frameCount;
-                ResetStageState(targetCumulativeRupiah: 360000, targetRupiah: 250000, targetToolIdx: 20,
-                    galah: true, sampan: true, boom: true, bins: true, excavator: true, monsoon: false);
-                piledRiverTrashCount = 0;
-                activeRiverTrashCount = 0;
-                CompleteCleanBreach();
-            }
-        }
-
         private void ResetStageState(
             int targetCumulativeRupiah,
             int targetRupiah,
@@ -1338,40 +1268,6 @@ namespace KaliRiverSweeper.Core
             {
                 node.Restore();
             }
-        }
-
-        private static bool WasF9Pressed()
-        {
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame) return true;
-#endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetKeyDown(KeyCode.F9)) return true;
-#endif
-            return false;
-        }
-
-        private static bool WasDigitPressed(int digit)
-        {
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null)
-            {
-                bool hit = digit switch
-                {
-                    1 => Keyboard.current.digit1Key.wasPressedThisFrame,
-                    2 => Keyboard.current.digit2Key.wasPressedThisFrame,
-                    3 => Keyboard.current.digit3Key.wasPressedThisFrame,
-                    4 => Keyboard.current.digit4Key.wasPressedThisFrame,
-                    _ => false
-                };
-                if (hit) return true;
-            }
-#endif
-#if ENABLE_LEGACY_INPUT_MANAGER
-            KeyCode kc = (KeyCode)((int)KeyCode.Alpha0 + digit);
-            if (Input.GetKeyDown(kc)) return true;
-#endif
-            return false;
         }
     }
 }

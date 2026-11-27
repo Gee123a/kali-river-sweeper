@@ -1,7 +1,7 @@
 KALI: Indonesian River Sweeper - Asset Master Tracker & Production Audit									
 Audit Target: Grade A (85-100%) Rubric | Unity 2022.3.46f1 URP + Blender 5.3.0 | 4-Person Scope Split									
 Asset ID	Category	Display Name	Owner	Target Unity Directory	Triangles / Specs	Pivot / Anchor	Current Status	Map Item Mapping	Notes & Rubric Impact
-RiverGameManager.cs	Core Code	Game Loop, Economy & Flood Gauge	Ivan (Lead)	Assets/_Project/Scripts/Core/	C# Class	N/A	DONE (In main)	Managers	Linear flood, 3-class waste & 3 stations + Pengepul, Kopdes BuyTool (#01-#20), swim stamina/drowning, F9 hotkeys
+RiverGameManager.cs	Core Code	Game Loop, Economy & Flood Gauge	Ivan (Lead)	Assets/_Project/Scripts/Core/	C# Class	N/A	DONE (In main)	Managers	Linear flood, 3-class waste & 3 stations + Pengepul, Kopdes BuyTool (#01-#20), swim stamina/drowning
 RiverFlowBuoyancy.cs	Core Code	River Current & Wave Buoyancy	Ivan (Lead)	Assets/_Project/Scripts/Core/	C# Class	N/A	DONE (In main)	trash_pile	Sinusoidal water bobbing & spline drift
 KaliPlayerController.cs	Core Code	FP Walk, Swim, Boat Controller & Scoop	Ivan (Lead)	Assets/_Project/Scripts/Player/	C# Class	N/A	DONE (In main)	Player Spawn	CC walk/sprint, surface swim/stamina/drowning, Dermaga boat port, SafeClosestPoint, cargo scoop & sell
 MapJsonImporter.cs	Core Code	1-Click JSON Map & Prefab Spawner	Ivan (Lead)	Assets/_Project/Scripts/Editor/	C# Editor Tool	N/A	DONE (In main)	Editor Menu	Spawns 53 nodes with JC prefabs & lighting rig wiring

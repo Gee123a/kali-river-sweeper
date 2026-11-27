@@ -9,7 +9,7 @@
 > See [docs/TECH_STACK.md](./docs/TECH_STACK.md) for Unity `2022.3.46f1` LTS packages, Blender `5.3.0`, core scripts, and polycount budgets.
 
 ## Quick Team Ownership
-- **Ivan** (Coordinator & Core Lead): C# Gameplay (`RiverGameManager`, `ToolCatalog`, `RiverTrashSpawner`, `RiverTrashItem`, `KaliPlayerController`, `KaliFieldGuideOverlay`), `+Z` Buoyancy, surface swimming/stamina/drowning, `MapJsonImporter`, `kali-river-map.json`, `tools/play-3d.html`, `F9` Demo, Academic Report — [plan_ivan.md](./plan_ivan.md)
+- **Ivan** (Coordinator & Core Lead): C# Gameplay (`RiverGameManager`, `ToolCatalog`, `RiverTrashSpawner`, `RiverTrashItem`, `KaliPlayerController`, `KaliFieldGuideOverlay`), `+Z` Buoyancy, surface swimming/stamina/drowning, `MapJsonImporter`, `kali-river-map.json`, `tools/play-3d.html`, Academic Report — [plan_ivan.md](./plan_ivan.md)
 - **JC** (Props, 3D, Rigging & Lighting): Trash, Medical B3 & Biohazard Props, 20 Tools (`PF_Tool_*` with `isTrigger = true` / disabled while equipped), Boats, `SK_ExcavatorAmfibi` IK Rig, `PF_LightingRig` — [plan_jc.md](./plan_jc.md)
 - **Wesley** (Environment Architecture & Shaders): `SM_Env_*` FBX Meshes (`130m × 180m`, `+Z` `Pintu Air`, `Pos Medis B3`, `Karantina Biohazard`, `Gudang Pengepul`), `SG_KaliWater` (`_WaterClarity`, `+V` normal scroll), `SG_TrashTriplanar` — [plan_wesley.md](./plan_wesley.md)
 - **Niki** (VFX, UI & Audio/Narrative): 4 VFX Particle Systems, HUD Canvas (`playerHealth`, `swimStamina`, 3-class cargo, Biohazard DoT, Sell-Lock & `Q` dump hint, Monsoon timer, Kopdes milestone toast), Shop/Station Prompts, SDG Impact Report Screen (`5` endings), SFX & Sidang Script — [plan_niki.md](./plan_niki.md)

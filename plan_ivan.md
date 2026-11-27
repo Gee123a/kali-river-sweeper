@@ -12,7 +12,7 @@
 - **Unity Version Alignment**: Current workspace operates on Unity `2022.3.46f1 LTS`. To address `CVE-2025-59489` security vulnerabilities, team will coordinate either upgrading to patched Unity `2022.3.67f2` or migrating to patched Unity 6 (`6000.0.58f2+` / `6000.3.29f1 LTS`) prior to final build packaging.
 - **Git Contributor Hygiene**: Local personal git author commits only. Zero AI bot author attribution, zero `Co-Authored-By` trailers.
 - **Primary Deliverables**:
-  1. Core state machine (`RiverGameManager.cs`, throttled ~10 Hz `NotifyState()`), linear `waterLevelY = f(trashInRiver)`, Overflow/Sell-Lock/`Q` high-ground dump, 3-class waste hazards (`Normal`, `Medical` prick, `Biohazard` DoT), swim stamina & drowning (`swimStamina`, `IsSwimming`, `IsDrowning`), 3 dedicated stations (`Bank Sampah`, `Pos Medis B3`, `Karantina Biohazard`) + fines vs `Gudang Pengepul`, Monsoon countdown, 20-tool Kopdes milestones & `BuyTool(int)` (`ToolCatalog.cs`), 5 endings (`TrueSdgVictory`, `PartialSurvival`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`), and `F9` Stage Jumps.
+  1. Core state machine (`RiverGameManager.cs`, throttled ~10 Hz `NotifyState()`), linear `waterLevelY = f(trashInRiver)`, Overflow/Sell-Lock/`Q` high-ground dump, 3-class waste hazards (`Normal`, `Medical` prick, `Biohazard` DoT), swim stamina & drowning (`swimStamina`, `IsSwimming`, `IsDrowning`), 3 dedicated stations (`Bank Sampah`, `Pos Medis B3`, `Karantina Biohazard`) + fines vs `Gudang Pengepul`, Monsoon countdown, 20-tool Kopdes milestones & `BuyTool(int)` (`ToolCatalog.cs`), 5 endings (`TrueSdgVictory`, `PartialSurvival`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`).
   2. River math, `+Z` buoyancy & downstream `Pintu Air` barrier pileup (`RiverFlowBuoyancy.cs`, `RiverTrashItem.cs`, `RiverTrashSpawner.cs`).
   3. First-person walk/sprint/surface-swim/boat controller with dynamic boat Y tracking, surface-only swimming + bank/dock climb-out, camera-aimed nearest-target scoop (`SafeClosestPoint` for non-convex `MeshCollider`), bottom-anchored `Gunung Sampah` scaling, dual Input System + Legacy fallback, `1/2/3/E` station discard, `Q` dump, `Scroll/[ ]` tool switch (`KaliPlayerController.cs`), and `[H]` field guide + live toast (`KaliFieldGuideOverlay.cs`).
   4. 53-node purpose-built level data (`kali-river-map.json`) & 1-click spawner with split West/East banks, elevated `Jembatan Utama`, 3 waste stations + `Gudang Pengepul`, `Koperasi Desa (Kopdes)`, Dermaga-only river ports, `RiverTrashSpawner`, and `PF_Trash_MedicalBag`/`SyringeBox` (`MapJsonImporter.cs`).
@@ -41,14 +41,14 @@
 
 ## 2. Roadmap & Milestone Tasks (Prioritized)
 
-- **Timeline Overview**: **Completed (`main`)** -> **Fase 1: MVP Blockers (Sekarang)** -> **Fase 2: Env/Trash/Shop Wiring (Setelah Prefab Tim Masuk)** -> **Fase 3: Sidang F9 & Final Build**.
+- **Timeline Overview**: **Completed (`main`)** -> **Fase 1: MVP Blockers (Sekarang)** -> **Fase 2: Env/Trash/Shop Wiring (Setelah Prefab Tim Masuk)** -> **Fase 3: Sidang Demo & Final Build**.
 
 ### Completed Core Systems (main)
 - [x] **Task 1: Core C# State Machine, 20-Tool Milestones & Linear Flood (`Scripts/Core/`)**
   - [x] Implement `ToolCatalog.cs` (all 20 official `SM_Tool_*` tools unlocked via cumulative Rupiah milestones & purchased via `BuyTool` at Kopdes), `RiverTrashItem.cs`, and `RiverTrashSpawner.cs`.
   - [x] Implement linear `currentWaterLevelY = -0.25f + TotalTrashInRiver * 0.020f`, Overflow (`1.40m`), Sell-Lock (`1.85m`), `DumpCargoOnHighGround()`, Fatal Flood (`2.45m` -> `FloodFail`), `playerHealth` (`HealthFail`), Monsoon countdown win & `0%` Gunung Sampah win, and ~10 Hz throttled `NotifyState()`.
   - [x] Broadcast `Shader.SetGlobalFloat("_WaterClarity", waterClarity)` for Wesley's `SG_KaliWater`.
-  - [x] Implement 3-class pickup (`Normal`, `Medical` prick mitigated by `#10 Capitan Ular`, `Biohazard` cargo DoT), 3 dedicated stations (`DiscardWasteAtStation` / `DiscardAllAtStation` with wrong-station fines) vs `SellAllAtPengepul`, `BuyKampungBins()`, `BuyUpgrade()`, `TriggerEmergencyFlush()`, and `F9 + 1..4` Stage Jumps.
+  - [x] Implement 3-class pickup (`Normal`, `Medical` prick mitigated by `#10 Capitan Ular`, `Biohazard` cargo DoT), 3 dedicated stations (`DiscardWasteAtStation` / `DiscardAllAtStation` with wrong-station fines) vs `SellAllAtPengepul`, `BuyKampungBins()`, `BuyUpgrade()`, `TriggerEmergencyFlush()`, and stage jumps (removed).
 - [x] **Task 2: River Math & `+Z` Downstream Buoyancy (`Scripts/Core/RiverFlowBuoyancy.cs`)**
   - [x] Define `RiverMath` (`WorldW = 1040`, `WorldH = 1440`, `MapScale = 0.125` = `130m × 180m`).
   - [x] Flip drift toward **`+Z`** from upstream `-Z` `Gunung Sampah` toward downstream `+Z` `Pintu Air` barrier, dynamically tracking `currentWaterLevelY` + `GunungNodeController` bottom-anchored scaling.
@@ -72,7 +72,7 @@
   - **Scope**: *In* = Ivan's C# core/player/QA scripts, `kali-river-map.json`, `tools/play-3d.html`, and C# event hooks for Niki. *Out* = direct edits to Niki's `UI/**` prefabs/controllers (handoff contracts only).
   - **P0 — Fail & Retry Loop (Eliminate Hard-Locks & Accidental Loss)**:
     - [x] Add `RiverGameManager.RestartRun()` resetting all gameplay/SDG/audit counters, water level, cargo, `GunungNodeController` nodes, active/piled trash, spawner, `Time.timeScale = 1f`, and player/boat spawn transform; bind `[R]` instant retry hotkey when `activeEnding != GameEnding.None` and expose `RestartRun()` callback for Niki's `Canvas_SDGImpactReport`.
-    - [x] Fix `ResetStageState()` (`F9`) to reset all run metrics (`recycledKg`, `flushedKg`, `totalScooped`, `medicalWasteSecured`, `biohazardWasteSecured`, `infectionIncidents`, `wrongDiscardCount`, `totalFinesPaid`, `pengepulHazardDumped`, `communityTrust`).
+    - [x] Fix `ResetStageState()` (formerly a stage-jump reset, removed) to reset all run metrics (`recycledKg`, `flushedKg`, `totalScooped`, `medicalWasteSecured`, `biohazardWasteSecured`, `infectionIncidents`, `wrongDiscardCount`, `totalFinesPaid`, `pengepulHazardDumped`, `communityTrust`).
     - [x] Guard `TriggerEmergencyFlush()` (`Shift + X` in `KaliPlayerController.cs` + button in `play-3d.html`) behind `IsSellLocked` (`waterY >= 1.85m`) AND a `1.5s` hold or 2-step confirmation check so calm-weather misclicks cannot end a run.
     - [x] Split `300s` Monsoon survival from `TrueSdgVictory` (require `gunungSampahHealth <= 0.01f` for `TrueSdgVictory`; `300s` survival with Gunung intact triggers `PartialSurvival` / partial-win state) to prevent AFK-camping exploits.
     - [x] Add `EndingDiagnosis` (exact cause-of-death + 1-line counterplay tip) to `OnEndingTriggered` payload; in `tools/play-3d.html`, replace `window.location.reload()` with fast in-place `resetGame()` skipping `#introModal`, fix `rawDt` → `dt` movement leak while modals are open, and add `"Lihat Sungai"` fail inspection toggle.
@@ -114,10 +114,10 @@
   - **P0 — Broken HUD Wiring & Missing UI (Niki Handoff / `UI/`)**:
     - [ ] **Wire `Img_Hatch45Fill` (`Gunung Sampah`)**: scale via `RectMask2D` over tiled `RawImage` driven by `gunungSampahHealth` (currently static 100%) and widen `Box_Cleared` (`132px` -> full label width) so `"GUNUNG SAMPAH"` never spills onto hatch.
     - [ ] **Fix `Strip_BiohazardTimer` (`KaliHudController.cs` L385-397, `KaliHudPrefabBuilder.cs` L178-195)**: replace 24.4× stretched `Image.Type.Filled` with tiled `RawImage` + `RectMask2D`; add `"BIOHAZARD · KE KARANTINA (K)"` label; when `IsBiohazardDotActive == true` (`grace == 0`), keep bar visible in active `"PAPARAN AKTIF!"` state instead of hiding at `fillAmount = 0` / `"0s"`.
-    - [ ] **Wire `OnHazardOrAlert(string msg, bool isAlert)` (`KaliHudController.cs` L217-220)**: stop dropping payload; render medical pricks (`-18 HP`), wrong-station fines, Sell-Lock, `#13` dredge blocks, and `F9` prompts in a contextual alert strip.
+    - [ ] **Wire `OnHazardOrAlert(string msg, bool isAlert)` (`KaliHudController.cs` L217-220)**: stop dropping payload; render medical pricks (`-18 HP`), wrong-station fines, Sell-Lock, and `#13` dredge blocks in a contextual alert strip.
     - [ ] **Fix `BC_StationDockSheet` (`KaliHudController.cs` L223-258)**: hide `[1][2][3]` discard keys at `Koperasi Desa (Kopdes)` and `Dermaga` (`[E] Buka Kopdes`, `[E] Turun/Naik Sungai`); add cleared `#F4F2EC` vellum box behind `DENDA` text & switch `#F43F5E` -> `#B50E6F`; sync `player.HasNearbyHub` immediately inside `TrySubscribePlayer()`.
     - [ ] **Fix minimap coordinate alignment (`HudMapLayout.cs` L13-30)**: match `MapJsonImporter.cs` L465 `(item.x, item.y)` origins (removes `+34..+48` map-unit pin drift and `+87.5` unit / `~11m` Dam marker offset).
-    - [ ] **Fix `Canvas_SDGImpactReport` (`SdgImpactReportController.cs`)**: add `GraphicRaycaster` + `[Main Lagi]` button wired to `RiverGameManager.RestartRun()`; auto-hide modal when `activeEnding == GameEnding.None` (fixes stuck overlay on `F9` reset); enable word wrap on `TMP_EndingBody` (stops horizontal overflow); fix `2px` gap between `Row_6` and `TMP_Sdg63`; add `Rupiah`, `Tools Unlocked / 20`, and `Infection Pricks` parity.
+    - [ ] **Fix `Canvas_SDGImpactReport` (`SdgImpactReportController.cs`)**: add `GraphicRaycaster` + `[Main Lagi]` button wired to `RiverGameManager.RestartRun()`; auto-hide modal when `activeEnding == GameEnding.None` (fixes stuck overlay on reset); enable word wrap on `TMP_EndingBody` (stops horizontal overflow); fix `2px` gap between `Row_6` and `TMP_Sdg63`; add `Rupiah`, `Tools Unlocked / 20`, and `Infection Pricks` parity.
     - [ ] **Build missing `Canvas_ShopBankSampah.prefab` + `KaliShopController.cs`** (`Sort Order = 20`, with `GraphicRaycaster`): subscribe to `KaliPlayerController.OnShopRequested` so `Koperasi Desa (Kopdes)` stops silent auto-buying.
     - [ ] **Queue `OnToolUnlocked` toasts & fix clipping**: add FIFO toast queue so multi-tool milestone unlocks never overwrite each other; enable word wrap/ellipsis on `TMP_ToastText` (fixes `#19 Penebas Gergaji Ganda · BISA KERUK` overflow).
   - **P1 — Unity 2022.3 URP uGUI Framework & Performance Hygiene (Niki Handoff / `UI/`)**:
@@ -137,11 +137,11 @@
 
 ### Priority 2: Environment, Trash & Shop Integration (Setelah Prefab Tim Masuk)
 - [ ] **Task 5: Prefab & Shader Wiring (`MapJsonImporter.cs`, `Main.unity`)**: wire Wesley's `SM_Env_*` + `SG_KaliWater` + 3 Station colliders, JC's remaining trash + `SM_Trash_BiohazardDrum` + `PF_LightingRig`, and Niki's `Canvas_ShopBankSampah` + `Audio/`. Shop hook ready: `KaliPlayerController.OnShopRequested` (fires on `[E]` at `Koperasi Desa / Kopdes`; explicit `[1-4]` Kopdes fallback when no UI subscribes), `RiverGameManager.KampungBinsCost` / `GetUpgradeCost(UpgradeTier)` / `IsToolUnlocked(int)` / `IsToolOwned(int)` / `BuyTool(int)` / `SelectTool(int)`.
-- [x] **Task 5A: Core wiring hardening**: free-cam gates on station keys + Shift+X, scoop falls through to pile/Gunung when nothing scooped, R monsoon toggle demo-gated (F9 armed), F9 stage jumps clear live trash, deterministic Tick(dt) for QA, spawner collider fitted to mesh, Pintu Air pile trigger spans full water range, deterministic trash clusters, terrain MeshCollider, prefab hitbox proportionality QA. Play Mode verified at 1280x720 after Kopdes/Dermaga merge: 5 hubs resolve (Kopdes shop event, no spend), Dermaga Awal board/disembark, on-foot river guard blocks 30.5m step, scoop -> Pengepul sell, gravity single-applied (duplicate HandleMove block removed), 0 console errors.
+- [x] **Task 5A: Core wiring hardening**: free-cam gates on station keys + Shift+X, scoop falls through to pile/Gunung when nothing scooped, R monsoon toggle demo-gated (removed), stage jumps (removed) clear live trash, deterministic Tick(dt) for QA, spawner collider fitted to mesh, Pintu Air pile trigger spans full water range, deterministic trash clusters, terrain MeshCollider, prefab hitbox proportionality QA. Play Mode verified at 1280x720 after Kopdes/Dermaga merge: 5 hubs resolve (Kopdes shop event, no spend), Dermaga Awal board/disembark, on-foot river guard blocks 30.5m step, scoop -> Pengepul sell, gravity single-applied (duplicate HandleMove block removed), 0 console errors.
 - [ ] **Task 5B: Ponytail Codebase Trim (C#, Packages, Tools & Docs)**
   - [ ] **Unity C# (`Scripts/`)**:
     - [ ] `native` (`~179L`): pick one Unity input API and delete dual `#if ENABLE_INPUT_SYSTEM` / `ENABLE_LEGACY_INPUT_MANAGER` shims + `KeyAction` enum (`KaliPlayerController.cs`, `RiverGameManager.cs`).
-    - [ ] `shrink` (`~62L`): merge `DiscardSingleAtPengepul`/`SellAllAtPengepul` into `DiscardAtPengepul(WasteClass?)` + 4-row `F9` stage config table (`RiverGameManager.cs`).
+    - [ ] `shrink` (`~62L`): merge `DiscardSingleAtPengepul`/`SellAllAtPengepul` into `DiscardAtPengepul(WasteClass?)` (`RiverGameManager.cs`).
     - [ ] `shrink` (`~55L`): share one `Renderer.bounds` & fallback trash primitive helper across `MapJsonImporter.cs` and `RiverTrashSpawner.cs`.
     - [ ] `delete` (`~47L`): remove dead `BuildSplitBanksAndRiver` greybox terrain fallback in `MapJsonImporter.cs` (`SM_Env_RiverValleyTerrain.fbx` shipped).
     - [ ] `delete` (`~43L`): delete zero-caller legacy APIs (`TryAddCargo`, `SecureMedicalWaste`, `DumpAtBurnPit`, `SellAtBankSampah`, `UnlockSandboxDemo`, `galahUnlocked`/`Galah4m`, `ToolCatalog.IsSnakeGrabber`).
@@ -155,12 +155,12 @@
     - [ ] `shrink` (`~76+L`): consolidate overlapping onboarding docs (`CLAUDE.md`, `docs/NIKI_UNITY_QUICKSTART.md`, repeated team tables) into `AGENTS.md` / `PRD.md` / `ARCHITECTURE.md` / `DESIGN.md`.
     - [ ] Coordinate with JC/Wesley on `blender/` cuts (`~604L`): hoist duplicated mesh helpers (`_add/_cyl/_seg/_box/_torus/_cone/_ball/_disc_y/_recentre`) into `tools_common.py`, fold `qa_spec_check.py` into `test_export.py`, use `mathutils.Vector` in `excavator_mesh.py`, make `head_dir` optional in `tools_common.assemble()`, remove 13 unused imports.
 
-### Priority 3: Sidang F9 Verification, Build & ALP Report
-- [ ] **Task 6: Academic ALP Report & Sidang Defense Prep**: `F9` stage screenshots (`1..4`), WebGL/PlayMode verification, and final ALP Report.
+### Priority 3: Sidang Demo Verification, Build & ALP Report
+- [ ] **Task 6: Academic ALP Report & Sidang Defense Prep**: demo screenshots (`T` time-of-day states), WebGL/PlayMode verification, and final ALP Report.
 
 ---
 
 ## 3. Verification & Live Sidang Talking Points
 - Explain **Beer-Lambert turbidity interpolation** (`_WaterClarity` global float driving shader opacity/absorption).
 - Explain **`RiverMath` spline projection** (`CenterX` sinusoid, bridge chokepoint compression, `2.2x` monsoon current multiplier).
-- Demonstrate live **`F9 + 1..4`** stage jumps cleanly in 3 minutes without fumbles.
+- Demonstrate the live demo flow (**`T`** time-of-day cycle) cleanly in 3 minutes without fumbles.
