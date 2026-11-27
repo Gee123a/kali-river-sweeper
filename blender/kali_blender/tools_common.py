@@ -287,13 +287,16 @@ def write_atlas_images(specs, out_dir, files=ATLAS_FILES):
     albedo[..., :3] = 0.5
     normal = np.zeros((n, n, 4), dtype=np.float32); normal[...] = (0.5, 0.5, 1.0, 1.0)
     mask = np.zeros((n, n, 4), dtype=np.float32); mask[...] = (0.0, 1.0, 0.0, 0.3)
+    emission = np.zeros((n, n, 4), dtype=np.float32); emission[..., 3] = 1.0   # only written if files has "emission"
     for spec in specs:
-        for s, (hexstr, metal, smooth) in enumerate(spec["palette"]):
+        for s, (hexstr, metal, smooth, *glow) in enumerate(spec["palette"]):
             u0, v0, u1, v1 = swatch_rect(spec["index"], s, margin=False)
             x0, x1 = int(math.floor(u0 * n)), int(math.ceil(u1 * n))
             y0, y1 = int(math.floor(v0 * n)), int(math.ceil(v1 * n))   # numpy row 0 = bottom (Blender)
             albedo[y0:y1, x0:x1, :3] = _srgb(hexstr)
             mask[y0:y1, x0:x1] = (metal, 1.0, 0.0, smooth)
+            if glow and glow[0]:   # optional 4th palette value: swatch glows (white emission mask, tinted in Unity)
+                emission[y0:y1, x0:x1, :3] = 1.0
         art = spec.get("label_art")
         if art:   # printed label (brand art + wear) in the bottom rows of the cell
             from kali_blender import labels
@@ -306,8 +309,10 @@ def write_atlas_images(specs, out_dir, files=ATLAS_FILES):
             mask[y0:y1, x0:x1, 2] = 0.0
             mask[y0:y1, x0:x1, 3] = lab["smooth"]
     paths = {}
-    for key, arr, colorspace in (("albedo", albedo, "sRGB"), ("normal", normal, "Non-Color"),
-                                 ("mask", mask, "Non-Color")):
+    maps = [("albedo", albedo, "sRGB"), ("normal", normal, "Non-Color"), ("mask", mask, "Non-Color")]
+    if "emission" in files:
+        maps.append(("emission", emission, "sRGB"))
+    for key, arr, colorspace in maps:
         name = files[key]
         img = bpy.data.images.get(name) or bpy.data.images.new(name, n, n, alpha=True)
         img.colorspace_settings.name = colorspace

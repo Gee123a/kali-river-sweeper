@@ -253,6 +253,23 @@ for k, fn in pc.ATLAS_FILES.items():
     if ok:
         img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
     check(ok, f"product atlas {fn} 2048x2048")
+# ------------------------------------------------ lighting equipment (lantern, beacon, rotor; origin on the mount)
+from kali_blender import equipment_common as ec
+for name in ec.EQUIPMENT_MODULES:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    try:
+        mod = ec.load_equipment_module(name); obj = ec.build_equipment(name)
+        check(not ec.validate_equipment(obj, mod.SPEC), f"equipment {name} validate {ec.validate_equipment(obj, mod.SPEC)} tris={tc.tri_count(obj)}")
+    except Exception as e:
+        check(False, f"equipment {name} builds ({e})"); continue
+    f = os.path.join(REPO, ec.FBX_DIR, mod.SPEC["name"] + ".fbx")
+    check(os.path.exists(f), f"equipment FBX {os.path.basename(f)} exists")
+for k, fn in ec.ATLAS_FILES.items():
+    p = os.path.join(REPO, ec.TEX_DIR, fn)
+    ok = os.path.exists(p)
+    if ok:
+        img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
+    check(ok, f"equipment atlas {fn} 2048x2048")
 check(not os.path.exists(os.path.join(REPO, "unity/Assets/_Project/Art")), "no stale outputs under Art/ (JC folders are Props/, Rigging/)")
 print(f"\n{len(fails)} FAIL(s)")
 sys.exit(1 if fails else 0)
