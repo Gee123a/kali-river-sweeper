@@ -29,6 +29,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: M_Env_BetonPutih
     second: {fileID: 2100000, guid: 9f703b693388a4dadb5a39d453342d6f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Env_PapanUmum
+    second: {fileID: 2100000, guid: d9da3fdd7d7b040f1a711c67bdc7580c, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

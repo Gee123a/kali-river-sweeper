@@ -9,6 +9,7 @@ Placement contract (MapJsonImporter): pivot = node "Pintu Air Siaga 1" at map (4
 PF_WarningBeacon_PintuAir on (bounds.center.x, bounds.max.y, bounds.center.z), so the
 mesh is symmetric around the river axis and the highest surface is the flat yellow roof.
 """
+from wesley_env import papan_mesh as pm
 from wesley_env.meshkit import MeshKit
 from wesley_env.terrain import MAP_SCALE, WORLD_H, WORLD_W, center_map_x, half_width_map
 
@@ -17,14 +18,17 @@ NODE_MAP_X, NODE_MAP_Y = 465.0, 1390.0
 BED_Y = -2.0
 TRI_BUDGET = (2000, 3000)
 
-STONE, CONCRETE, BLUE, YELLOW, DARK = range(5)
+STONE, CONCRETE, BLUE, YELLOW, DARK, PAPAN = range(6)
 MATERIALS = (
     ("M_Env_BatuKali", (0.55, 0.55, 0.53, 1.0)),
     ("M_Env_BetonPutih", (0.86, 0.86, 0.83, 1.0)),
     ("M_Env_BesiBiru", (0.13, 0.36, 0.78, 1.0)),
     ("M_Env_AtapKuning", (0.95, 0.74, 0.16, 1.0)),
     ("M_Env_BesiGelap", (0.20, 0.21, 0.23, 1.0)),
+    ("M_Env_PapanUmum", (0.12, 0.33, 0.67, 1.0)),
 )
+UV_NAME = pm.px(0, 0, 1024, 160)        # "PINTU AIR" board in T_Env_PapanUmum (papan.py)
+UV_EDGE = pm.px(800, 800, 1000, 1000)
 
 
 def river_frame():
@@ -119,6 +123,10 @@ def build():
     k.box(cx - span - 0.65, cx + span + 0.65, 7.45, 7.6, 1.6, 1.75, YELLOW)
     k.box(cx - span - 0.65, cx - span - 0.5, 7.45, 7.6, -1.6, 1.6, YELLOW)
     k.box(cx + span + 0.5, cx + span + 0.65, 7.45, 7.6, -1.6, 1.6, YELLOW)
+
+    # name boards hung under the portal beam, facing upstream (-Z) and downstream (+Z)
+    pm.board(k, cx - 4.1, cx + 4.1, 5.7, 6.98, -0.52, -0.44, PAPAN, "-z", UV_NAME, UV_EDGE)
+    pm.board(k, cx - 4.1, cx + 4.1, 5.7, 6.98, 0.44, 0.52, PAPAN, "+z", UV_NAME, UV_EDGE)
 
     ob = k.build(NAME, MATERIALS)
     return ob
