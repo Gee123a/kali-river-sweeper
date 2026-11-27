@@ -20,7 +20,44 @@ namespace KaliRiverSweeper.Core
         FloodFail,
         CompromisedOceanFlush,
         TrueSdgVictory,
-        HealthFail
+        HealthFail,
+        PartialSurvival
+    }
+
+    public readonly struct StationAuditReceipt
+    {
+        public readonly DiscardStationType Station;
+        public readonly bool IsPass;
+        public readonly string Summary;
+        public readonly int RupiahDelta;
+        public readonly int TrustDelta;
+
+        public StationAuditReceipt(DiscardStationType station, bool isPass, string summary, int rupiahDelta, int trustDelta)
+        {
+            Station = station;
+            IsPass = isPass;
+            Summary = summary;
+            RupiahDelta = rupiahDelta;
+            TrustDelta = trustDelta;
+        }
+    }
+
+    public readonly struct SdgScorecard
+    {
+        public readonly string Rank;
+        public readonly bool Sdg63Pass;
+        public readonly bool Sdg115Pass;
+        public readonly bool Sdg141Pass;
+        public readonly string Summary;
+
+        public SdgScorecard(string rank, bool sdg63Pass, bool sdg115Pass, bool sdg141Pass, string summary)
+        {
+            Rank = rank;
+            Sdg63Pass = sdg63Pass;
+            Sdg115Pass = sdg115Pass;
+            Sdg141Pass = sdg141Pass;
+            Summary = summary;
+        }
     }
 
     public class RiverGameManager : MonoBehaviour
@@ -44,6 +81,7 @@ namespace KaliRiverSweeper.Core
         public int infectionIncidents;
         public int wrongDiscardCount;
         public int totalFinesPaid;
+        public int unpaidFineDebt;
         public int pengepulHazardDumped;
 
         [Header("Player Health & Hazards")]
@@ -86,6 +124,7 @@ namespace KaliRiverSweeper.Core
         public bool demoHotkeysArmed;
         public GameEnding activeEnding = GameEnding.None;
         public string lastStatusMessage = "Kumpulkan sampah dari sungai & jual ke stasiun yang tepat.";
+        public string LastEndingDiagnosis { get; private set; } = string.Empty;
 
         public int TotalTrashInRiver => Mathf.Max(0, activeRiverTrashCount) + Mathf.Max(0, piledRiverTrashCount);
         public bool IsBankOverflowing => currentWaterLevelY >= bankOverflowWaterY;
@@ -95,6 +134,8 @@ namespace KaliRiverSweeper.Core
         public ToolDefinition EquippedTool => ToolCatalog.GetTool(equippedToolIndex);
         public int SiagaLevel => floodPressure >= 0.85f ? 1 : floodPressure >= 0.60f ? 2 : floodPressure >= 0.35f ? 3 : 4;
         public bool IsDemoHotkeyBusy => demoHotkeysArmed || demoJumpConsumedFrame == Time.frameCount;
+        public bool IsTrustAuditPenaltyActive => isTrustAuditPenaltyActive;
+        public bool IsTrustTrustedBonusActive => communityTrust >= 70;
 
         // Backwards-compatible events for Niki's UI & VFX
         public event Action OnStateChanged;
@@ -107,11 +148,15 @@ namespace KaliRiverSweeper.Core
         public event Action<ToolDefinition> OnToolUnlocked;
         public event Action<ToolDefinition> OnEquippedToolChanged;
         public event Action<string, bool> OnHazardOrAlert;
+        public event Action<StationAuditReceipt> OnStationAuditReceipt;
+        public event Action<GameEnding, string> OnEndingWithDiagnosisTriggered;
 
         private float boomTimer;
         private bool stateDirty;
         private float notifyThrottleTimer;
         private int demoJumpConsumedFrame = -1;
+        private bool isTrustAuditPenaltyActive;
+        private float nextEmergencyTriageTime;
         private const float NotifyIntervalSeconds = 0.10f; // ~10 Hz throttle for Update ticks
         private const int MaxVisualBarrierProps = 22;
 
@@ -152,8 +197,16 @@ namespace KaliRiverSweeper.Core
 
                 if (monsoonCountdownRemaining <= 0f)
                 {
-                    RaiseAlert("Badai Monsun berhasil dilewati! Sungai & desa selamat.", false);
-                    TriggerEnding(GameEnding.TrueSdgVictory);
+                    if (gunungSampahHealth <= 0.01f)
+                    {
+                        RaiseAlert("Badai Monsun berhasil dilewati & Gunung Sampah bersih! Sungai & desa selamat.", false);
+                        CompleteCleanBreach();
+                    }
+                    else
+                    {
+                        RaiseAlert("Badai Monsun terlewati, tetapi Gunung Sampah masih tersisa! Keruk Gunung untuk Kemenangan SDG Penuh.", false);
+                        TriggerEnding(GameEnding.PartialSurvival);
+                    }
                     return;
                 }
             }
@@ -302,34 +355,48 @@ namespace KaliRiverSweeper.Core
             return true;
         }
 
+        public float GetEffectiveMedicalPrickChance()
+        {
+            if (highestUnlockedToolIndex >= ToolCatalog.SnakeGrabberIndex) return 0f;
+            return EquippedTool.MedicalPrickChance;
+        }
+
         private void ApplyCargoGainAndMedicalCheck(WasteClass wasteClass, int added)
         {
             switch (wasteClass)
             {
                 case WasteClass.Medical:
                     medicalCargo += added;
-                    ToolDefinition tool = EquippedTool;
-                    for (int i = 0; i < added; i++)
-                    {
-                        if (UnityEngine.Random.value < tool.MedicalPrickChance)
-                        {
-                            infectionIncidents++;
-                            ApplyPlayerDamage(medicalPrickDamage, notifyImmediate: false);
-                            RaiseAlert($"Tertusuk limbah medis! (-{medicalPrickDamage:0} HP) Gunakan #10 Capitan Ular!", true);
-                        }
-                    }
                     break;
                 case WasteClass.Biohazard:
                     biohazardCargo += added;
-                    RaiseAlert($"Biohazard Radioaktif di kargo ({biohazardCargo})! Bawa ke Karantina sebelum DoT!", true);
                     break;
                 default:
                     normalCargo += added;
                     break;
             }
 
+            // Update cargo counts BEFORE firing alerts/damage so HUD never sees stale totals
             totalScooped += added;
             SyncCargoTotal();
+
+            if (wasteClass == WasteClass.Medical)
+            {
+                float prickChance = GetEffectiveMedicalPrickChance();
+                for (int i = 0; i < added; i++)
+                {
+                    if (prickChance > 0f && UnityEngine.Random.value < prickChance)
+                    {
+                        infectionIncidents++;
+                        ApplyPlayerDamage(medicalPrickDamage, notifyImmediate: false);
+                        RaiseAlert($"Tertusuk limbah medis! (-{medicalPrickDamage:0} HP) Gunakan #10 Capitan Ular!", true);
+                    }
+                }
+            }
+            else if (wasteClass == WasteClass.Biohazard)
+            {
+                RaiseAlert($"Biohazard Radioaktif di kargo ({biohazardCargo})! Bawa ke Karantina sebelum DoT!", true);
+            }
         }
 
         public bool SecureMedicalWaste(bool usingSnakeGrabber)
@@ -348,17 +415,79 @@ namespace KaliRiverSweeper.Core
             return false;
         }
 
+        public bool TryEmergencyPosMedisTriage()
+        {
+            if (activeEnding != GameEnding.None) return false;
+            if (playerHealth >= maxPlayerHealth) return false;
+            if (Time.unscaledTime < nextEmergencyTriageTime) return false;
+
+            nextEmergencyTriageTime = Time.unscaledTime + 8f;
+            playerHealth = Mathf.Min(maxPlayerHealth, playerHealth + 10f);
+            RaiseAlert("Triase Darurat Pos Medis B3: +10 HP (Rp 0 saat Sell-Lock).", false);
+            NotifyState();
+            return true;
+        }
+
+        private static WasteClass GetLegalWasteClassForStation(DiscardStationType station) => station switch
+        {
+            DiscardStationType.PosMedisB3 => WasteClass.Medical,
+            DiscardStationType.KarantinaBiohazard => WasteClass.Biohazard,
+            _ => WasteClass.Normal
+        };
+
+        /// <summary>
+        /// Safe [E] station interaction: deposits ONLY the legal matching waste class at Bank Sampah / Pos Medis / Karantina
+        /// with zero accidental fines. At Gudang Pengepul, sells all held cargo.
+        /// </summary>
+        public int DiscardLegalAtStation(DiscardStationType station)
+        {
+            if (activeEnding != GameEnding.None) return 0;
+            if (IsSellLocked)
+            {
+                if (station == DiscardStationType.PosMedisB3 && TryEmergencyPosMedisTriage())
+                {
+                    return 0;
+                }
+                RaiseAlert("SELL-LOCK! Stasiun terendam banjir. Tahan [Q] untuk buang kargo di daratan tinggi!", true);
+                return 0;
+            }
+
+            if (station == DiscardStationType.GudangPengepul)
+            {
+                return SellAllAtPengepul();
+            }
+
+            WasteClass legalClass = GetLegalWasteClassForStation(station);
+            int qty = GetCargoForClass(legalClass);
+            if (qty <= 0)
+            {
+                if (station == DiscardStationType.PosMedisB3 && TryEmergencyPosMedisTriage())
+                {
+                    return 0;
+                }
+                RaiseAlert($"Tidak ada limbah {legalClass} di kargo untuk {station}.", false);
+                NotifyState();
+                return 0;
+            }
+
+            return DiscardWasteAtStation(station, legalClass);
+        }
+
         /// <summary>
         /// Discards a single waste class at the target station.
         /// Proper station yields full Rupiah & trust; wrong station incurs a Rupiah fine & trust penalty.
-        /// Blocked during Sell-Lock.
+        /// Blocked during Sell-Lock (except Pos Medis B3 emergency triage).
         /// </summary>
         public int DiscardWasteAtStation(DiscardStationType station, WasteClass wasteClass)
         {
             if (activeEnding != GameEnding.None) return 0;
             if (IsSellLocked)
             {
-                RaiseAlert("SELL-LOCK! Stasiun terendam banjir. Tekan [Q] untuk buang kargo di daratan tinggi!", true);
+                if (station == DiscardStationType.PosMedisB3 && TryEmergencyPosMedisTriage())
+                {
+                    return 0;
+                }
+                RaiseAlert("SELL-LOCK! Stasiun terendam banjir. Tahan [Q] untuk buang kargo di daratan tinggi!", true);
                 return 0;
             }
 
@@ -387,10 +516,25 @@ namespace KaliRiverSweeper.Core
                     WasteClass.Biohazard => 14000,
                     _ => 4000
                 };
-                int payout = qty * rate;
-                AddEarnings(payout);
+                int basePayout = qty * rate;
+                UpdateTrustAuditState();
+                float trustMult = communityTrust >= 70 ? 1.15f : (isTrustAuditPenaltyActive ? 0.75f : 1.0f);
+                int grossPayout = Mathf.RoundToInt(basePayout * trustMult);
+
+                int debtPaid = 0;
+                if (unpaidFineDebt > 0)
+                {
+                    debtPaid = Mathf.Min(unpaidFineDebt, grossPayout);
+                    unpaidFineDebt -= debtPaid;
+                    totalFinesPaid += debtPaid;
+                }
+                int netPayout = grossPayout - debtPaid;
+                AddEarnings(netPayout);
                 recycledKg += qty * 5;
-                communityTrust = Mathf.Min(100, communityTrust + qty * 4);
+                int trustGain = qty * 4;
+                int prevTrust = communityTrust;
+                communityTrust = Mathf.Min(100, communityTrust + trustGain);
+                UpdateTrustAuditState();
 
                 if (wasteClass == WasteClass.Medical)
                 {
@@ -403,9 +547,13 @@ namespace KaliRiverSweeper.Core
                     biohazardExposureTimer = 0f;
                 }
 
-                RaiseAlert($"Setor {qty}x {wasteClass} bersih: +Rp {payout:N0}", false);
+                string modTag = debtPaid > 0 ? $" (potong utang denda Rp {debtPaid:N0})" :
+                    (trustMult > 1.01f ? " (Bonus Terpercaya +15%)" : (trustMult < 0.99f ? " (Penalti Sidak DLH -25%)" : string.Empty));
+                string msg = $"Setor {qty}x {wasteClass} bersih: +Rp {netPayout:N0}{modTag}";
+                RaiseAlert(msg, false);
+                OnStationAuditReceipt?.Invoke(new StationAuditReceipt(station, true, "LOLOS SORTIR", netPayout, communityTrust - prevTrust));
                 NotifyState();
-                return payout;
+                return netPayout;
             }
 
             int finePerItem = wasteClass switch
@@ -415,15 +563,24 @@ namespace KaliRiverSweeper.Core
                 _ => 2500
             };
             int fine = qty * finePerItem;
-            rupiah = Mathf.Max(0, rupiah - fine);
-            totalFinesPaid += fine;
+            int paidNow = Mathf.Min(rupiah, fine);
+            int shortfall = fine - paidNow;
+            rupiah -= paidNow;
+            totalFinesPaid += paidNow;
+            unpaidFineDebt += shortfall;
             wrongDiscardCount += qty;
-            int trustLoss = qty * (wasteClass == WasteClass.Biohazard ? 12 : (wasteClass == WasteClass.Medical ? 8 : 4));
+
+            int extraDebtTrustLoss = shortfall > 0 ? Mathf.Max(2, shortfall / 5000 * 2) : 0;
+            int trustLoss = qty * (wasteClass == WasteClass.Biohazard ? 12 : (wasteClass == WasteClass.Medical ? 8 : 4)) + extraDebtTrustLoss;
+            int oldTrust = communityTrust;
             communityTrust = Mathf.Max(0, communityTrust - trustLoss);
+            UpdateTrustAuditState();
 
             if (wasteClass == WasteClass.Biohazard) biohazardExposureTimer = 0f;
 
-            RaiseAlert($"SALAH STASIUN ({wasteClass} -> {station})! Denda Rp {fine:N0} (-{trustLoss} Trust)", true);
+            string debtNote = shortfall > 0 ? $" | Utang Denda +Rp {shortfall:N0}" : string.Empty;
+            RaiseAlert($"SALAH STASIUN ({wasteClass} -> {station})! Denda Rp {fine:N0}{debtNote} (-{trustLoss} Trust)", true);
+            OnStationAuditReceipt?.Invoke(new StationAuditReceipt(station, false, "PELANGGARAN B3", -paidNow, communityTrust - oldTrust));
             NotifyState();
             return -fine;
         }
@@ -469,13 +626,17 @@ namespace KaliRiverSweeper.Core
             {
                 int trustPenalty = qty * (wasteClass == WasteClass.Biohazard ? 12 : 8);
                 pengepulHazardDumped += qty;
+                int prevTrust = communityTrust;
                 communityTrust = Mathf.Max(0, communityTrust - trustPenalty);
+                UpdateTrustAuditState();
                 if (wasteClass == WasteClass.Biohazard) biohazardExposureTimer = 0f;
                 RaiseAlert($"Jual {qty}x {wasteClass} ke Pengepul: +Rp {payout:N0} (Penalti -{trustPenalty} Trust!)", true);
+                OnStationAuditReceipt?.Invoke(new StationAuditReceipt(DiscardStationType.GudangPengepul, false, "PELANGGARAN B3", payout, communityTrust - prevTrust));
             }
             else
             {
                 RaiseAlert($"Jual {qty}x Normal ke Pengepul: +Rp {payout:N0}", false);
+                OnStationAuditReceipt?.Invoke(new StationAuditReceipt(DiscardStationType.GudangPengepul, true, "LOLOS SORTIR", payout, 0));
             }
 
             NotifyState();
@@ -487,7 +648,7 @@ namespace KaliRiverSweeper.Core
             if (activeEnding != GameEnding.None) return 0;
             if (IsSellLocked)
             {
-                RaiseAlert("SELL-LOCK! Stasiun terendam banjir. Tekan [Q] untuk buang kargo di daratan tinggi!", true);
+                RaiseAlert("SELL-LOCK! Stasiun terendam banjir. Tahan [Q] untuk buang kargo di daratan tinggi!", true);
                 return 0;
             }
             if (cargoCount <= 0) return 0;
@@ -506,12 +667,16 @@ namespace KaliRiverSweeper.Core
             if (hazardQty > 0)
             {
                 pengepulHazardDumped += hazardQty;
+                int prevTrust = communityTrust;
                 communityTrust = Mathf.Max(0, communityTrust - trustPenalty);
+                UpdateTrustAuditState();
                 RaiseAlert($"Pengepul borong semua: +Rp {payout:N0} (Penalti -{trustPenalty} Trust karena limbah B3/Biohazard!)", true);
+                OnStationAuditReceipt?.Invoke(new StationAuditReceipt(DiscardStationType.GudangPengepul, false, "PELANGGARAN B3", payout, communityTrust - prevTrust));
             }
             else
             {
                 RaiseAlert($"Pengepul borong semua: +Rp {payout:N0} (Harga murah)", false);
+                OnStationAuditReceipt?.Invoke(new StationAuditReceipt(DiscardStationType.GudangPengepul, true, "LOLOS SORTIR", payout, 0));
             }
 
             NotifyState();
@@ -567,7 +732,16 @@ namespace KaliRiverSweeper.Core
             };
         }
 
-        public bool IsToolUnlocked(int index) => index >= 0 && index <= highestUnlockedToolIndex;
+        public bool IsToolUnlocked(int index) => index >= 1 && index <= highestUnlockedToolIndex;
+
+        public bool IsUpgradeOwned(UpgradeTier tier) => tier switch
+        {
+            UpgradeTier.Galah4m => galahUnlocked,
+            UpgradeTier.WoodenSampan => sampanUnlocked,
+            UpgradeTier.TrashBoom => trashBoomActive,
+            UpgradeTier.AmphibiousExcavator => excavatorUnlocked,
+            _ => false
+        };
 
         public bool BuyKampungBins()
         {
@@ -575,6 +749,7 @@ namespace KaliRiverSweeper.Core
             rupiah -= KampungBinsCost;
             kampungBinsInstalled = true;
             communityTrust = Mathf.Min(100, communityTrust + 25);
+            UpdateTrustAuditState();
             RaiseAlert("Tempat Sampah Kampung terpasang! Sampah desa turun 60%.", false);
             NotifyState();
             return true;
@@ -582,12 +757,19 @@ namespace KaliRiverSweeper.Core
 
         public bool BuyUpgrade(UpgradeTier tier)
         {
+            if (IsUpgradeOwned(tier)) return false;
             int cost = GetUpgradeCost(tier);
             if (rupiah < cost) return false;
             rupiah -= cost;
             ApplyTier(tier);
             NotifyState();
             return true;
+        }
+
+        private void UpdateTrustAuditState()
+        {
+            if (communityTrust < 25) isTrustAuditPenaltyActive = true;
+            else if (communityTrust >= 30) isTrustAuditPenaltyActive = false;
         }
 
         public bool SelectTool(int toolIndex)
@@ -657,21 +839,37 @@ namespace KaliRiverSweeper.Core
             NotifyState();
         }
 
-        public void TriggerEmergencyFlush()
+        public bool TriggerEmergencyFlush(bool confirmed = false)
         {
-            if (activeEnding != GameEnding.None) return;
+            if (activeEnding != GameEnding.None) return false;
+            if (!IsSellLocked)
+            {
+                RaiseAlert("Emergency Flush hanya aktif saat banjir mencapai Sell-Lock (>= +1.85m).", true);
+                NotifyState();
+                return false;
+            }
+            if (!confirmed)
+            {
+                RaiseAlert("Tahan [Shift + X] selama 1.5 detik untuk konfirmasi Emergency Flush ke laut!", true);
+                NotifyState();
+                return false;
+            }
+
             flushedKg += Mathf.RoundToInt(gunungSampahHealth * 1200f) + TotalTrashInRiver * 5;
             gunungSampahHealth = 0f;
             activeRiverTrashCount = 0;
             piledRiverTrashCount = 0;
             RecalculateWaterMetrics();
             TriggerEnding(GameEnding.CompromisedOceanFlush);
+            return true;
         }
 
         public void CompleteCleanBreach()
         {
             if (activeEnding != GameEnding.None) return;
             gunungSampahHealth = 0f;
+            activeRiverTrashCount = 0;
+            piledRiverTrashCount = 0;
             waterClarity = 1f;
             floodPressure = 0.05f;
             currentWaterLevelY = BaseWaterLevelY;
@@ -787,9 +985,42 @@ namespace KaliRiverSweeper.Core
             }
         }
 
+        private static string BuildEndingDiagnosis(GameEnding ending) => ending switch
+        {
+            GameEnding.TrueSdgVictory => "Semua target SDG tercapai: Gunung Sampah berhasil dikeruk bersih tanpa membuang limbah ke laut. Pertahankan pemilahan di 3 stasiun!",
+            GameEnding.PartialSurvival => "Badai Monsun berhasil dilewati, tetapi Gunung Sampah masih tersisa. Buka Pindad Excavator (Rp 120rb) atau alat #13+ untuk mengeruk Gunung Sampah hingga 0%!",
+            GameEnding.CompromisedOceanFlush => "Pintu Air dibuka paksa saat krisis: desa selamat dari banjir, tetapi ribuan kg sampah mengalir ke laut. Turunkan level air lebih awal dengan Trash Boom & setoran rutin!",
+            GameEnding.FloodFail => "Tinggi air sungai melampaui +2.45m karena penumpukan sampah. Pasang Trash Boom / Kampung Bins dan tahan [Q] saat Sell-Lock!",
+            GameEnding.HealthFail => "HP habis akibat tusukan limbah medis atau paparan Biohazard >10 detik. Buka #10 Capitan Ular (Rp 80rb) & segera setor ke Pos Medis B3 / Karantina!",
+            _ => string.Empty
+        };
+
+        public SdgScorecard ComputeSdgScorecard()
+        {
+            bool sdg63 = waterClarity >= 0.55f && wrongDiscardCount <= 2 && pengepulHazardDumped == 0;
+            bool sdg115 = activeEnding != GameEnding.FloodFail && activeEnding != GameEnding.HealthFail && communityTrust >= 40;
+            bool sdg141 = activeEnding != GameEnding.CompromisedOceanFlush && flushedKg == 0 && gunungSampahHealth <= 0.01f;
+
+            int score = 0;
+            if (sdg63) score += 35;
+            else if (waterClarity >= 0.35f) score += 15;
+            if (sdg115) score += 30;
+            else if (activeEnding != GameEnding.FloodFail) score += 10;
+            if (sdg141) score += 35;
+            else if (flushedKg == 0) score += 15;
+
+            if (activeEnding == GameEnding.FloodFail || activeEnding == GameEnding.HealthFail) score = Mathf.Min(score, 35);
+            if (activeEnding == GameEnding.CompromisedOceanFlush) score = Mathf.Min(score, 55);
+
+            string rank = score >= 90 ? "S" : score >= 75 ? "A" : score >= 55 ? "B" : score >= 40 ? "C" : "F";
+            string summary = $"Rank {rank} | SDG 6.3: {(sdg63 ? "PASS" : "FAIL")} | SDG 11.5: {(sdg115 ? "PASS" : "FAIL")} | SDG 14.1: {(sdg141 ? "PASS" : "FAIL")}";
+            return new SdgScorecard(rank, sdg63, sdg115, sdg141, summary);
+        }
+
         private void TriggerEnding(GameEnding ending)
         {
             activeEnding = ending;
+            LastEndingDiagnosis = BuildEndingDiagnosis(ending);
             if (Application.isPlaying)
             {
                 Time.timeScale = 0f;
@@ -798,6 +1029,27 @@ namespace KaliRiverSweeper.Core
             }
             NotifyState();
             OnEndingTriggered?.Invoke(ending);
+            OnEndingWithDiagnosisTriggered?.Invoke(ending, LastEndingDiagnosis);
+        }
+
+        public void RestartRun()
+        {
+            ResetStageState(targetCumulativeRupiah: 0, targetRupiah: 0, targetToolIdx: 1,
+                galah: false, sampan: false, boom: false, bins: false, excavator: false, monsoon: false);
+            piledRiverTrashCount = 4;
+            monsoonCountdownRemaining = monsoonCountdownSeconds;
+            RestoreAllGunungNodes();
+            gunungSampahHealth = 1f;
+            RecalculateWaterMetrics();
+
+            RiverTrashSpawner spawner = FindObjectOfType<RiverTrashSpawner>();
+            if (spawner != null) spawner.ResetSpawnerState();
+
+            KaliRiverSweeper.Player.KaliPlayerController player = FindObjectOfType<KaliRiverSweeper.Player.KaliPlayerController>();
+            if (player != null) player.ResetToInitialSpawn();
+
+            RaiseAlert("Permainan diulang! Kumpulkan sampah dari sungai & setor ke stasiun yang tepat.", false);
+            NotifyState();
         }
 
         private void RaiseAlert(string msg, bool isDanger)
@@ -901,6 +1153,7 @@ namespace KaliRiverSweeper.Core
                 if (Application.isPlaying) Destroy(item.gameObject); else DestroyImmediate(item.gameObject); // edit-mode QA calls this too
             }
             if (Application.isPlaying) Time.timeScale = 1f;
+            LastEndingDiagnosis = string.Empty;
             SetWeather(monsoon);
             playerHealth = maxPlayerHealth;
             normalCargo = 0;
@@ -908,6 +1161,21 @@ namespace KaliRiverSweeper.Core
             biohazardCargo = 0;
             biohazardExposureTimer = 0f;
             SyncCargoTotal();
+
+            totalScooped = 0;
+            recycledKg = 0;
+            flushedKg = 0;
+            medicalWasteSecured = 0;
+            biohazardWasteSecured = 0;
+            infectionIncidents = 0;
+            wrongDiscardCount = 0;
+            totalFinesPaid = 0;
+            unpaidFineDebt = 0;
+            pengepulHazardDumped = 0;
+            communityTrust = 40;
+            isTrustAuditPenaltyActive = false;
+            boomTimer = 0f;
+            nextEmergencyTriageTime = 0f;
 
             cumulativeEarnings = targetCumulativeRupiah;
             rupiah = targetRupiah;

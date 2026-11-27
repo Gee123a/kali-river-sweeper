@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using KaliRiverSweeper.Core;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -32,6 +33,24 @@ namespace KaliRiverSweeper.Player
         public event Action<bool, DiscardStationType, bool, string> OnNearbyHubChanged;
         public event Action<bool, bool, string> OnNearbyDermagaChanged;
         public event Action OnShopRequested;
+        public event Action<bool> OnBoatStateChanged;
+        public event Action<bool> OnFreeCamStateChanged;
+        public event Action<bool, WasteClass, bool, float> OnAimTargetChanged;
+
+        public bool IsInBoat => isInBoat;
+        public bool IsFreeCam => isFreeCam;
+        public float NextScoopTime => nextScoopTime;
+        public float ScoopCooldownProgress
+        {
+            get
+            {
+                float rem = nextScoopTime - Time.time;
+                if (rem <= 0f) return 1f;
+                float cd = RiverGameManager.Instance != null ? Mathf.Max(0.05f, RiverGameManager.Instance.EquippedTool.Cooldown) : 0.45f;
+                return Mathf.Clamp01(1f - (rem / cd));
+            }
+        }
+
         public bool HasNearbyHub { get; private set; }
         public DiscardStationType NearbyStationType { get; private set; }
         public bool NearbyIsKopdes { get; private set; }
@@ -44,6 +63,8 @@ namespace KaliRiverSweeper.Player
 
         private CharacterController controller;
         private Camera cam;
+        private Vector3 initialSpawnPos;
+        private float initialYaw;
         private float yaw;
         private float pitch;
         private float verticalVel;
@@ -51,6 +72,14 @@ namespace KaliRiverSweeper.Player
         private float nextPaddleSplashTime;
         private float nextHubPollTime;
         private float nextRiverGuardAlertTime;
+        private float qHoldTimer;
+        private bool qHoldWarned;
+        private float flushHoldTimer;
+        private bool flushHoldWarned;
+        private bool lastAimHasTarget;
+        private WasteClass lastAimClass;
+        private bool lastAimInReach;
+        private float lastAimPrick = -1f;
         private int lastEquippedVisualIndex = -1;
         private GameObject activeToolVisual;
         private Quaternion toolSocketBaseRot = Quaternion.identity;
@@ -60,11 +89,33 @@ namespace KaliRiverSweeper.Player
         {
             controller = GetComponent<CharacterController>();
             cam = GetComponentInChildren<Camera>();
+            initialSpawnPos = transform.position;
             yaw = transform.eulerAngles.y;
+            initialYaw = yaw;
 
 #if !ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
             Debug.LogWarning("[KALI] Neither Unity Input System nor Legacy Input Manager is active in Player Settings. Player controls will be disabled.");
 #endif
+        }
+
+        public void ResetToInitialSpawn()
+        {
+            isInBoat = false;
+            if (isFreeCam)
+            {
+                isFreeCam = false;
+                OnFreeCamStateChanged?.Invoke(false);
+            }
+            OnBoatStateChanged?.Invoke(false);
+            verticalVel = 0f;
+            yaw = initialYaw;
+            pitch = 0f;
+            qHoldTimer = 0f;
+            flushHoldTimer = 0f;
+            transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            if (cam != null) cam.transform.localRotation = Quaternion.identity;
+            TeleportPlayer(initialSpawnPos);
+            RefreshNearbyHub();
         }
 
         private void Start()
@@ -88,8 +139,13 @@ namespace KaliRiverSweeper.Player
 
         private void Update()
         {
-            if (RiverGameManager.Instance != null && RiverGameManager.Instance.activeEnding != GameEnding.None)
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (gm != null && gm.activeEnding != GameEnding.None)
             {
+                if (WasKeyPressed(KeyAction.R))
+                {
+                    gm.RestartRun();
+                }
                 return;
             }
 
@@ -106,6 +162,7 @@ namespace KaliRiverSweeper.Player
             {
                 nextHubPollTime = Time.unscaledTime + HubPollInterval;
                 RefreshNearbyHub();
+                RefreshAimTarget();
             }
         }
 
@@ -134,7 +191,11 @@ namespace KaliRiverSweeper.Player
             if (isFreeCam)
             {
                 float up = (IsKeyHeld(KeyAction.E) ? 1f : 0f) - (IsKeyHeld(KeyAction.Q) ? 1f : 0f);
-                transform.position += (dir * freeCamSpeed + Vector3.up * (up * freeCamSpeed)) * Time.deltaTime;
+                Vector3 nextFree = transform.position + (dir * freeCamSpeed + Vector3.up * (up * freeCamSpeed)) * Time.deltaTime;
+                nextFree.x = Mathf.Clamp(nextFree.x, -64f, 64f);
+                nextFree.y = Mathf.Clamp(nextFree.y, 0.5f, 55f);
+                nextFree.z = Mathf.Clamp(nextFree.z, -88f, 88f);
+                transform.position = nextFree;
                 return;
             }
 
@@ -157,6 +218,12 @@ namespace KaliRiverSweeper.Player
                 else
                 {
                     verticalVel -= 18f * Time.deltaTime;
+                }
+
+                // Bank climb-out recovery: if player slipped into riverbed on foot, lift gently when moving toward bank
+                if (!IsFootPositionPermitted(transform.position) && transform.position.y < 1.35f && dir.sqrMagnitude > 0.01f)
+                {
+                    verticalVel = Mathf.Max(verticalVel, 4.2f);
                 }
 
                 Vector3 rawStep = dir * (speed * Time.deltaTime);
@@ -185,7 +252,12 @@ namespace KaliRiverSweeper.Player
         {
             RiverGameManager gm = RiverGameManager.Instance;
 
-            if (WasKeyPressed(KeyAction.F)) isFreeCam = !isFreeCam;
+            if (WasKeyPressed(KeyAction.F) && (isFreeCam || (gm != null && gm.demoHotkeysArmed)))
+            {
+                isFreeCam = !isFreeCam;
+                OnFreeCamStateChanged?.Invoke(isFreeCam);
+                gm?.NotifyInfo(isFreeCam ? "Free-Cam Demo aktif (dibatasi di area sungai)." : "Kembali ke kamera gameplay.");
+            }
 
             if (WasKeyPressed(KeyAction.R) && gm != null && gm.demoHotkeysArmed)
             {
@@ -206,19 +278,73 @@ namespace KaliRiverSweeper.Player
                 }
             }
 
-            // High-ground cargo dump (anti-deadlock during Sell-Lock) when not in Free-Cam
-            if (!isFreeCam && WasKeyPressed(KeyAction.Q) && gm != null)
+            // High-ground cargo dump (0.5s hold on Q) when not in Free-Cam
+            if (!isFreeCam && gm != null && IsKeyHeld(KeyAction.Q))
             {
-                gm.DumpCargoOnHighGround();
+                if (gm.cargoCount > 0)
+                {
+                    if (!qHoldWarned)
+                    {
+                        qHoldWarned = true;
+                        int hazardQty = gm.medicalCargo + gm.biohazardCargo;
+                        if (!gm.IsSellLocked && hazardQty > 0)
+                        {
+                            gm.NotifyInfo($"Tahan [Q] 0.5 detik untuk buang kargo (penalti -{hazardQty * 2} Trust sebelum Sell-Lock)...", true);
+                        }
+                        else
+                        {
+                            gm.NotifyInfo("Tahan [Q] 0.5 detik untuk buang kargo di daratan tinggi...");
+                        }
+                    }
+                    qHoldTimer += Time.deltaTime;
+                    if (qHoldTimer >= 0.5f)
+                    {
+                        qHoldTimer = 0f;
+                        qHoldWarned = false;
+                        gm.DumpCargoOnHighGround();
+                    }
+                }
+            }
+            else
+            {
+                qHoldTimer = 0f;
+                qHoldWarned = false;
             }
 
-            // Emergency Flush hotkey (Shift + X) during flood crisis
-            if (!isFreeCam && IsShiftHeld() && WasKeyPressed(KeyAction.X) && gm != null)
+            // Emergency Flush hotkey (1.5s hold on Shift + X) during flood Sell-Lock crisis
+            if (!isFreeCam && gm != null && IsShiftHeld() && IsKeyHeld(KeyAction.X))
             {
-                gm.TriggerEmergencyFlush();
+                if (!gm.IsSellLocked)
+                {
+                    if (!flushHoldWarned)
+                    {
+                        flushHoldWarned = true;
+                        gm.TriggerEmergencyFlush(confirmed: false);
+                    }
+                }
+                else
+                {
+                    if (!flushHoldWarned)
+                    {
+                        flushHoldWarned = true;
+                        gm.NotifyInfo("TAHAN [Shift + X] 1.5 detik untuk konfirmasi Emergency Flush ke laut!", true);
+                    }
+                    flushHoldTimer += Time.deltaTime;
+                    if (flushHoldTimer >= 1.5f)
+                    {
+                        flushHoldTimer = 0f;
+                        flushHoldWarned = false;
+                        gm.TriggerEmergencyFlush(confirmed: true);
+                    }
+                }
+            }
+            else
+            {
+                flushHoldTimer = 0f;
+                flushHoldWarned = false;
             }
 
-            // Station Quick-Discard (1/2/3) & All-Discard / Boat Toggle (E)
+            // Station Quick-Discard (1/2/3), Kopdes explicit upgrade selection (1-4), & Safe Deposit / Boat Toggle (E)
             if (gm != null && !isFreeCam && !gm.IsDemoHotkeyBusy)
             {
                 bool nearStation = TryFindNearestHub(out DiscardStationType station, out bool isKopdes);
@@ -227,6 +353,10 @@ namespace KaliRiverSweeper.Player
                     if (WasKeyPressed(KeyAction.Digit1)) gm.DiscardWasteAtStation(station, WasteClass.Normal);
                     else if (WasKeyPressed(KeyAction.Digit2)) gm.DiscardWasteAtStation(station, WasteClass.Medical);
                     else if (WasKeyPressed(KeyAction.Digit3)) gm.DiscardWasteAtStation(station, WasteClass.Biohazard);
+                }
+                else if (nearStation && isKopdes && OnShopRequested == null)
+                {
+                    HandleKopdesKeySelection(gm);
                 }
             }
 
@@ -238,9 +368,33 @@ namespace KaliRiverSweeper.Player
                 }
             }
 
-            if (WasLeftMousePressed() && !isFreeCam)
+            bool pointerOverUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            if (WasLeftMousePressed() && !isFreeCam && !pointerOverUi)
             {
                 TryScoopOrDredge();
+            }
+        }
+
+        private static void HandleKopdesKeySelection(RiverGameManager gm)
+        {
+            if (WasKeyPressed(KeyAction.Digit1))
+            {
+                if (!gm.BuyKampungBins()) gm.NotifyInfo("Tong Sampah Kampung sudah terpasang atau Rupiah belum cukup (Rp 30.000).", true);
+            }
+            else if (WasKeyPressed(KeyAction.Digit2))
+            {
+                if (gm.BuyUpgrade(UpgradeTier.WoodenSampan)) gm.NotifyInfo("Perahu Sampan Kayu dibeli di Kopdes! (Kapasitas 22)");
+                else gm.NotifyInfo("Perahu Sampan Kayu sudah dimiliki atau Rupiah belum cukup (Rp 40.000).", true);
+            }
+            else if (WasKeyPressed(KeyAction.Digit3))
+            {
+                if (gm.BuyUpgrade(UpgradeTier.TrashBoom)) gm.NotifyInfo("Trash Boom aktif! (+Rp 2.500/4s)");
+                else gm.NotifyInfo("Trash Boom sudah aktif atau Rupiah belum cukup (Rp 75.000).", true);
+            }
+            else if (WasKeyPressed(KeyAction.Digit4))
+            {
+                if (gm.BuyUpgrade(UpgradeTier.AmphibiousExcavator)) gm.NotifyInfo("Pindad Amphibious Excavator terbuka! Keruk Gunung Sampah!");
+                else gm.NotifyInfo("Excavator sudah terbuka atau Rupiah belum cukup (Rp 120.000).", true);
             }
         }
 
@@ -346,28 +500,11 @@ namespace KaliRiverSweeper.Player
             if (isKopdes)
             {
                 if (OnShopRequested != null) { OnShopRequested.Invoke(); return true; }
-                // Fallback quick-upgrade progression, used only when no shop UI subscribes to OnShopRequested
-                if (!gm.kampungBinsInstalled && gm.BuyKampungBins()) return true;
-                if (!gm.sampanUnlocked && gm.BuyUpgrade(UpgradeTier.WoodenSampan))
-                {
-                    gm.NotifyInfo("Perahu Sampan Kayu dibeli di Kopdes! (Kapasitas 22)");
-                    return true;
-                }
-                if (!gm.trashBoomActive && gm.BuyUpgrade(UpgradeTier.TrashBoom))
-                {
-                    gm.NotifyInfo("Trash Boom aktif! (+Rp 2.500/4s)");
-                    return true;
-                }
-                if (!gm.excavatorUnlocked && gm.BuyUpgrade(UpgradeTier.AmphibiousExcavator))
-                {
-                    gm.NotifyInfo("Pindad Amphibious Excavator terbuka! Keruk Gunung Sampah!");
-                    return true;
-                }
-                gm.NotifyInfo("Koperasi Desa (Kopdes): Kumpulkan lebih banyak Rupiah (Bins 30k / Sampan 40k / Boom 75k / Excavator 120k).", true);
+                gm.NotifyInfo("Kopdes: [1] Tong Kampung (30rb) | [2] Sampan (40rb) | [3] Trash Boom (75rb) | [4] Excavator (120rb)");
                 return true;
             }
 
-            gm.DiscardAllAtStation(station);
+            gm.DiscardLegalAtStation(station);
             return true;
         }
 
@@ -403,6 +540,7 @@ namespace KaliRiverSweeper.Player
                 isInBoat = true;
                 verticalVel = 0f;
                 TeleportPlayer(new Vector3(waterX, waterY + boatRideHeight, dockBounds.center.z));
+                OnBoatStateChanged?.Invoke(true);
                 RefreshNearbyHub();
                 gm?.NotifyInfo($"Naik perahu dari {dockRoot.name}.");
                 return true;
@@ -417,6 +555,7 @@ namespace KaliRiverSweeper.Player
             isInBoat = false;
             verticalVel = 0f;
             TeleportPlayer(new Vector3(landX, bankSurfaceY, dockBounds.center.z));
+            OnBoatStateChanged?.Invoke(false);
             RefreshNearbyHub();
             gm?.NotifyInfo($"Naik ke darat lewat {dockRoot.name}.");
             return true;
@@ -556,6 +695,11 @@ namespace KaliRiverSweeper.Player
         {
             RiverGameManager gm = RiverGameManager.Instance;
             if (gm == null || Time.time < nextScoopTime) return;
+            if (gm.cargoCount >= gm.cargoCapacity)
+            {
+                gm.NotifyInfo("Kargo penuh! Setor ke stasiun atau tahan [Q] di daratan tinggi.", true);
+                return;
+            }
 
             ToolDefinition tool = gm.EquippedTool;
             nextScoopTime = Time.time + tool.Cooldown;
@@ -768,7 +912,42 @@ namespace KaliRiverSweeper.Player
             return null;
         }
 
-        private enum KeyAction { E, Q, F, R, X, Space, Digit1, Digit2, Digit3, BracketLeft, BracketRight }
+        private void RefreshAimTarget()
+        {
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (gm == null) return;
+
+            float reach = gm.EquippedTool.Reach + (gm.excavatorUnlocked && isInBoat ? 3.5f : 0f);
+            Vector3 eyeOrigin = cam != null ? cam.transform.position : (transform.position + Vector3.up * 0.7f);
+            Vector3 eyeForward = cam != null ? cam.transform.forward : transform.forward;
+            float prickPct = gm.GetEffectiveMedicalPrickChance();
+
+            bool hasTarget = false;
+            WasteClass targetClass = WasteClass.Normal;
+            bool inReach = false;
+
+            if (Physics.Raycast(eyeOrigin, eyeForward, out RaycastHit hit, reach + 4f, ~0, QueryTriggerInteraction.Collide))
+            {
+                RiverTrashItem item = hit.collider != null ? hit.collider.GetComponentInParent<RiverTrashItem>() : null;
+                if (item != null && !item.isCollected)
+                {
+                    hasTarget = true;
+                    targetClass = item.wasteClass;
+                    inReach = hit.distance <= reach + 0.5f;
+                }
+            }
+
+            if (hasTarget != lastAimHasTarget || targetClass != lastAimClass || inReach != lastAimInReach || !Mathf.Approximately(prickPct, lastAimPrick))
+            {
+                lastAimHasTarget = hasTarget;
+                lastAimClass = targetClass;
+                lastAimInReach = inReach;
+                lastAimPrick = prickPct;
+                OnAimTargetChanged?.Invoke(hasTarget, targetClass, inReach, prickPct);
+            }
+        }
+
+        private enum KeyAction { E, Q, F, R, X, Space, Digit1, Digit2, Digit3, Digit4, BracketLeft, BracketRight }
 
         private static Vector2 GetMoveAxis()
         {
@@ -905,6 +1084,7 @@ namespace KaliRiverSweeper.Player
                     KeyAction.Digit1 => Keyboard.current.digit1Key.wasPressedThisFrame,
                     KeyAction.Digit2 => Keyboard.current.digit2Key.wasPressedThisFrame,
                     KeyAction.Digit3 => Keyboard.current.digit3Key.wasPressedThisFrame,
+                    KeyAction.Digit4 => Keyboard.current.digit4Key.wasPressedThisFrame,
                     KeyAction.BracketLeft => Keyboard.current.leftBracketKey.wasPressedThisFrame,
                     KeyAction.BracketRight => Keyboard.current.rightBracketKey.wasPressedThisFrame,
                     _ => false
@@ -924,6 +1104,7 @@ namespace KaliRiverSweeper.Player
                 KeyAction.Digit1 => KeyCode.Alpha1,
                 KeyAction.Digit2 => KeyCode.Alpha2,
                 KeyAction.Digit3 => KeyCode.Alpha3,
+                KeyAction.Digit4 => KeyCode.Alpha4,
                 KeyAction.BracketLeft => KeyCode.LeftBracket,
                 KeyAction.BracketRight => KeyCode.RightBracket,
                 _ => KeyCode.None

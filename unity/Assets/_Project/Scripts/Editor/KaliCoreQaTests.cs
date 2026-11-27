@@ -85,7 +85,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyChildColliderLookupAndSingleEndingGuard,
                 VerifyF9StageTwoReset,
                 VerifyPrefabHitboxProportions,
-                VerifyDermagaRiverPortLimits
+                VerifyDermagaRiverPortLimits,
+                VerifyTask4dAnd4fUxContracts
             };
 
             assertCount = 0;
@@ -295,7 +296,7 @@ namespace KaliRiverSweeper.Editor
             using (QaContext shopCtx = new QaContext())
             {
                 RiverGameManager gm = shopCtx.Manager;
-                Assert(gm.IsToolUnlocked(0) && !gm.IsToolUnlocked(19), "IsToolUnlocked: #01 open, #20 locked at 0 earnings");
+                Assert(gm.IsToolUnlocked(1) && !gm.IsToolUnlocked(20), "IsToolUnlocked: #01 open, #20 locked at 0 earnings");
 
                 Vector3 kopdesPos = new Vector3(6000f, 6000f, 6000f);
                 GameObject kopdesRoot = shopCtx.Track(new GameObject("Koperasi Desa (Kopdes)"));
@@ -352,15 +353,16 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEndingTriggered += e => victoryEnding = e;
 
                 Vector3 hitPos = new Vector3(2f, 3f, -68f);
-                node.ApplyDamage(0.30f); // 1.0 -> 0.70 (Tier 4 -> 3)
+                GunungNodeController[] allNodes = UnityEngine.Object.FindObjectsOfType<GunungNodeController>(true);
+                for (int i = 0; i < allNodes.Length; i++) { allNodes[i].Restore(); allNodes[i].ApplyDamage(0.30f); } // 1.0 -> 0.70 (Tier 4 -> 3)
                 gm.DamageGunungSampah(0.10f, hitPos);
                 Assert(tierBreaches == 1 && lastBreachPos == hitPos, "OnGunungTierBreached fires with impactPos on tier drop");
 
-                node.ApplyDamage(0.30f); // 0.70 -> 0.40 (Tier 3 -> 2)
+                for (int i = 0; i < allNodes.Length; i++) allNodes[i].ApplyDamage(0.30f); // 0.70 -> 0.40 (Tier 3 -> 2)
                 gm.DamageGunungSampah(0.10f, hitPos);
                 Assert(tierBreaches == 2, "Second Gunung tier breach");
 
-                node.ApplyDamage(0.40f); // 0.40 -> 0.00 (Tier 2 -> 0 -> CompleteCleanBreach)
+                for (int i = 0; i < allNodes.Length; i++) allNodes[i].ApplyDamage(0.40f); // 0.40 -> 0.00 (Tier 2 -> 0 -> CompleteCleanBreach)
                 gm.DamageGunungSampah(0.10f, hitPos);
                 Assert(tierBreaches == 3, "Final Gunung tier breach");
                 Assert(gm.activeEnding == GameEnding.TrueSdgVictory && victoryEnding == GameEnding.TrueSdgVictory, "Clean breach triggers TrueSdgVictory");
@@ -374,8 +376,8 @@ namespace KaliRiverSweeper.Editor
                 RiverGameManager gm = ctx.Manager;
                 GameEnding flushEnding = GameEnding.None;
                 gm.OnEndingTriggered += e => flushEnding = e;
-                gm.RegisterActiveTrash(10);
-                gm.TriggerEmergencyFlush();
+                gm.RegisterActiveTrash(120);
+                gm.TriggerEmergencyFlush(confirmed: true);
                 Assert(gm.activeEnding == GameEnding.CompromisedOceanFlush && flushEnding == GameEnding.CompromisedOceanFlush, "CompromisedOceanFlush ending");
                 Assert(gm.flushedKg > 0 && gm.TotalTrashInRiver == 0 && gm.gunungSampahHealth == 0f, "Emergency flush clears river and records flushedKg");
             }
@@ -394,7 +396,7 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEndingTriggered += e => timerVictory = e;
                 gm.monsoonCountdownRemaining = 0.0001f;
                 InvokeNonPublic(gm, "Tick", 0.1f);
-                Assert(gm.activeEnding == GameEnding.TrueSdgVictory && timerVictory == GameEnding.TrueSdgVictory, "Monsoon countdown 0 triggers TrueSdgVictory");
+                Assert(gm.activeEnding == GameEnding.PartialSurvival && timerVictory == GameEnding.PartialSurvival, "Monsoon countdown 0 with Gunung intact triggers PartialSurvival");
             }
         }
 
@@ -738,6 +740,63 @@ namespace KaliRiverSweeper.Editor
                 bool onDockDisembark = (bool)toggleBoat.Invoke(player, new object[] { gm });
                 Assert(onDockDisembark && !player.isInBoat && !RiverMath.IsInRiver(playerGo.transform.position) && playerGo.transform.position.y >= 1.40f,
                     "Disembarking at Dermaga lifts player onto dry land above BankTopY");
+            }
+        }
+
+        private static void VerifyTask4dAnd4fUxContracts()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                Assert(!gm.IsToolUnlocked(0) && gm.IsToolUnlocked(1), "IsToolUnlocked must be 1-based");
+
+                // 1. #11-#20 Medical prick safety lock once #10 Capitan Ular is unlocked
+                gm.TryPickupWaste(WasteClass.Normal, 2);
+                for (int i = 0; i < 20; i++)
+                {
+                    gm.TryPickupWaste(WasteClass.Normal, 1);
+                    gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                }
+                // Bring cumulative earnings past 140k (#13 Ganco Ganda Winch)
+                while (gm.highestUnlockedToolIndex < 13)
+                {
+                    gm.TryPickupWaste(WasteClass.Normal, 4);
+                    gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                }
+                AssertApprox(0f, gm.GetEffectiveMedicalPrickChance(), 0.0001f, "#13+ Medical prick chance locked at 0% after #10 unlock");
+
+                // 2. Duplicate BuyUpgrade guard
+                int preRupiah = gm.rupiah;
+                bool firstBuy = gm.BuyUpgrade(UpgradeTier.WoodenSampan);
+                int postFirst = gm.rupiah;
+                bool secondBuy = gm.BuyUpgrade(UpgradeTier.WoodenSampan);
+                Assert(firstBuy && !secondBuy && postFirst == preRupiah - RiverGameManager.GetUpgradeCost(UpgradeTier.WoodenSampan) && gm.rupiah == postFirst,
+                    "BuyUpgrade must block duplicate purchase spend");
+
+                // 3. Safe [E] DiscardLegalAtStation leaves Medical/Biohazard untouched with 0 fines
+                int receipts = 0;
+                gm.OnStationAuditReceipt += _ => receipts++;
+                gm.TryPickupWaste(WasteClass.Normal, 2);
+                gm.TryPickupWaste(WasteClass.Medical, 1);
+                int legalOut = gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                Assert(legalOut > 0 && gm.normalCargo == 0 && gm.medicalCargo == 1 && gm.wrongDiscardCount == 0 && receipts > 0,
+                    "DiscardLegalAtStation deposits only legal class with 0 accidental fines and emits audit receipt");
+
+                // 4. EmergencyFlush Sell-Lock + confirm guard
+                Assert(!gm.TriggerEmergencyFlush(confirmed: true), "EmergencyFlush blocked when not Sell-Locked");
+                gm.RegisterActiveTrash(120); // >= 1.85m
+                Assert(gm.IsSellLocked, "120+ trash triggers Sell-Lock");
+                Assert(!gm.TriggerEmergencyFlush(confirmed: false), "EmergencyFlush blocked without confirmation");
+
+                // 5. ComputeSdgScorecard + RestartRun full reset
+                SdgScorecard card = gm.ComputeSdgScorecard();
+                Assert(!string.IsNullOrEmpty(card.Rank), "ComputeSdgScorecard returns valid rank");
+                Assert(gm.TriggerEmergencyFlush(confirmed: true) && gm.activeEnding == GameEnding.CompromisedOceanFlush,
+                    "Confirmed EmergencyFlush during Sell-Lock triggers CompromisedOceanFlush");
+
+                gm.RestartRun();
+                Assert(gm.activeEnding == GameEnding.None && gm.rupiah == 0 && gm.wrongDiscardCount == 0 && gm.unpaidFineDebt == 0 && gm.communityTrust == 40,
+                    "RestartRun resets ending, economy, audit debt, and trust");
             }
         }
 

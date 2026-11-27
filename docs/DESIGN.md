@@ -36,10 +36,10 @@ Every flood alert badge pairs color with an explicit uppercase label (`SIAGA 4 -
 
 | Flood State | Threshold (`floodPressure`) | Primary Accent Hex | HUD Canvas Surface | Visual Feedback |
 | :--- | :--- | :---: | :---: | :--- |
-| **SIAGA 4 (Normal / Aman)** | `< 0.35` | `#22C55E` (Emerald) | `#0F172A` (`85%` alpha) | Steady calm green indicator |
-| **SIAGA 3 (Waspada)** | `0.35 – 0.59` | `#FACC15` (Amber Yellow) | `#0F172A` (`85%` alpha) | Debris density notice at middle choke |
-| **SIAGA 2 (Kritis)** | `0.60 – 0.84` | `#F97316` (Orange) | `#1E1B18` (`90%` alpha) | Rotating Pintu Air warning beacon starts |
-| **SIAGA 1 (Bencana Banjir)** | `>= 0.85` | `#F43F5E` (Crimson Red) | `#2A1215` (`92%` alpha) | Pulsing vignette + flood alarm audio |
+| **SIAGA 4 (Normal / Aman)** | `< 0.35` | `#0E7C7B` (River Teal) | `#F4F2EC` (Warm Vellum) | Steady calm indicator |
+| **SIAGA 3 (Waspada)** | `0.35 – 0.59` | `#B86E14` (Amber Ochre) | `#F4F2EC` (Warm Vellum) | Debris density notice at middle choke |
+| **SIAGA 2 (Kritis)** | `0.60 – 0.84` | `#F97316` (Orange) | `#F4F2EC` (Warm Vellum) | Rotating Pintu Air warning beacon starts |
+| **SIAGA 1 (Bencana Banjir)** | `>= 0.85` | `#B50E6F` / `#E11D8F` (Warning Magenta) | `#F4F2EC` (Warm Vellum) | Pulsing magenta vignette + flood alarm audio |
 
 ### 2.3 Authentic Scavenger Material Tokens (`JC` & `Wesley`)
 

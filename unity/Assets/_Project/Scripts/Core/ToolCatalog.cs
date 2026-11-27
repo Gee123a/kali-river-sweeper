@@ -120,5 +120,11 @@ namespace KaliRiverSweeper.Core
         }
 
         public static bool IsSnakeGrabber(int index) => index == SnakeGrabberIndex;
+
+        public static float GetEffectiveMedicalPrickChance(int equippedIndex, int highestUnlockedIndex)
+        {
+            if (highestUnlockedIndex >= SnakeGrabberIndex) return 0f;
+            return GetTool(equippedIndex).MedicalPrickChance;
+        }
     }
 }
