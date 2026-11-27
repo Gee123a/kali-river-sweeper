@@ -9,8 +9,8 @@ using Object = UnityEngine.Object;
 namespace Kali.Props.EditorTools
 {
     /// <summary>
-    /// Turns JC's FBX meshes (Props/Trash/Meshes, Props/Tools/Meshes, Props/Products/Meshes, Rigging) into prefabs
-    /// and builds the shared 2048 atlas & URP Lit materials. Editor-only (lives in an Editor folder).
+    /// Turns JC's FBX meshes (Props/Trash/Meshes, Props/Tools/Meshes, Props/Products/Meshes, Props/Equipment/Meshes,
+    /// Rigging) into prefabs and builds the shared 2048 atlas & URP Lit materials. Editor-only (lives in an Editor folder).
     /// </summary>
     public static class KaliPropPrefabBuilder
     {
@@ -40,6 +40,15 @@ namespace Kali.Props.EditorTools
         private const string ProductMaterialPath = ProductMaterialFolder + "/M_Products_Atlas.mat";
         private const string ProductAtlasBaseName = "T_Products_Atlas";
 
+        // Equipment (boom, boats, kampung bin). Same material path as KaliLightingBuilder, which builds the lantern /
+        // beacon / rotor prefabs from this atlas, so both builders share ONE M_Equipment_Atlas.
+        private const string EquipmentMeshFolder = PropsRoot + "/Equipment/Meshes";
+        private const string EquipmentPrefabFolder = PropsRoot + "/Equipment/Prefabs";
+        private const string EquipmentMaterialFolder = PropsRoot + "/Equipment/Materials";
+        private const string EquipmentTextureFolder = PropsRoot + "/Equipment/Textures";
+        private const string EquipmentMaterialPath = EquipmentMaterialFolder + "/M_Equipment_Atlas.mat";
+        private const string EquipmentAtlasBaseName = "T_Equipment_Atlas";
+
         private const string RiggingMeshFolder = RiggingRoot;
         private const string RiggingPrefabFolder = RiggingRoot;
         private const string RiggingMaterialFolder = RiggingRoot + "/Materials";
@@ -53,6 +62,8 @@ namespace Kali.Props.EditorTools
         private const string TrashMeshPattern = @"^SM_Trash_(.+)\.fbx$";
         private const string ToolMeshPattern = @"^SM_Tool_(.+)\.fbx$";
         private const string ProductMeshPattern = @"^SM_Product_(.+)\.fbx$";
+        // The lighting meshes are wrapped by KaliLightingBuilder (KALI > Lighting), not here.
+        private const string EquipmentMeshPattern = @"^SM_Prop_(?!LanternWarung\.|WarningBeacon\.|BeaconRotor\.)(.+)\.fbx$";
 
         private const string UrpLitShader = "Universal Render Pipeline/Lit";
         private const string BuoyancyTypeName = "RiverFlowBuoyancy";
@@ -115,6 +126,20 @@ namespace Kali.Props.EditorTools
             }
         }
 
+        [MenuItem("KALI/JC/Build Equipment Prefabs")]
+        public static void BuildEquipmentPrefabsMenu()
+        {
+            try
+            {
+                BuildAtlasMaterials();
+                BuildEquipmentPrefabs();
+            }
+            finally
+            {
+                AssetDatabase.SaveAssets();
+            }
+        }
+
         [MenuItem("KALI/JC/Build Atlas Materials")]
         public static void BuildAtlasMaterialsMenu()
         {
@@ -152,6 +177,8 @@ namespace Kali.Props.EditorTools
             int toolFailed = 0;
             int productBuilt = 0;
             int productFailed = 0;
+            int equipmentBuilt = 0;
+            int equipmentFailed = 0;
             bool excavatorBuilt = false;
 
             try
@@ -171,6 +198,10 @@ namespace Kali.Props.EditorTools
                 BuildPrefabsFromFolder(ProductMeshFolder, ProductMeshPattern, ProductPrefabFolder, "PF_Product_",
                     LoadProductMaterial(), BuildProductPrefab, out productBuilt, out productFailed);
 
+                // 2c. Equipment prefabs (trash boom, boats, kampung bin).
+                BuildPrefabsFromFolder(EquipmentMeshFolder, EquipmentMeshPattern, EquipmentPrefabFolder, "PF_Prop_",
+                    LoadEquipmentMaterial(), BuildEquipmentPrefab, out equipmentBuilt, out equipmentFailed);
+
                 // 4. Excavator prefab & materials.
                 excavatorBuilt = BuildExcavatorPrefab();
             }
@@ -181,6 +212,7 @@ namespace Kali.Props.EditorTools
                           + " | trash prefabs built=" + trashBuilt + " failed=" + trashFailed
                           + " | tool prefabs built=" + toolBuilt + " failed=" + toolFailed
                           + " | product prefabs built=" + productBuilt + " failed=" + productFailed
+                          + " | equipment prefabs built=" + equipmentBuilt + " failed=" + equipmentFailed
                           + " | excavator built=" + excavatorBuilt);
             }
         }
@@ -198,6 +230,8 @@ namespace Kali.Props.EditorTools
             EnsureFolder(ToolMaterialFolder);
             EnsureFolder(ProductTextureFolder);
             EnsureFolder(ProductMaterialFolder);
+            EnsureFolder(EquipmentTextureFolder);
+            EnsureFolder(EquipmentMaterialFolder);
 
             AssetDatabase.StartAssetEditing();
             try
@@ -206,6 +240,10 @@ namespace Kali.Props.EditorTools
                 ConfigureAtlasTextures(TrashTextureFolder, TrashAtlasBaseName, smoothAlbedo: true);
                 ConfigureAtlasTextures(ToolTextureFolder, ToolAtlasBaseName, smoothAlbedo: false);
                 ConfigureAtlasTextures(ProductTextureFolder, ProductAtlasBaseName, smoothAlbedo: true);
+                ConfigureAtlasTextures(EquipmentTextureFolder, EquipmentAtlasBaseName, smoothAlbedo: true);
+                // Equipment only: emission mask (white on bulb / lens), sRGB, bilinear + mipmaps.
+                ConfigureTextureImporter(EquipmentTextureFolder + "/" + EquipmentAtlasBaseName + "_Emission.png",
+                    TextureImporterType.Default, true, false);
             }
             finally
             {
@@ -216,10 +254,11 @@ namespace Kali.Props.EditorTools
             if (CreateOrUpdateAtlasMaterial(TrashMaterialPath, TrashTextureFolder, TrashAtlasBaseName)) ok++;
             if (CreateOrUpdateAtlasMaterial(ToolMaterialPath, ToolTextureFolder, ToolAtlasBaseName)) ok++;
             if (CreateOrUpdateAtlasMaterial(ProductMaterialPath, ProductTextureFolder, ProductAtlasBaseName)) ok++;
+            if (CreateOrUpdateAtlasMaterial(EquipmentMaterialPath, EquipmentTextureFolder, EquipmentAtlasBaseName)) ok++;
 
             AssetDatabase.SaveAssets();
-            Debug.Log(LogPrefix + "Atlas materials ready: " + ok + "/3 (" + TrashMaterialPath + ", " + ToolMaterialPath
-                      + ", " + ProductMaterialPath + ")");
+            Debug.Log(LogPrefix + "Atlas materials ready: " + ok + "/4 (" + TrashMaterialPath + ", " + ToolMaterialPath
+                      + ", " + ProductMaterialPath + ", " + EquipmentMaterialPath + ")");
             return ok;
         }
 
@@ -308,6 +347,17 @@ namespace Kali.Props.EditorTools
                 mat.SetFloat("_SmoothnessTextureChannel", 0f);
                 mat.SetFloat("_Smoothness", 1f);
                 mat.SetFloat("_Metallic", 1f);
+            }
+
+            // Optional emission mask (only the equipment atlas has one): emission = map x _EmissionColor, so only the
+            // white parts (lantern bulb, beacon lens) glow. Same values as KaliLightingBuilder.LoadOrCreateEquipmentMaterial.
+            Texture2D emission = AssetDatabase.LoadAssetAtPath<Texture2D>(textureFolder + "/" + baseName + "_Emission.png");
+            if (emission != null)
+            {
+                mat.SetTexture("_EmissionMap", emission);
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", new Color(1f, 0.69f, 0.30f) * 2f);
+                mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             }
 
             EditorUtility.SetDirty(mat);
@@ -543,6 +593,37 @@ namespace Kali.Props.EditorTools
         }
 
         // ------------------------------------------------------------------
+        // 2c. Equipment prefabs (trash boom, rakit, sampan, kampung bin: collider only, no Rigidbody / RiverTrashItem)
+        // ------------------------------------------------------------------
+
+        private static Material LoadEquipmentMaterial()
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(EquipmentMaterialPath);
+            if (mat == null)
+            {
+                Debug.LogWarning(LogPrefix + "Material not found: " + EquipmentMaterialPath + " (run Build Atlas Materials)");
+            }
+
+            return mat;
+        }
+
+        private static void BuildEquipmentPrefabs()
+        {
+            Material mat = LoadEquipmentMaterial();
+            int built;
+            int failed;
+            BuildPrefabsFromFolder(EquipmentMeshFolder, EquipmentMeshPattern, EquipmentPrefabFolder, "PF_Prop_",
+                mat, BuildEquipmentPrefab, out built, out failed);
+        }
+
+        // Boom and boats keep their Blender waterline origin (importer places "trash_boom" at y = 0); the bin keeps its
+        // base origin. Same body as BuildProductPrefab: material + solid fitted BoxCollider.
+        private static bool BuildEquipmentPrefab(MeshEntry entry, string prefabPath, Material mat)
+        {
+            return BuildProductPrefab(entry, prefabPath, mat);
+        }
+
+        // ------------------------------------------------------------------
         // 5. Excavator Prefab & URP Material Support
         // ------------------------------------------------------------------
 
@@ -736,7 +817,8 @@ namespace Kali.Props.EditorTools
 
             PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
             string prefix = entry.AssetPath.Contains("SM_Tool_") ? "PF_Tool_"
-                : entry.AssetPath.Contains("SM_Product_") ? "PF_Product_" : "PF_Trash_";
+                : entry.AssetPath.Contains("SM_Product_") ? "PF_Product_"
+                : entry.AssetPath.Contains("SM_Prop_") ? "PF_Prop_" : "PF_Trash_";
             instance.name = prefix + entry.Variant;
             return instance;
         }

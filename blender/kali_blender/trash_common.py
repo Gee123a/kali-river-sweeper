@@ -50,6 +50,7 @@ TRASH_MODULES = [
     "trash_11_kotak_rokok",
     "trash_12_aqua_bottle_600ml",
     "trash_13_aqua_galon_19l",
+    "trash_14_biohazard_drum",
 ]
 
 
@@ -71,13 +72,16 @@ def build_trash(mod_name, collection=None):
     return obj
 
 
-def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_", pivot="centre"):
-    """Shared prop checks (products_common reuses them with its own material, prefix and pivot="base")."""
+def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_", pivot="centre",
+                   tris_range=(TRI_MIN, TRI_MAX), max_size=1.5):
+    """Shared prop checks (products / equipment reuse them with their own material, prefix, pivot, budget, size).
+    pivot: "centre" bbox centre, "base" centre of the bbox bottom, "floor" a mount point on the floor plane,
+    "waterline" bbox centre in x/y with the origin height ON the water surface (mesh crosses z = 0)."""
     issues = []
     me = obj.data
     tris = tc.tri_count(obj)
-    if not TRI_MIN <= tris <= TRI_MAX:
-        issues.append(f"tris {tris} outside {TRI_MIN}-{TRI_MAX}")
+    if not tris_range[0] <= tris <= tris_range[1]:
+        issues.append(f"tris {tris} outside {tris_range[0]}-{tris_range[1]}")
     if obj.name != spec["name"]:
         issues.append(f"name {obj.name} != {spec['name']}")
     if not spec.get("prefab", "").startswith(prefab_prefix):
@@ -111,9 +115,13 @@ def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_",
         centre.z = lo.z            # standing prop: origin at the middle of its footprint, on the ground
     elif pivot == "floor":
         centre = Vector((0.0, 0.0, lo.z))   # origin on the floor plane at a named point (post base, spin axis)
+    elif pivot == "waterline":
+        centre.z = 0.0                      # floats: origin on the water surface, part above and part below
+        if not lo.z < 0.0 < hi.z:
+            issues.append(f"waterline z=0 is not inside the mesh height ({lo.z:.3f} .. {hi.z:.3f})")
     if centre.length > PIVOT_TOLERANCE:
         issues.append(f"origin not at bbox {pivot} (offset {tuple(round(c, 3) for c in centre)})")
     size = max(hi - lo)
-    if not 0.05 <= size <= 1.5:
+    if not 0.05 <= size <= max_size:
         issues.append(f"implausible size {size:.2f} m")
     return issues

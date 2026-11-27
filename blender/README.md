@@ -75,10 +75,11 @@ Pose = floating pose (print facing up): the spawner only adds a random yaw.
 | 11 | `SM_Trash_KotakRokok` | Bungkus rokok "GUDANG GULA International", remuk, tutup terbuka sedikit | 0.06 x 0.10 x 0.04 | 220 |
 | 12 | `SM_Trash_AquaBottle_600ml` | Botol PET air mineral 600 ml, label parodi "AQUO", tutup biru, gepeng, penyok, rebah | 0.22 x 0.07 x 0.05 | 236 |
 | 13 | `SM_Trash_AquaGalon_19L` | Galon polikarbonat biru 19 L, rib, stiker "AQUO", tutup putih, penyok, rebah (mengapung tinggi) | 0.48 x 0.27 x 0.27 | 332 |
+| 14 | `SM_Trash_BiohazardDrum` | Drum B3 200 L ungu `#A855F7` + pita lime `#84CC16`, trefoil + stensil BIOHAZARD, penyok, bocor (cairan lime), rebah | 0.89 x 0.58 x 0.58 | 356 |
 
 Prefab `PF_Trash_<nama>` dibuat dengan menu Unity yang sama (`KALI > JC > Build Trash Prefabs`).
 
-## Peralatan lampu / Lighting equipment (equipment stage)
+## Peralatan lampu & sungai / Lighting and river equipment (equipment stage)
 Mesh untuk prefab lampu (dibuat oleh `unity/Assets/_Project/Lighting/Editor/KaliLightingBuilder.cs`, menu
 `KALI > Lighting > Build All Lighting Assets`). Meshes for the lighting prefabs; see `unity/Assets/_Project/Lighting/README.md`.
 - Modul / modules: `kali_blender/equipment/` (`EQUIPMENT_MODULES` in `equipment_common.py`). Bersih (tanpa kotoran).
@@ -92,6 +93,15 @@ Mesh untuk prefab lampu (dibuat oleh `unity/Assets/_Project/Lighting/Editor/Kali
 | `SM_Prop_LanternWarung` | Lampu warung: balok kaki, tiang bambu, lengan + penyangga, kap enamel hijau, bohlam (lampu 0.28 m ke depan, +Z Unity) | 0.16 x 0.42 x 0.56 | 306 |
 | `SM_Prop_WarningBeacon` | Lampu rotator Pintu Air: pelat, rumah, kubah lensa amber, 4 batang pelindung | 0.16 x 0.16 x 0.21 | 214 |
 | `SM_Prop_BeaconRotor` | Rotor: poros, hub motor, 2 reflektor krom saling membelakangi (origin = dasar poros) | 0.07 x 0.05 x 0.10 | 236 |
+| `SM_Prop_TrashBoomSegment` | Segmen trash boom: pelampung oranye 2 bagian, rok hitam, braket + segel (shackle) di kedua ujung; pivot WATERLINE | 2.29 x 0.30 x 0.55 | 268 |
+| `SM_Prop_RakitGabus` | Rakit gabus (perahu tier 1): 3 balok styrofoam, 4 bambu melintang, ikatan karet ban dalam; pivot WATERLINE | 1.81 x 1.40 x 0.37 | 704 |
+| `SM_Prop_PerahuSampan` | Perahu sampan kayu 3.7 m (tier 2): papan dicat (ter, biru, putih, merah), 7 gading, 2 bangku, dayung di sandaran; pivot WATERLINE | 3.70 x 1.18 x 0.58 | 916 |
+| `SM_Prop_TongSampahKampung` | Tong sampah kampung 200 L biru, stensil kuning SAMPAH ANORGANIK, tutup; pivot DASAR | 0.60 x 0.60 x 0.94 | 330 |
+
+Budget per aset di SPEC (`tris`, `max_size`, `pivot`): lampu 150-400, boom 200-400, rakit 500-900, sampan 700-1200, tong 250-400.
+Pivot WATERLINE = origin di permukaan air (importer menaruh `trash_boom` di y = 0), tengah x/y. Prefab `PF_Prop_*` untuk
+boom / perahu / tong dibuat oleh `KALI > JC > Build Equipment Prefabs` (BoxCollider, tanpa Rigidbody); lampu/beacon oleh
+`KALI > Lighting > Build All Lighting Assets`. Keduanya memakai satu material `Props/Equipment/Materials/M_Equipment_Atlas.mat`.
 
 ## Produk bersih / Clean products (products stage)
 Versi BARU dan utuh dari 9 barang yang sama (merek parodi yang sama): segel rapat, penuh, label bersih

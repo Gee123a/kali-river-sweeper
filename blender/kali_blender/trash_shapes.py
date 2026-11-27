@@ -49,14 +49,17 @@ class Geo:
         for i in (range(len(self.v)) if sel is None else sel):
             self.v[i] = Vector(fn(self.v[i]))
 
-    def recentre(self, base=False):
-        """Origin to the bbox centre, or with base=True to the centre of the bbox bottom (standing products)."""
+    def recentre(self, base=False, keep_z=False):
+        """Origin to the bbox centre; base=True: centre of the bbox bottom (standing products); keep_z=True:
+        centre in x/y only, heights kept (floating props modelled around their waterline z = 0)."""
         used = sorted({i for _, f, _ in self.faces for i in f})
         lo = Vector([min(self.v[i][a] for i in used) for a in range(3)])
         hi = Vector([max(self.v[i][a] for i in used) for a in range(3)])
         c = (lo + hi) / 2
         if base:
             c.z = lo.z
+        if keep_z:
+            c.z = 0.0
         for i in used:
             self.v[i] = self.v[i] - c
         return hi - lo
@@ -178,16 +181,29 @@ def pillow(geo, W, H, xf, zf, depth, open_edges=(), tear=None, split=None, gusse
     return {"F": F, "B": B, "nx": nx, "nz": nz}
 
 
-def box(geo, key, lo, hi):
-    """Axis-aligned box from corner lo to corner hi (outward normals), in geo.xform space."""
+def box(geo, key, lo, hi, n=(1, 1, 1)):
+    """Axis-aligned box from corner lo to corner hi (outward normals), in geo.xform space; n = cuts per axis
+    (extra vertices for dents / crumple)."""
     (x0, y0, z0), (x1, y1, z1) = lo, hi
+    nx, ny, nz = n
     dx, dy, dz = (x1 - x0, 0, 0), (0, y1 - y0, 0), (0, 0, z1 - z0)
-    grid(geo, key, (x0, y0, z0), dy, dx, 1, 1)               # bottom (-Z)
-    grid(geo, key, (x0, y0, z1), dx, dy, 1, 1)               # top
-    grid(geo, key, (x0, y0, z0), dx, dz, 1, 1)               # front (-Y)
-    grid(geo, key, (x1, y1, z0), (x0 - x1, 0, 0), dz, 1, 1)  # back
-    grid(geo, key, (x0, y1, z0), (0, y0 - y1, 0), dz, 1, 1)  # left (-X)
-    grid(geo, key, (x1, y0, z0), dy, dz, 1, 1)               # right
+    grid(geo, key, (x0, y0, z0), dy, dx, ny, nx)                # bottom (-Z)
+    grid(geo, key, (x0, y0, z1), dx, dy, nx, ny)                # top
+    grid(geo, key, (x0, y0, z0), dx, dz, nx, nz)                # front (-Y)
+    grid(geo, key, (x1, y1, z0), (x0 - x1, 0, 0), dz, nx, nz)   # back
+    grid(geo, key, (x0, y1, z0), (0, y0 - y1, 0), dz, ny, nz)   # left (-X)
+    grid(geo, key, (x1, y0, z0), dy, dz, ny, nz)                # right
+
+
+def torus(geo, key, R, r, nu=8, nv=4):
+    """Ring (shackle, chain link) of radius R and tube radius r around +Z, in geo.xform space."""
+    pts = [[geo.vert(((R + r * math.cos(2 * math.pi * j / nv)) * math.cos(2 * math.pi * i / nu),
+                      (R + r * math.cos(2 * math.pi * j / nv)) * math.sin(2 * math.pi * i / nu),
+                      r * math.sin(2 * math.pi * j / nv))) for j in range(nv)] for i in range(nu)]
+    for i in range(nu):
+        for j in range(nv):
+            i1, j1 = (i + 1) % nu, (j + 1) % nv
+            geo.face(key, [pts[i][j], pts[i1][j], pts[i1][j1], pts[i][j1]])
 
 
 def plateau(x, w):
