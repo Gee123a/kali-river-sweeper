@@ -44,8 +44,8 @@ SM_Env_RiverValleyTerrain,Environment,Curved Riverbed & Embankments,Wesley,Asset
 SG_KaliWater,Shaders,Stylized Dynamic River Water Shader,Wesley,Assets/_Project/Shaders/,URP Shader Graph,N/A,DONE (In main),River Surface,"Dual-flow normal panning, Beer-Lambert clarity lerp"
 SG_TrashTriplanar,Shaders,Heightfield Triplanar Trash Dam Shader,Wesley,Assets/_Project/Shaders/,URP Shader Graph,N/A,DONE (In main),Gunung Sampah,"Blends silt mud, tangled kapok, and plastic specs"
 SK_ExcavatorAmfibi,Rigging & Animation,Rigged Amphibious Dredging Excavator,JC,Assets/_Project/Rigging/,"4,298 tris / 3-Joint IK + Damped Track",Base,DONE (Prefab + .meta in main),excavator (1 node),Rigged in blender/build_all.py (0 _end leaf bones; 3 PBR slots)
-SK_VillagerNPC,Rigging & Animation,Rigged Kampung Villager NPC,JC,Assets/_Project/Rigging/,1200-1800 tris,Base,To Do (Assigned to JC),Rumah Porches,"Idle, littering into river, carrying bins animations"
-Anim_PlayerToolSwing,Rigging & Animation,First-Person Tool Swing Animations,JC,Assets/_Project/Rigging/,Animation Clips,N/A,To Do (Assigned to JC),Main Camera,Serokan scoop and Ganco hook swing motions
+SK_VillagerNPC,Rigging & Animation,Rigged Kampung Villager NPC,JC,Assets/_Project/Rigging/,1200-1800 tris,Base,In Branch (jc-villager) - FBX Ready (Needs Prefab),Rumah Porches,"Idle, littering into river, carrying bins animations"
+Anim_PlayerToolSwing,Rigging & Animation,First-Person Tool Swing Animations,JC,Assets/_Project/Rigging/,Animation Clips,N/A,In Branch (jc-villager) - FBX Ready (Needs Prefab),Main Camera,Serokan scoop and Ganco hook swing motions
 VFX_MonsoonRain,VFX,Tropical Monsoon Downpour & Fog Streaks,Niki,Assets/_Project/VFX/,URP VFX Graph / Shuriken,Camera Follow,DONE (Prefab + .meta in main),Environment Weather,Driven by isMonsoonStorm during Act 3 Siaga 1
 VFX_WaterSplashMuddy,VFX,Muddy River Scoop & Boat Wake Splashes,Niki,Assets/_Project/VFX/,Particle System,Impact Point,DONE (Prefab + .meta in main),Player Boat & Net,Visual feedback on scoop and boat movement
 VFX_MethaneSludgeBubbles,VFX,Anaerobic Riverbed Methane Gas Bubbles,Niki,Assets/_Project/VFX/,Particle System,Water Surface,DONE (Prefab + .meta in main),Trash Piles & Sludge,Atmospheric river pollution indicator
@@ -131,3 +131,5 @@ WarningBeaconRotator.cs,Lighting,WarningBeaconRotator,JC,Assets/_Project/Lightin
 KaliSky,Shaders,KaliSky,Wesley,Assets/_Project/Lighting/Shaders/,SHADER,Auto,In main,Auto-Discovered,Detected at unity/Assets/_Project/Lighting/Shaders/KaliSky.shader
 VP_KaliSky,Lighting,VP KaliSky,JC,Assets/_Project/Lighting/VolumeProfiles/,ASSET,Auto,In main,Auto-Discovered,Detected at unity/Assets/_Project/Lighting/VolumeProfiles/VP_KaliSky.asset
 KaliDayNightCycle.cs,Core Code,KaliDayNightCycle,Ivan (Lead),Assets/_Project/Scripts/Core/,CS,Auto,DONE (In main),Auto-Discovered,Detected at unity/Assets/_Project/Scripts/Core/KaliDayNightCycle.cs
+SM_Villager_Bin,Rigging & Animation,SM Villager Bin,JC,Assets/_Project/Rigging/,FBX,Auto,In Branch (jc-villager) - FBX Ready (Needs Prefab),Auto-Discovered,Detected at unity/Assets/_Project/Rigging/SM_Villager_Bin.fbx
+SM_Villager_TrashBag,Rigging & Animation,SM Villager TrashBag,JC,Assets/_Project/Rigging/,FBX,Auto,In Branch (jc-villager) - FBX Ready (Needs Prefab),Auto-Discovered,Detected at unity/Assets/_Project/Rigging/SM_Villager_TrashBag.fbx
