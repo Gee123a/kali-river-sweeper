@@ -119,9 +119,15 @@ namespace KaliRiverSweeper.Core
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            if (Application.isPlaying) Time.timeScale = 1f;
             monsoonCountdownRemaining = monsoonCountdownSeconds;
             RecalculateWaterMetrics();
             Shader.SetGlobalFloat(WaterClarityId, waterClarity);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this && Application.isPlaying) Time.timeScale = 1f;
         }
 
         private void Update()
@@ -770,6 +776,12 @@ namespace KaliRiverSweeper.Core
         private void TriggerEnding(GameEnding ending)
         {
             activeEnding = ending;
+            if (Application.isPlaying)
+            {
+                Time.timeScale = 0f;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
             NotifyState();
             OnEndingTriggered?.Invoke(ending);
         }
@@ -868,6 +880,7 @@ namespace KaliRiverSweeper.Core
             bool monsoon)
         {
             activeEnding = GameEnding.None;
+            if (Application.isPlaying) Time.timeScale = 1f;
             SetWeather(monsoon);
             playerHealth = maxPlayerHealth;
             normalCargo = 0;
