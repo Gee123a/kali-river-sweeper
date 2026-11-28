@@ -211,3 +211,4 @@ SM_Env_DropOffB3	Environment	SM Env DropOffB3	Wesley	Assets/_Project/Environment
 KaliBillboard.cs	Core Code	KaliBillboard	Ivan (Lead)	Assets/_Project/Scripts/Core/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Core/KaliBillboard.cs
 KaliNpcInteractable.cs	Core Code	KaliNpcInteractable	Ivan (Lead)	Assets/_Project/Scripts/Core/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Core/KaliNpcInteractable.cs
 KaliWaypointChevrons.cs	Core Code	KaliWaypointChevrons	Ivan (Lead)	Assets/_Project/Scripts/Player/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Player/KaliWaypointChevrons.cs
+KaliToolSwingBuilder.cs	Rigging & Animation	KaliToolSwingBuilder	JC	Assets/_Project/Rigging/Editor/	CS	Auto	In Branch (jc-toolswing-unity) - Scripted Ready	Auto-Discovered	Detected at unity/Assets/_Project/Rigging/Editor/KaliToolSwingBuilder.cs
