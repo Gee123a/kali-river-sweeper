@@ -119,5 +119,5 @@ Art never blocks code: Ivan ships placeholder shapes first.
 
 ## 9. Before building
 
-- Wesley's pushed work is not merged yet (kiosk, hills, jetties, trash readability, floor marks). Merge it before Phase 1.
+- Wesley's kiosk, hills, jetties, trash readability and floor marks are merged. The hills, jetties, trees, fences and paths are not placed in the map yet.
 - Decide the **[open]** items in sections 3 and 6.

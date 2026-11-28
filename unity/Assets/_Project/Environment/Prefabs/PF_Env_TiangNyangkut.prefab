@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2386090359238689647
+--- !u!1 &272479238508774160
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,9 +8,122 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 6138665790749986750}
-  - component: {fileID: 8497828447609249626}
-  - component: {fileID: 5726318211809336700}
+  - component: {fileID: 4387146241424436011}
+  - component: {fileID: 8220155727254959557}
+  m_Layer: 0
+  m_Name: Tiang_Collider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4387146241424436011
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272479238508774160}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.45, y: -0.5, z: 0.95}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2762213905566533266}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &8220155727254959557
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 272479238508774160}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.12
+  m_Height: 3
+  m_Direction: 1
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &436447999604997660
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2762213905566533266}
+  - component: {fileID: 8688907525350354955}
+  m_Layer: 0
+  m_Name: PF_Env_TiangNyangkut
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2762213905566533266
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 436447999604997660}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1272213888805850205}
+  - {fileID: 1896116362570256394}
+  - {fileID: 1533911584126892138}
+  - {fileID: 4196922155534489112}
+  - {fileID: 7289467187846378116}
+  - {fileID: 2784499948616828224}
+  - {fileID: 4387146241424436011}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8688907525350354955
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 436447999604997660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a398bc1b6a9842bba393aba2f9140abc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dirtyOnly:
+  - {fileID: 570253033053707064}
+  stainRenderers:
+  - {fileID: 5732475113590919094}
+  cleanAt: 0.45
+  stainTint: {r: 0.62, g: 0.5, b: 0.36, a: 1}
+  slimeMoss: 0.45
+--- !u!1 &570253033053707064
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1896116362570256394}
+  - component: {fileID: 7745979691719598513}
+  - component: {fileID: 4810045754726936947}
   m_Layer: 0
   m_Name: SM_Env_TiangNyangkut_Sampah
   m_TagString: Untagged
@@ -18,36 +131,36 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &6138665790749986750
+--- !u!4 &1896116362570256394
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2386090359238689647}
+  m_GameObject: {fileID: 570253033053707064}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8001426723609448252}
+  m_Father: {fileID: 2762213905566533266}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8497828447609249626
+--- !u!33 &7745979691719598513
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2386090359238689647}
+  m_GameObject: {fileID: 570253033053707064}
   m_Mesh: {fileID: 2840242364807737246, guid: c2a24e65aa8a4ad9b3235d7028dbcb40, type: 3}
---- !u!23 &5726318211809336700
+--- !u!23 &4810045754726936947
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2386090359238689647}
+  m_GameObject: {fileID: 570253033053707064}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -83,7 +196,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &4461258694860597525
+--- !u!1 &1167697738461545376
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -91,8 +204,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 242044831209429291}
-  - component: {fileID: 2807088694485621953}
+  - component: {fileID: 7289467187846378116}
+  - component: {fileID: 1009379148066062495}
   m_Layer: 0
   m_Name: Tiang_Collider
   m_TagString: Untagged
@@ -100,28 +213,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &242044831209429291
+--- !u!4 &7289467187846378116
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4461258694860597525}
+  m_GameObject: {fileID: 1167697738461545376}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.5, z: 0}
+  m_LocalPosition: {x: 0.35, y: -0.5, z: -0.85}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8001426723609448252}
+  m_Father: {fileID: 2762213905566533266}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!136 &2807088694485621953
+--- !u!136 &1009379148066062495
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4461258694860597525}
+  m_GameObject: {fileID: 1167697738461545376}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -138,7 +251,7 @@ CapsuleCollider:
   m_Height: 3
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!1 &4762957487856228676
+--- !u!1 &1311405077222600168
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -146,8 +259,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2878441189607586765}
-  - component: {fileID: 7790521871859803555}
+  - component: {fileID: 2784499948616828224}
+  - component: {fileID: 4611944676420853434}
   m_Layer: 0
   m_Name: Tiang_Collider
   m_TagString: Untagged
@@ -155,28 +268,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2878441189607586765
+--- !u!4 &2784499948616828224
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4762957487856228676}
+  m_GameObject: {fileID: 1311405077222600168}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 1.55, y: -0.5, z: -0.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8001426723609448252}
+  m_Father: {fileID: 2762213905566533266}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!136 &7790521871859803555
+--- !u!136 &4611944676420853434
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4762957487856228676}
+  m_GameObject: {fileID: 1311405077222600168}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -193,7 +306,7 @@ CapsuleCollider:
   m_Height: 3
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!1 &5381883264439667413
+--- !u!1 &5383903989525455733
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -201,9 +314,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1229868528917267725}
-  - component: {fileID: 8800574385231846197}
-  - component: {fileID: 4096234618697000469}
+  - component: {fileID: 1272213888805850205}
+  - component: {fileID: 7570666597903994356}
+  - component: {fileID: 5732475113590919094}
   m_Layer: 0
   m_Name: SM_Env_TiangNyangkut
   m_TagString: Untagged
@@ -211,36 +324,36 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1229868528917267725
+--- !u!4 &1272213888805850205
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5381883264439667413}
+  m_GameObject: {fileID: 5383903989525455733}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8001426723609448252}
+  m_Father: {fileID: 2762213905566533266}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &8800574385231846197
+--- !u!33 &7570666597903994356
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5381883264439667413}
+  m_GameObject: {fileID: 5383903989525455733}
   m_Mesh: {fileID: 8413000186542603401, guid: c2a24e65aa8a4ad9b3235d7028dbcb40, type: 3}
---- !u!23 &4096234618697000469
+--- !u!23 &5732475113590919094
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5381883264439667413}
+  m_GameObject: {fileID: 5383903989525455733}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -258,7 +371,7 @@ MeshRenderer:
   - {fileID: 2100000, guid: 590ca5e6805be4657afce32b35019b73, type: 2}
   - {fileID: 2100000, guid: 0ce4c75d8e2b8418cba369b4ac3edb0f, type: 2}
   - {fileID: 2100000, guid: 35c3b8d0c2f0a495cbd5ba451c954d76, type: 2}
-  - {fileID: 2100000, guid: d4625e18451fd443da9adb0592adb695, type: 2}
+  - {fileID: 2100000, guid: 004517d269f3148f3b10ef2a0642aab6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -280,7 +393,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1 &6760314450166746547
+--- !u!1 &7447456301577096825
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -288,8 +401,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 8452013805635601482}
-  - component: {fileID: 6894416483277152656}
+  - component: {fileID: 4196922155534489112}
+  - component: {fileID: 7206155270281506422}
   m_Layer: 0
   m_Name: Tiang_Collider
   m_TagString: Untagged
@@ -297,83 +410,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &8452013805635601482
+--- !u!4 &4196922155534489112
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6760314450166746547}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.35, y: -0.5, z: -0.85}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8001426723609448252}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!136 &6894416483277152656
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6760314450166746547}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.12
-  m_Height: 3
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!1 &7225902639662573038
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2355574549805748692}
-  - component: {fileID: 4828215445904462726}
-  m_Layer: 0
-  m_Name: Tiang_Collider
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2355574549805748692
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7225902639662573038}
+  m_GameObject: {fileID: 7447456301577096825}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.95, y: -0.5, z: 0.55}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8001426723609448252}
+  m_Father: {fileID: 2762213905566533266}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!136 &4828215445904462726
+--- !u!136 &7206155270281506422
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7225902639662573038}
+  m_GameObject: {fileID: 7447456301577096825}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -390,7 +448,7 @@ CapsuleCollider:
   m_Height: 3
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!1 &7377708272628632135
+--- !u!1 &9177420226407075550
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -398,8 +456,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 5302401713835982511}
-  - component: {fileID: 43518960717992357}
+  - component: {fileID: 1533911584126892138}
+  - component: {fileID: 7639227847956923040}
   m_Layer: 0
   m_Name: Tiang_Collider
   m_TagString: Untagged
@@ -407,28 +465,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &5302401713835982511
+--- !u!4 &1533911584126892138
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7377708272628632135}
+  m_GameObject: {fileID: 9177420226407075550}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.45, y: -0.5, z: 0.95}
+  m_LocalPosition: {x: 0, y: -0.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 8001426723609448252}
+  m_Father: {fileID: 2762213905566533266}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!136 &43518960717992357
+--- !u!136 &7639227847956923040
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7377708272628632135}
+  m_GameObject: {fileID: 9177420226407075550}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -445,61 +503,3 @@ CapsuleCollider:
   m_Height: 3
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!1 &7891413232087457006
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 8001426723609448252}
-  - component: {fileID: 5154968755892781174}
-  m_Layer: 0
-  m_Name: PF_Env_TiangNyangkut
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &8001426723609448252
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7891413232087457006}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1229868528917267725}
-  - {fileID: 6138665790749986750}
-  - {fileID: 242044831209429291}
-  - {fileID: 2355574549805748692}
-  - {fileID: 8452013805635601482}
-  - {fileID: 2878441189607586765}
-  - {fileID: 5302401713835982511}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5154968755892781174
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7891413232087457006}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a398bc1b6a9842bba393aba2f9140abc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dirtyOnly:
-  - {fileID: 2386090359238689647}
-  stainRenderers:
-  - {fileID: 4096234618697000469}
-  cleanAt: 0.45
-  stainTint: {r: 0.62, g: 0.5, b: 0.36, a: 1}
-  slimeMoss: 0.45

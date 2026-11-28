@@ -38,7 +38,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Env_PapanLandmark
-    second: {fileID: 2100000, guid: d4625e18451fd443da9adb0592adb695, type: 2}
+    second: {fileID: 2100000, guid: 004517d269f3148f3b10ef2a0642aab6, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

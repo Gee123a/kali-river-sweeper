@@ -54,6 +54,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _ContactFade: 0.15
     - _FlowSpeedA: 0.15
     - _FlowSpeedB: 0.09
     - _FlowTiling: 0.12
