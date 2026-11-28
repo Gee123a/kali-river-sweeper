@@ -19,18 +19,22 @@ namespace KaliRiverSweeper.Editor
             private readonly List<(GunungNodeController node, float health, Vector3 scale, Vector3 pos, bool active)> savedNodes =
                 new List<(GunungNodeController, float, Vector3, Vector3, bool)>();
 
+            // RestartRun() reaches scene objects via FindObjectOfType (player teleport, Gunung restore), so snapshot them all.
+            private readonly List<(Transform t, Vector3 pos, Quaternion rot)> savedPlayers = new List<(Transform, Vector3, Quaternion)>();
+
             public QaContext(bool isolateSceneGunungNodes = false)
             {
                 prevInstance = RiverGameManager.Instance;
                 SetManagerInstance(null);
 
-                if (isolateSceneGunungNodes)
+                foreach (GunungNodeController node in UnityEngine.Object.FindObjectsOfType<GunungNodeController>(true))
                 {
-                    foreach (GunungNodeController node in UnityEngine.Object.FindObjectsOfType<GunungNodeController>(true))
-                    {
-                        savedNodes.Add((node, node.nodeHealth, node.transform.localScale, node.transform.position, node.gameObject.activeSelf));
-                        node.nodeHealth = 0f;
-                    }
+                    savedNodes.Add((node, node.nodeHealth, node.transform.localScale, node.transform.position, node.gameObject.activeSelf));
+                    if (isolateSceneGunungNodes) node.nodeHealth = 0f;
+                }
+                foreach (KaliPlayerController player in UnityEngine.Object.FindObjectsOfType<KaliPlayerController>(true))
+                {
+                    savedPlayers.Add((player.transform, player.transform.position, player.transform.rotation));
                 }
 
                 GameObject go = Track(new GameObject("QA_RiverGameManager"));
@@ -59,6 +63,13 @@ namespace KaliRiverSweeper.Editor
                     s.node.transform.localScale = s.scale;
                     s.node.transform.position = s.pos;
                     s.node.gameObject.SetActive(s.active);
+                }
+
+                for (int i = 0; i < savedPlayers.Count; i++)
+                {
+                    var s = savedPlayers[i];
+                    if (s.t == null) continue;
+                    s.t.SetPositionAndRotation(s.pos, s.rot);
                 }
 
                 SetManagerInstance(prevInstance);
