@@ -61,8 +61,9 @@ All sockets have an identity rest frame in Unity, so props need no rotation offs
 | `Call_Out` | 60 (2.0) | yes | washer calling kids in the storm: cupped hands at the mouth, 2 calls |
 | `Kid_Run` | 20 (0.67) | yes | run in place (Bola Hanyut chase); paced for ~3 m/s at full size, ~2 m/s at kid scale 0.64 |
 | `Kid_Celebrate` | 45 (1.5) | yes | 2 hops with both arms up (hops lift the hips up to +0.10 m) |
+| `Head_Look` | 120 (4.0) | yes | keys ONLY `Neck` + `Head` (all other bones have no channels = rest), yaw 0 -> +60 (left) -> 0 -> -60 (right) -> 0, 35 % Neck / 65 % Head. Mask to Neck+Head or layer additively over any clip |
 
-**Head look (no clip):** drive the bones in `LateUpdate` after the Animator. Path
+**Head look (aimed):** `Head_Look` is an idle sweep; for aiming at a target drive the bones in `LateUpdate` after the Animator. Path
 `VillagerRig/Hips/Spine/Chest/Neck/Head`; `Neck` and `Head` both point straight up with roll 0, so their
 rest localRotation is **identity** and their local axes equal the character's at rest: +Y up (yaw),
 +X to the character's right (pitch, + = look down), +Z forward. Split the look rotation ~35 % `Neck`,

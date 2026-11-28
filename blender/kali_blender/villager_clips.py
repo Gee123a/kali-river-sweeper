@@ -35,6 +35,7 @@ TAKES = {
     "Call_Out": 60,                     # 2.0 s loop, cupped hands, 2 calls
     "Kid_Run": 20,                      # 0.67 s loop, run in place
     "Kid_Celebrate": 45,                # 1.5 s loop, 2 hops with arms up
+    "Head_Look": 120,                   # 4.0 s loop, keys ONLY Neck + Head (mask / layer over any other clip)
 }
 ALL_TAKES = {**V.TAKES, **TAKES}
 SEAT_HIP_DROP = -0.025          # thigh underside at ~0.42 m = KaliAmbientNpc SeatedFisher pos.y -= 0.42
@@ -544,7 +545,18 @@ def kid_celebrate(arm, f):
     return _pose(arm, r, dz)
 
 
+HEAD_LOOK_YAW = 60.0     # peak total yaw (deg), 35 % Neck / 65 % Head, inside the +-70 deg README limit
+
+
+def head_look(arm, f):
+    """Look left (+Z yaw = character left) -> center -> right -> center. Only Neck and Head are posed, so every
+    other bone has no channels and stays at rest (additive layer / avatar mask friendly)."""
+    yaw = HEAD_LOOK_YAW * math.sin(_cyc(f, TAKES["Head_Look"]))
+    return {b: (rc.local_quat(arm, b, (0, 0, k * yaw)), None) for b, k in (("Neck", 0.35), ("Head", 0.65))}
+
+
 POSE_FNS.update({
+    "Head_Look": head_look,
     "Talk_Gesture": talk_gesture, "Wave": wave, "Point_Forward": point_forward, "Cheer_Clap": cheer_clap,
     "Call_Out": call_out, "Kid_Run": kid_run, "Kid_Celebrate": kid_celebrate,
 })

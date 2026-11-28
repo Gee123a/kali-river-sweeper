@@ -102,6 +102,26 @@ for name, frames in C.ALL_TAKES.items():
     hit = [a for k, a in acts.items() if name in k.split("|")]
     ok = bool(hit) and round(hit[0].frame_range[1] - hit[0].frame_range[0]) == frames
     check(ok, f"re-imported action for take {name} ({[a.name for a in hit]}, {frames} frames)")
+hl = [a for k, a in acts.items() if "Head_Look" in k.split("|")]
+if hl:
+    moving = {fc.data_path.split('"')[1] for fc in rc.action_fcurves(hl[0])
+              if '"' in fc.data_path and max(k.co[1] for k in fc.keyframe_points) - min(k.co[1] for k in fc.keyframe_points) > 1e-4}
+    check(moving == {"Neck", "Head"}, f"Head_Look moves only Neck + Head (FBX bakes static channels for the rest): {sorted(moving)}")
+    ad = arms[0].animation_data_create()
+    ad.action = hl[0]
+    peak = {"Neck": 0.0, "Head": 0.0}
+    side = {}
+    for fr in (0, 30, 60, 90, 120):
+        bpy.context.scene.frame_set(fr)
+        for b in peak:
+            ang = math.degrees(arms[0].pose.bones[b].matrix_basis.to_quaternion().angle)
+            peak[b] = max(peak[b], ang)
+        hb = arms[0].pose.bones["Head"]
+        q = hb.matrix_basis.to_quaternion()
+        side[fr] = (hb.bone.matrix_local.to_3x3() @ q.axis).z * q.angle      # yaw about armature up
+    ad.action = None
+    check(abs(peak["Neck"] + peak["Head"] - 60) < 0.5 and peak["Head"] > peak["Neck"], f"Head_Look yaw peaks {peak} (total 60 <= 70)")
+    check(side[30] * side[90] < 0, "Head_Look swings both ways (left @1 s, right @3 s)")
 for prop in V.SOCKETS:
     f = os.path.join(REPO, rc.FBX_DIR, prop + ".fbx")
     bpy.ops.wm.read_factory_settings(use_empty=True)
