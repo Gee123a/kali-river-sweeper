@@ -899,7 +899,60 @@ def layanan():
     return path
 
 
-ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul, "landmark": landmark, "layanan": layanan}
+# ---------------------------------------------------------------- P2-7 drop-off near Dermaga Tengah (plan Step 6C)
+DROPOFF_RECTS = {   # must match dropoff.py
+    "header": (0, 0, 1024, 200), "medis": (0, 224, 512, 736), "bio": (512, 224, 1024, 736),
+    "kuning": (0, 760, 256, 880), "ungu": (256, 760, 512, 880), "hazard": (512, 760, 1024, 880),
+    "slot": (0, 904, 256, 1024), "putih": (256, 904, 512, 1024),
+}
+BIN_YELLOW = (236, 186, 22)
+BIN_PURPLE = (98, 44, 150)
+
+
+def dropoff_label(img, box, colour, title, sub, icon, ink):
+    d = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = box
+    d.rectangle(box, fill=colour)
+    d.rounded_rectangle((x0 + 40, y0 + 36, x1 - 40, y1 - 36), radius=26, fill=(250, 250, 244))
+    s = 210
+    icon(img, ((x0 + x1) / 2 - s / 2, y0 + 64, (x0 + x1) / 2 + s / 2, y0 + 64 + s))
+    d = ImageDraw.Draw(img)
+    f = fit_font(d, title, "BarlowCondensed-Bold.ttf", x1 - x0 - 120, 90)
+    text_center(d, (x0 + 50, y0 + 290, x1 - 50, y0 + 384), title, f, ink)
+    f2 = fit_font(d, sub, "BarlowCondensed-SemiBold.ttf", x1 - x0 - 120, 54, start=54)
+    text_center(d, (x0 + 50, y0 + 384, x1 - 50, y0 + 446), sub, f2, (60, 60, 64))
+
+
+def dropoff():
+    """T_Env_PapanDropOff: header board, the two bin labels and plain swatches for the bin bodies."""
+    img = Image.new("RGB", (W, W), (40, 42, 46))
+    R = DROPOFF_RECTS
+    d = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = R["header"]
+    hazard_stripes(img, R["header"], band=40)
+    d = ImageDraw.Draw(img)
+    d.rectangle((x0 + 18, y0 + 18, x1 - 18, y1 - 18), fill=(24, 28, 30))
+    _icon_cross(img, (x0 + 40, y0 + 34, x0 + 172, y0 + 166))
+    _icon_bio(img, (x1 - 172, y0 + 34, x1 - 40, y0 + 166))
+    d = ImageDraw.Draw(img)
+    text_center(d, (x0 + 190, y0 + 22, x1 - 190, y0 + 122), "DROP-OFF B3", fit_font(d, "DROP-OFF B3", "BarlowCondensed-Bold.ttf", 620, 96), HAZ_YELLOW)
+    text_center(d, (x0 + 190, y0 + 118, x1 - 190, y1 - 24), "[E]  SETOR DI SINI  \u2022  DEKAT DERMAGA", font("BarlowCondensed-SemiBold.ttf", 40), (250, 250, 246))
+    dropoff_label(img, R["medis"], BIN_YELLOW, "LIMBAH MEDIS B3", "JARUM \u2022 KASA \u2022 OBAT", _icon_cross, CROSS_RED)
+    dropoff_label(img, R["bio"], BIN_PURPLE, "BIOHAZARD", "JANGAN DIBUKA!", _icon_bio, BIO_PURPLE)
+    d = ImageDraw.Draw(img)
+    d.rectangle(R["kuning"], fill=BIN_YELLOW)
+    d.rectangle(R["ungu"], fill=BIN_PURPLE)
+    hazard_stripes(img, R["hazard"], band=30)
+    d = ImageDraw.Draw(img)
+    d.rectangle(R["slot"], fill=(20, 20, 22))
+    d.rectangle(R["putih"], fill=(244, 244, 238))
+    out = grime(img, [R["header"], R["medis"], R["bio"]], 31)
+    path = os.path.join(TEX, "T_Env_PapanDropOff.png")
+    out.save(path, optimize=True)
+    return path
+
+
+ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul, "landmark": landmark, "layanan": layanan, "dropoff": dropoff}
 
 
 def main():
