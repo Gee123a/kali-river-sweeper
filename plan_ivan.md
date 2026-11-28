@@ -74,7 +74,24 @@
 - [x] **Task 4G: Kopdes `BuyTool`, `SafeClosestPoint`, Field Guide Overlay (`8dd27dd`), SSOT Sync & Surface Swimming / Stamina / Drowning** *(12/12 QA suites, 550 asserts)*.
 - [x] **Task 4H: Procedural Skybox, 12-Min Day/Night Cycle (`KaliDayNightCycle.cs`), Water Sun Glint & HUD Clock (`T` phase cycle)** *(12/12 QA suites, 563+ asserts)*.
 - [x] **Task 4I (Initial Landing & Real-Footprint Re-Layout)**: dense kampung rows (`6ab0d43`) + real-footprint hub/dermaga/bridge/spawn clearance (`d7cdd17`, 61 houses across West/East banks, 5 jetties, 70 rear trees, 13/13 QA suites).
-- [x] **Task 4J: Ambient River NPC System (`Scripts/Core/KaliAmbientNpc.cs`, `Scripts/Editor/KaliNpcBuilder.cs`, `kali-river-map.json`, `Main.unity`)**: `12 npc_group` entries expanding deterministically into **22 ambient NPCs** (`8` kids `0.60–0.68x` at shallow edges & Jetty 05, `5` Bapak fishers on jetties/bank with bamboo rods + vertical line/bobber, `5` Ibu washers crouching on bank slope + wash tubs, `4` warung chatters incl. bin carrier), using JC's `SK_VillagerNPC` read-only with `MaterialPropertyBlock` tints, `AnimatorCullingMode.CullUpdateTransforms` `PlayableGraph`, non-blocking zero-collider setup, `20:00–05:30` day/night fade, monsoon water evacuation for kids/washers, and `14/14` QA suites (`1,888` asserts) PASS.
+- [x] **Task 4J: Ambient River NPC System + Polish (`Scripts/Core/KaliAmbientNpc.cs`, `Scripts/Editor/KaliNpcBuilder.cs`, `kali-river-map.json`, `Main.unity`)** *(commit `d8dcad1`)*: `12 npc_group` entries expanding deterministically into **22 ambient NPCs** (`8` kids, `5` fishers, `5` washers, `4` chatters), using JC's `SK_VillagerNPC` read-only, `AnimatorCullingMode.CullUpdateTransforms` `PlayableGraph`, non-blocking zero-collider setup, `20:00–05:30` day/night fade, monsoon water evacuation. **Polish pass** added:
+  - Rod-line & bobber world-space tracking (`rodTip`/`rodLine`/`rodBobber`), pivot angle `−8°`, all bobbers at `y ≈ −0.17` (water surface)
+  - Foot/arm bones cached in `CacheComponents()` — ready for JC animation clip integration
+  - `KidWader` hop amplitude `0.11f`, shallow-only guard; `KidChaser` oval track + `ClampOutsideBoatLane()`
+  - Visibility fade `0.85f → 1.4f`; `ChatterBinCarrier` clip selection removed (now `KidChaser` only)
+  - East warung chatters re-grounded: `(598, 1058, r=0.55)` on flat grass tile (`groundY=1.41`)
+  - `KidJettyJumper` Jetty 05: anchor `(2.15, 0, −0.60)`, yaw `−28°`, jump target riverward — clears boat lane
+  - `CrouchedWasher` footplant `pos.y -= 0.215f`; wash tub float bias removed (`Mathf.Max(−0.08f, binGroundY)`)
+  - **14/14 QA suites, 1,909 asserts PASS**, `0` console errors, Play Mode verified `1280×720`
+
+  > **📢 JC — Animation Clips Needed (blocks Task 5):** `SK_VillagerNPC` only has `Idle`, `CarryBin`, `ThrowTrash`. Missing:
+  > `Anim_Fisher_SittingCast`, `Anim_Fisher_SittingIdle`, `Anim_Fisher_StandingIdle`,
+  > `Anim_Washer_CrouchedScrub`, `Anim_Kid_WadeShallow`, `Anim_Kid_Splash`, `Anim_Kid_JettyJump`, `Anim_Chatter_TalkingIdle`.
+  > Foot/arm bones are already cached — just drop clips into `Rigging/` and Ivan will wire them in Task 5.
+
+  > **📢 Wesley — Washer Re-Snap After `tangga cuci`:** When wash steps land in `Environment/`, washer NPC Y positions need updating in `kali-river-map.json`. Ivan's `PlaceWashers()` reads `npc_group` `y` from JSON and applies `Mathf.Max(−0.08f, binGroundY)`. Just provide the world-space Y of each step tier and Ivan will update the JSON — no changes to `Environment/` files from Ivan's side.
+
+  > **📢 Niki — NPC Splash Audio Hook:** `OnWaterSplash(Vector3 worldPos)` exists in `RiverGameManager.cs` and fires on player splash. Wire your `Audio/` splash clip to this event — no `Scripts/` edits needed from Niki's side.
 - [x] **Task 5A: Core Wiring Hardening** *(Play Mode verified at `1280x720`, 0 console errors)*.
 
 ### Priority 1: Progression, QA & Unity Version Decision (Active Track)
