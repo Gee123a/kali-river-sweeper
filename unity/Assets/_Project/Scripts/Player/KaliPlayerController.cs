@@ -715,7 +715,9 @@ namespace KaliRiverSweeper.Player
 
             if (!isInBoat)
             {
-                float waterX = dockOnEastSide ? dockBounds.min.x - 1.6f : dockBounds.max.x + 1.6f;
+                // 4 m out from the whole dock footprint (was 1.6 from the nearest pile, which landed under the deck). Still clamped to the river below.
+                Bounds footprint = DermagaFootprint(dockCol.transform);
+                float waterX = dockOnEastSide ? footprint.min.x - 4.0f : footprint.max.x + 4.0f;
                 float minRiverX = cxWorld - Mathf.Max(0.5f, hwWorld - 1.0f);
                 float maxRiverX = cxWorld + Mathf.Max(0.5f, hwWorld - 1.0f);
                 waterX = Mathf.Clamp(waterX, minRiverX, maxRiverX);
@@ -818,6 +820,17 @@ namespace KaliRiverSweeper.Player
                 }
             }
             return false;
+        }
+
+        // Bounds of the whole dock: colliders under the topmost "Dermaga" ancestor of a piece.
+        private static Bounds DermagaFootprint(Transform piece)
+        {
+            Transform top = piece;
+            while (top.parent != null && top.parent.name.Contains("Dermaga")) top = top.parent;
+            Collider[] cols = top.GetComponentsInChildren<Collider>();
+            Bounds b = cols[0].bounds;
+            for (int i = 1; i < cols.Length; i++) b.Encapsulate(cols[i].bounds);
+            return b;
         }
 
         private static bool TryFindNearestDermaga(Vector3 pos, float range, out Collider bestCol, out Transform bestRoot)

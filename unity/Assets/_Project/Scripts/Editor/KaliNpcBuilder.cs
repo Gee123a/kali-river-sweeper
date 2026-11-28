@@ -471,6 +471,11 @@ namespace KaliRiverSweeper.Editor
                 npc.chaseAxisWorld = spec.chaseAxisWorld;
                 npc.chaseRadius = spec.chaseRadius;
                 npc.jumpWaterPos = resolvedJumpWater;
+                // Bare/Sarung bodies sink under base-rig clips: lift washers and standing chatter so soles meet the ground.
+                if (spec.subBehavior == AmbientNpcSubBehavior.CrouchedWasher || spec.subBehavior == AmbientNpcSubBehavior.Standard)
+                {
+                    npc.SettleFeetToGround(npc.poseClip);
+                }
                 npc.ApplyEditorPreviewPose();
 
                 KaliNpcInteractable talk = npcGo.AddComponent<KaliNpcInteractable>();

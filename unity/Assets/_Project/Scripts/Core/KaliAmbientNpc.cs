@@ -167,6 +167,40 @@ namespace KaliRiverSweeper.Core
         }
 
         /// <summary>
+        /// Lifts the anchor when the lowest foot over the clip sinks below the ground under it.
+        /// Bare and Sarung bodies have lower hips than the base rig, so the same clip sinks their feet
+        /// into the bank. Lift-only: base-body NPCs already clear the ground and are not moved.
+        /// ponytail: one 16-sample sweep, no per-body config.
+        /// </summary>
+        public float SettleFeetToGround(AnimationClip clip, float footClearance = 0.07f)
+        {
+            if (clip == null) return 0f;
+            CacheComponents();
+            float worst = float.MaxValue;
+            Transform[] bones = GetComponentsInChildren<Transform>();
+            for (int k = 0; k < 16; k++)
+            {
+                float t = clip.length * k / 16f;
+                clip.SampleAnimation(gameObject, t);
+                ApplyAnchoredTransform(t);
+                for (int i = 0; i < bones.Length; i++)
+                {
+                    string n = bones[i].name;
+                    if (n.IndexOf("Foot", StringComparison.OrdinalIgnoreCase) < 0 && n.IndexOf("Toe", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    Vector3 p = bones[i].position;
+                    float groundY = Physics.Raycast(new Vector3(p.x, 12f, p.z), Vector3.down, out RaycastHit hit, 25f, ~0, QueryTriggerInteraction.Ignore)
+                        ? hit.point.y
+                        : p.y;
+                    worst = Mathf.Min(worst, p.y - groundY);
+                }
+            }
+            float lift = footClearance - worst;
+            if (worst == float.MaxValue || lift < 0.03f) return 0f;
+            anchorWorldPos.y += lift;
+            return lift;
+        }
+
+        /// <summary>
         /// Deterministic step entrypoint used by Update and QA verification.
         /// </summary>
         public void StepSimulation(float dt)

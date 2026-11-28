@@ -12,6 +12,7 @@ namespace KaliRiverSweeper.Core
     public sealed class KaliNpcInteractable : MonoBehaviour
     {
         public const float TalkRange = 2.5f;
+        public const float FacingDot = 0.5f; // same rule as station counters: horizontal dot(forward, toNpc) >= 0.5
         private const float MaxVerticalGap = 3f;
         private const float SpeechSeconds = 4f;
 
@@ -46,7 +47,7 @@ namespace KaliRiverSweeper.Core
             RiverGameManager gm = RiverGameManager.Instance;
             if (gm == null || gm.State != KaliGameState.Playing || playerTf == null) return false;
 
-            KaliNpcInteractable npc = FindNearest(playerTf.position);
+            KaliNpcInteractable npc = FindNearest(playerTf);
             if (npc == null) return false;
 
             npc.Talk(gm);
@@ -62,19 +63,19 @@ namespace KaliRiverSweeper.Core
             return "Airnya mulai jernih, Nak!";
         }
 
-        // Nearest enabled instance within TalkRange horizontally and MaxVerticalGap vertically.
-        private static KaliNpcInteractable FindNearest(Vector3 from)
+        // Nearest enabled instance within TalkRange horizontally and MaxVerticalGap vertically, that the player faces.
+        private static KaliNpcInteractable FindNearest(Transform from)
         {
             KaliNpcInteractable best = null;
             float bestSqr = TalkRange * TalkRange;
             for (int i = 0; i < Registry.Count; i++)
             {
                 KaliNpcInteractable npc = Registry[i];
-                Vector3 d = npc.transform.position - from;
+                Vector3 d = npc.transform.position - from.position;
                 if (Mathf.Abs(d.y) > MaxVerticalGap) continue;
                 d.y = 0f;
                 float sqr = d.sqrMagnitude;
-                if (sqr <= bestSqr)
+                if (sqr <= bestSqr && IsFacing(from, npc.transform.position))
                 {
                     bestSqr = sqr;
                     best = npc;
@@ -83,14 +84,25 @@ namespace KaliRiverSweeper.Core
             return best;
         }
 
+        // Back turned or side-on villagers are not talkable, so [E] falls through to the Dermaga boat.
+        private static bool IsFacing(Transform from, Vector3 target)
+        {
+            Vector3 fwd = from.forward;
+            fwd.y = 0f;
+            Vector3 to = target - from.position;
+            to.y = 0f;
+            if (to.sqrMagnitude < 0.0001f) return true;
+            return Vector3.Dot(fwd.normalized, to.normalized) >= FacingDot;
+        }
+
         private void Talk(RiverGameManager gm)
         {
             string line;
             if (isEsTehSeller && !gm.isMonsoonStorm)
             {
-                line = gm.TryBuyEsTeh()
-                    ? "Ini es tehnya, segar! (-Rp 5.000, +30 HP)"
-                    : "Es teh Rp 5.000, kalau lelah mampir ya.";
+                if (gm.TryBuyEsTeh()) line = "Ini es tehnya, segar! (-Rp 5.000, +30 HP)";
+                else if (gm.playerHealth >= gm.maxPlayerHealth) line = "Kamu masih segar, Nak. Simpan uangmu.";
+                else line = "Uangmu kurang, es teh Rp 5.000.";
             }
             else
             {
@@ -145,7 +157,7 @@ namespace KaliRiverSweeper.Core
             }
             if (player == null || player.IsInBoat || player.IsSwimming || player.HasNearbyHub) return false;
 
-            return FindNearest(player.transform.position) == this;
+            return FindNearest(player.transform) == this;
         }
 
         private void DrawPrompt()

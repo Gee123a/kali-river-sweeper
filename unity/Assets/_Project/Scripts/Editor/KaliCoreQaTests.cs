@@ -108,6 +108,7 @@ namespace KaliRiverSweeper.Editor
                 VerifyGameStatesAndRestartReseed,
                 VerifyWaypointChevronTokensAndMaterials,
                 VerifyNpcPickLineAndEsTehPurchase,
+                VerifyNpcFacingTalkRule,
                 VerifyTrashVisualScale,
                 VerifyBakedSceneVillagersAndDirector
             };
@@ -1775,6 +1776,52 @@ namespace KaliRiverSweeper.Editor
                 Assert(!gm.TryBuyEsTeh() && gm.rupiah == 6000, "Es Teh refused at full HP without charge");
                 gm.rupiah = 4999; gm.playerHealth = 50f;
                 Assert(!gm.TryBuyEsTeh() && gm.rupiah == 4999 && gm.playerHealth == 50f, "Es Teh refused when poor without charge or heal");
+            }
+        }
+
+        private static void VerifyNpcFacingTalkRule()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                gm.isMonsoonStorm = false;
+                gm.rupiah = 0; gm.playerHealth = gm.maxPlayerHealth;
+                // Far from every baked villager so only the QA NPC is in range.
+                GameObject playerGo = ctx.Track(new GameObject("QA_TalkPlayer"));
+                playerGo.transform.position = new Vector3(400f, 0f, 400f);
+                playerGo.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+                GameObject npcGo = ctx.Track(new GameObject("QA_TalkNpc"));
+                npcGo.transform.position = new Vector3(400f, 0f, 401.5f);
+                KaliNpcInteractable npc = npcGo.AddComponent<KaliNpcInteractable>();
+                npc.npcName = "QA";
+                InvokeNonPublic(npc, "OnEnable"); // Edit Mode does not run OnEnable, so register the QA NPC by hand
+                System.Action<KaliNpcInteractable, string> onSpoke = null;
+                try
+                {
+                    Assert(KaliNpcInteractable.TryTalkNearest(playerGo.transform), "Villager ahead of the player is talkable");
+                    playerGo.transform.rotation = Quaternion.LookRotation(Vector3.back);
+                    Assert(!KaliNpcInteractable.TryTalkNearest(playerGo.transform), "Villager behind the player is not talkable (E boards the boat)");
+                    playerGo.transform.rotation = Quaternion.LookRotation(Vector3.right);
+                    Assert(!KaliNpcInteractable.TryTalkNearest(playerGo.transform), "Side-on villager (dot 0) is not talkable");
+
+                    // Es Teh failure line states the reason.
+                    npc.isEsTehSeller = true;
+                    playerGo.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+                    string spoke = null;
+                    onSpoke = (who, line) => { if (who == npc) spoke = line; };
+                    KaliNpcInteractable.OnSpoke += onSpoke;
+                    gm.rupiah = 6000; gm.playerHealth = gm.maxPlayerHealth;
+                    KaliNpcInteractable.TryTalkNearest(playerGo.transform);
+                    Assert(spoke == "Kamu masih segar, Nak. Simpan uangmu.", "Es Teh refused at full HP says why");
+                    gm.rupiah = 100; gm.playerHealth = 50f; spoke = null;
+                    KaliNpcInteractable.TryTalkNearest(playerGo.transform);
+                    Assert(spoke == "Uangmu kurang, es teh Rp 5.000.", "Es Teh refused when poor says why");
+                }
+                finally
+                {
+                    if (onSpoke != null) KaliNpcInteractable.OnSpoke -= onSpoke;
+                    InvokeNonPublic(npc, "OnDisable");
+                }
             }
         }
 
