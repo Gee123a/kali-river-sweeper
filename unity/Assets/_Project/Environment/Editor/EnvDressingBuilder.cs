@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using KaliRiverSweeper.Core;
 using KaliRiverSweeper.Env;
 using UnityEditor;
 using UnityEngine;
@@ -30,6 +31,7 @@ namespace KaliRiverSweeper.EnvEditor
         private const string LampuFbx = Env + "Meshes/SM_Env_Lampu.fbx";
         private const string VegFbx = Env + "Meshes/SM_Env_Vegetasi.fbx";
         private const string LandmarkFbx = Env + "Meshes/SM_Env_Landmark.fbx";
+        private const string DropOffFbx = Env + "Meshes/SM_Env_DropOffB3.fbx";
         private const string LayananFbx = Env + "Meshes/SM_Env_TandaLayanan.fbx";
         private const string LayoutJson = Env + "Data/env_dressing.json";
         private const string WeatheredShader = "Shader Graphs/SG_EnvWeathered";
@@ -61,6 +63,7 @@ namespace KaliRiverSweeper.EnvEditor
             RemapFbx(VegFbx);
             RemapFbx(LandmarkFbx);
             RemapFbx(LayananFbx);
+            RemapFbx(DropOffFbx);
             var lampuJalan = BuildLampuJalan();
             var bohlam = BuildBohlam();
             var plants = new Dictionary<string, GameObject>();
@@ -86,6 +89,7 @@ namespace KaliRiverSweeper.EnvEditor
             Weathered("M_Env_DaunRimbunPadat", "T_Env_DaunRimbun", new Color(0.82f, 0.86f, 0.8f), 0.18f, 0f);
             Weathered("M_Env_Bambu", "T_Env_Bambu", Color.white, 0.35f, 0.1f);
             Weathered("M_Env_BatuSungai", "T_Env_BetonKotor", new Color(0.52f, 0.50f, 0.46f), 0.2f, 0.55f);
+            Weathered("M_Env_PapanDropOff", "T_Env_PapanDropOff", new Color(0.93f, 0.93f, 0.93f), 0.25f, 0f);
             Weathered("M_Env_PapanLayanan", "T_Env_PapanLayanan", new Color(0.93f, 0.93f, 0.93f), 0.2f, 0f);
             Paint("M_Env_TandaLantai", Color.white);
             foreach (var l in Layanan) Paint("M_Env_TandaLantai_" + l.key, PaintAlbedo(l.paint));
@@ -464,6 +468,26 @@ namespace KaliRiverSweeper.EnvEditor
                 root = MeshObject(LandmarkFbx, "SM_Env_Panah" + a, "PF_Env_Panah" + a);
                 map["PF_Env_Panah" + a] = Save(root, "PF_Env_Panah" + a);
             }
+
+            // Step 6C / playtest P2-7: B3 drop-off kiosk by Dermaga Tengah. Front = -X. The two triggers are for
+            // Ivan's gameplay (Medical / Biohazard deposit), nothing here sells anything by itself.
+            root = MeshObject(DropOffFbx, "SM_Env_DropOffB3", "PF_Env_DropOffB3");
+            Box(root, "DropOff_BinMedis", new Vector3(0f, 0.66f, -0.72f), new Vector3(0.9f, 1.1f, 1.15f));
+            Box(root, "DropOff_LockerBio", new Vector3(0f, 0.72f, 0.72f), new Vector3(0.86f, 1.2f, 1.1f));
+            foreach (var pz in new[] { -1.48f, 1.48f })
+                foreach (var px in new[] { -1.15f, 1.15f })
+                    Box(root, "DropOff_Post", new Vector3(px, 1.3f, pz), new Vector3(0.1f, 2.4f, 0.1f));
+            foreach (var t in new[] { ("DropOff_Medis_Trigger", -0.72f), ("DropOff_Biohazard_Trigger", 0.72f) })
+            {
+                var trig = new GameObject(t.Item1);
+                trig.transform.SetParent(root.transform, false);
+                trig.transform.localPosition = new Vector3(-1.6f, 1.0f, t.Item2);
+                var sc = trig.AddComponent<SphereCollider>();
+                sc.isTrigger = true;
+                sc.radius = 1.4f;
+            }
+            AddBohlam(root, bohlam, new Vector3(-0.2f, 2.28f, 0f), 180f, 0.14f);
+            map["PF_Env_DropOffB3"] = Save(root, "PF_Env_DropOffB3");
             return map;
         }
 
@@ -493,6 +517,7 @@ namespace KaliRiverSweeper.EnvEditor
                 // a stall with no free ground means Ivan's kampung already has a warung there: skip the duplicate
                 if (l.p[1] > 0.5f && !NudgeToFreeGround(inst, 7f)) UnityEngine.Object.DestroyImmediate(inst);
             }
+            PlaceDropOff(root, map["PF_Env_DropOffB3"]);
             return Save(root, "PF_Env_QuestLandmarks");
         }
 
@@ -520,6 +545,25 @@ namespace KaliRiverSweeper.EnvEditor
             marks.marks = list.ToArray();
             snapped = marks.Snap();                                                   // bake positions when Main.unity is open
             return Save(root, "PF_Env_TandaLayanan");
+        }
+
+        /// <summary>Puts the B3 kiosk on the bank at the land end of Dermaga Tengah, front facing the river.</summary>
+        private static void PlaceDropOff(GameObject root, GameObject prefab)
+        {
+            Transform dock = null;
+            foreach (var t in UnityEngine.Object.FindObjectsOfType<Transform>())
+                if (t.name == "Dermaga Tengah") { dock = t; break; }
+            if (dock == null) { Debug.LogWarning("[EnvDressingBuilder] Dermaga Tengah not in the open scene: drop-off not placed (open Main.unity)"); return; }
+            var b = new Bounds(dock.position, Vector3.zero);
+            foreach (var r in dock.GetComponentsInChildren<Renderer>()) b.Encapsulate(r.bounds);
+            float riverX = (RiverMath.RiverCenterMapX(dock.position.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+            bool east = dock.position.x > riverX;
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(prefab, root.transform);
+            inst.name = "DropOffB3_DermagaTengah";
+            inst.transform.SetPositionAndRotation(new Vector3(east ? b.max.x + 2.2f : b.min.x - 2.2f, 1.4f, dock.position.z),
+                Quaternion.Euler(0f, east ? 0f : 180f, 0f));                       // front (-X) toward the water
+            Physics.SyncTransforms();
+            if (!NudgeToFreeGround(inst, 8f)) UnityEngine.Object.DestroyImmediate(inst);
         }
 
         private static bool IgnoredForPlacement(Collider c) =>
