@@ -258,6 +258,9 @@ namespace KaliRiverSweeper.Editor
             }
 
             CollectRowsAndAvoidance(data, rawJson, out var rowSpecs, out var avoidZones, out var footpaths);
+            // Same real-footprint refinement as the bake, when the built world is in the scene.
+            GameObject built = GameObject.Find("_KALI_World");
+            if (built != null) RefineAvoidZonesToRealFootprints(built.transform, avoidZones);
             return KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
         }
 
@@ -316,6 +319,41 @@ namespace KaliRiverSweeper.Editor
             }
         }
 
+        // Replaces the hardcoded hub/Dermaga footprints with the real XZ bounds of the spawned objects.
+        // Zones with no matching renderer keep their spec fallback. Particle renderers are skipped.
+        private static void RefineAvoidZonesToRealFootprints(Transform root, List<KaliKampungBuilder.AvoidanceZone> avoidZones)
+        {
+            Transform[] all = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < avoidZones.Count; i++)
+            {
+                KaliKampungBuilder.AvoidanceZone z = avoidZones[i];
+                Transform match = null;
+                foreach (Transform t in all)
+                {
+                    if (t.name == z.name && t.GetComponentInChildren<Renderer>(true) != null)
+                    {
+                        match = t;
+                        break;
+                    }
+                }
+                if (match == null) continue;
+
+                bool any = false;
+                Bounds b = default;
+                foreach (Renderer r in match.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r is ParticleSystemRenderer) continue;
+                    if (!any) { b = r.bounds; any = true; }
+                    else b.Encapsulate(r.bounds);
+                }
+                if (!any) continue;
+
+                z.worldCenter = new Vector3(b.center.x, 0f, b.center.z);
+                z.halfExtentsXZ = new Vector2(b.extents.x, b.extents.z);
+                avoidZones[i] = z;
+            }
+        }
+
         private static bool TryGetAvoidanceSpec(string type, out Vector2 halfExtentsXZ, out float minClearanceM)
         {
             switch (type)
@@ -325,12 +363,12 @@ namespace KaliRiverSweeper.Editor
                 case "karantina_biohazard":
                 case "pengepul":
                     halfExtentsXZ = new Vector2(3.0f, 4.5f);
-                    minClearanceM = 5.0f;
+                    minClearanceM = 6.5f;
                     return true;
                 case "kopdes":
                 case "toko_alat":
                     halfExtentsXZ = new Vector2(3.0f, 5.5f);
-                    minClearanceM = 5.0f;
+                    minClearanceM = 6.5f;
                     return true;
                 case "dermaga":
                     halfExtentsXZ = new Vector2(4.0f, 2.0f);
@@ -429,7 +467,8 @@ namespace KaliRiverSweeper.Editor
                 }
 
                 CollectRowsAndAvoidance(data, rawJson, out var rowSpecs, out var avoidZones, out var footpaths);
-                var expanded = KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
+                RefineAvoidZonesToRealFootprints(root.transform, avoidZones);
+                var expanded =KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
                 var stats = KaliKampungBuilder.SpawnKampungAndClutter(
                     expanded,
                     buildingsGroup.transform,

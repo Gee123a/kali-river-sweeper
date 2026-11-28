@@ -136,6 +136,7 @@ namespace KaliRiverSweeper.Editor
             IReadOnlyList<PathSegment> footpaths)
         {
             var result = new List<ExpandedBuilding>();
+            RejectCounts.Clear();
             if (rows == null) return result;
 
             int waterfrontIndex = 0;
@@ -191,10 +192,16 @@ namespace KaliRiverSweeper.Editor
                         Vector2 posXZ = new Vector2(worldPos.x, worldPos.z);
 
                         if (worldPos.x < -49.5f || worldPos.x > 45.5f || worldPos.z < -80f || worldPos.z > 80f)
+                        {
+                            CountReject(row.id, "bounds");
                             continue;
+                        }
 
                         if (Vector2.Distance(posXZ, QaSwimLaneCenterXZ) < 5.5f)
+                        {
+                            CountReject(row.id, "swimlane");
                             continue;
+                        }
 
                         float baseYaw = ComputeRiverFacingYaw(posXZ, curMapY);
                         float finalYaw = baseYaw + jyaw;
@@ -207,19 +214,32 @@ namespace KaliRiverSweeper.Editor
                             RiverMath.IsInRiver(worldPos + riverFacingDir * 4.2f) ||
                             RiverMath.IsInRiver(worldPos + riverFacingDir * 2.0f))
                         {
-                            continue;
-                        }
-
-                        if (!IsClearOfAvoidZones(posXZ, avoidZones, 0f) ||
-                            !IsClearOfFootpaths(posXZ, footpaths, 1.8f) ||
-                            IsOverlappingExistingBuilding(posXZ, result, 4.4f))
-                        {
+                            CountReject(row.id, "river");
                             continue;
                         }
 
                         float totalW = Mathf.Max(0.001f, row.rumahWeight + row.warungWeight);
                         float warungProb = row.warungWeight / totalW;
                         string bType = (typeRoll < warungProb) ? "warung_madura" : "rumah";
+
+                        // Real XZ footprint of this house at its yaw, checked bounds-to-bounds against avoid zones.
+                        ComputeHouseFootprintXZ(bType, worldPos, finalYaw, out Vector2 houseCenterXZ, out Vector2 houseHalfXZ);
+                        string zoneBlocker = FirstBlockingZone(houseCenterXZ, avoidZones, houseHalfXZ);
+                        if (zoneBlocker != null)
+                        {
+                            CountReject(row.id, "zone:" + zoneBlocker);
+                            continue;
+                        }
+                        if (!IsClearOfFootpaths(posXZ, footpaths, 1.8f))
+                        {
+                            CountReject(row.id, "footpath");
+                            continue;
+                        }
+                        if (IsOverlappingExistingBuilding(posXZ, result, 4.4f))
+                        {
+                            CountReject(row.id, "overlap");
+                            continue;
+                        }
 
                         bool hasJetty = false;
                         Vector3 jettyPos = Vector3.zero;
@@ -256,6 +276,10 @@ namespace KaliRiverSweeper.Editor
                 }
             }
 
+            var sbReject = new System.Text.StringBuilder("[KALI] kampung reject breakdown (row|reason=count): ");
+            foreach (var kv in RejectCounts) sbReject.Append(kv.Key).Append('=').Append(kv.Value).Append("; ");
+            sbReject.Append("accepted=").Append(result.Count);
+            Debug.Log(sbReject.ToString());
             return result;
         }
 
@@ -375,7 +399,7 @@ namespace KaliRiverSweeper.Editor
 
                     if (binPos.x >= -49.5f && binPos.x <= 45.5f && binPos.z >= -80f && binPos.z <= 80f &&
                         !RiverMath.IsInRiver(binPos) &&
-                        IsClearOfAvoidZones(binXZ, avoidZones, 3.0f) &&
+                        IsClearOfAvoidZones(binXZ, avoidZones, 3.0f, Vector2.zero) &&
                         IsClearOfFootpaths(binXZ, footpaths, 0.5f) &&
                         clearOfBuildings)
                     {
@@ -470,7 +494,7 @@ namespace KaliRiverSweeper.Editor
                         if (IsOverlappingExistingBuilding(treeXZ, buildings, 4.2f))
                             continue;
 
-                        if (!IsClearOfAvoidZones(treeXZ, avoidZones, 4.5f))
+                        if (!IsClearOfAvoidZones(treeXZ, avoidZones, 4.5f, Vector2.zero))
                             continue;
 
                         if (!IsClearOfFootpaths(treeXZ, footpaths, 0.8f))
@@ -708,14 +732,78 @@ namespace KaliRiverSweeper.Editor
             return Mathf.Atan2(-toRiver.y, toRiver.x) * Mathf.Rad2Deg;
         }
 
-        private static bool IsClearOfAvoidZones(Vector2 posXZ, IReadOnlyList<AvoidanceZone> avoidZones, float overrideMinClearance)
+        private static readonly Dictionary<string, Vector4> HouseLocalFootprintCache = new Dictionary<string, Vector4>();
+
+        // Local XZ footprint of a house prefab: center in xy, half-extents in zw. Measured once per prefab.
+        private static Vector4 GetHouseLocalFootprint(string prefabPath)
+        {
+            if (HouseLocalFootprintCache.TryGetValue(prefabPath, out Vector4 cached)) return cached;
+
+            // Fallback is the conservative max house footprint if the prefab cannot be measured.
+            Vector4 fp = new Vector4(0f, 0f, 5.8f, 4.7f);
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab != null)
+            {
+                GameObject tmp = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                if (TryGetLocalBounds(tmp, out Bounds lb))
+                {
+                    fp = new Vector4(lb.center.x, lb.center.z, lb.extents.x, lb.extents.z);
+                }
+                UnityEngine.Object.DestroyImmediate(tmp);
+            }
+
+            HouseLocalFootprintCache[prefabPath] = fp;
+            return fp;
+        }
+
+        // World XZ AABB of a house placed at worldPos with yaw: rotated local footprint.
+        private static void ComputeHouseFootprintXZ(string bType, Vector3 worldPos, float yawDeg, out Vector2 center, out Vector2 half)
+        {
+            string path = bType == "warung_madura" ? WarungPrefabPath : RumahPrefabPath;
+            Vector4 lf = GetHouseLocalFootprint(path);
+            Vector3 rc = Quaternion.Euler(0f, yawDeg, 0f) * new Vector3(lf.x, 0f, lf.y);
+            center = new Vector2(worldPos.x + rc.x, worldPos.z + rc.z);
+
+            float rad = yawDeg * Mathf.Deg2Rad;
+            float c = Mathf.Abs(Mathf.Cos(rad));
+            float s = Mathf.Abs(Mathf.Sin(rad));
+            float hx = lf.z;
+            float hz = lf.w;
+            half = new Vector2(c * hx + s * hz, s * hx + c * hz);
+        }
+
+        private static readonly Dictionary<string, int> RejectCounts = new Dictionary<string, int>();
+
+        private static void CountReject(string rowId, string reason)
+        {
+            string key = rowId + "|" + reason;
+            RejectCounts[key] = RejectCounts.TryGetValue(key, out int v) ? v + 1 : 1;
+        }
+
+        // Name of the first avoid zone the candidate footprint violates, or null when clear.
+        private static string FirstBlockingZone(Vector2 posXZ, IReadOnlyList<AvoidanceZone> avoidZones, Vector2 candidateHalfXZ)
+        {
+            if (avoidZones == null) return null;
+            for (int i = 0; i < avoidZones.Count; i++)
+            {
+                AvoidanceZone z = avoidZones[i];
+                if (DistanceToBoxXZ(posXZ, z.worldCenter, z.halfExtentsXZ + candidateHalfXZ) < z.minClearanceM)
+                {
+                    return z.name;
+                }
+            }
+            return null;
+        }
+
+        private static bool IsClearOfAvoidZones(Vector2 posXZ, IReadOnlyList<AvoidanceZone> avoidZones, float overrideMinClearance, Vector2 candidateHalfXZ)
         {
             if (avoidZones == null) return true;
             for (int i = 0; i < avoidZones.Count; i++)
             {
                 AvoidanceZone z = avoidZones[i];
                 float req = Mathf.Max(z.minClearanceM, overrideMinClearance);
-                if (DistanceToBoxXZ(posXZ, z.worldCenter, z.halfExtentsXZ) < req)
+                // Bounds-to-bounds: fold the candidate's half-extent into the zone's box.
+                if (DistanceToBoxXZ(posXZ, z.worldCenter, z.halfExtentsXZ + candidateHalfXZ) < req)
                 {
                     return false;
                 }
