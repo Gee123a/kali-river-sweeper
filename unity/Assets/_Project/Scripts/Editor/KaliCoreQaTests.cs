@@ -40,6 +40,7 @@ namespace KaliRiverSweeper.Editor
                 GameObject go = Track(new GameObject("QA_RiverGameManager"));
                 Manager = go.AddComponent<RiverGameManager>();
                 InvokeNonPublic(Manager, "Awake");
+                Manager.SetState(KaliGameState.Playing); // spec I: Tick only runs in Playing (the scene starts in Title)
             }
 
             public GameObject Track(GameObject go)
@@ -73,6 +74,7 @@ namespace KaliRiverSweeper.Editor
                 }
 
                 SetManagerInstance(prevInstance);
+                Time.timeScale = 1f; // pause / ending / shop set it to 0 in edit mode too
             }
 
             private static void SetManagerInstance(RiverGameManager value)
@@ -101,7 +103,9 @@ namespace KaliRiverSweeper.Editor
                 VerifyDayNightCycle,
                 VerifyKampungRowsAndMapEdge,
                 VerifyAmbientRiverNpcs,
-                VerifyObjectiveChainAndSeededTrash
+                VerifyObjectiveChainAndSeededTrash,
+                VerifyToolRolesAndPickupRules,
+                VerifyGameStatesAndRestartReseed
             };
 
             assertCount = 0;
@@ -142,8 +146,8 @@ namespace KaliRiverSweeper.Editor
                 gm.AddPiledTrash(20); // 96 piled -> 1.862 >= 1.85f
                 Assert(gm.IsSellLocked, "96 piled (>= 1.85f) must trigger IsSellLocked");
 
-                Assert(gm.TryPickupWaste(WasteClass.Normal, 1), "Pickup normal under capacity");
-                Assert(gm.TryPickupWaste(WasteClass.Biohazard, 1), "Pickup biohazard under capacity");
+                Assert(QaPickup(gm, WasteClass.Normal, 1), "Pickup normal under capacity");
+                Assert(QaPickup(gm, WasteClass.Biohazard, 1), "Pickup biohazard under capacity");
                 gm.biohazardExposureTimer = 7f;
                 Assert(gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Normal) == 0, "BankSampah locked during Sell-Lock");
                 Assert(gm.SellAllAtPengepul() == 0, "Pengepul locked during Sell-Lock");
@@ -156,7 +160,7 @@ namespace KaliRiverSweeper.Editor
 
                 gm.RemovePiledTrash(92); // Clearing the barrier pile is what lowers the river
                 Assert(!gm.IsSellLocked && !gm.IsBankOverflowing, "Water level drops below sell lock after clearing the pile");
-                gm.TryPickupWaste(WasteClass.Biohazard, 2);
+                QaPickup(gm, WasteClass.Biohazard, 2);
                 int trustBeforePenaltyDump = gm.communityTrust;
                 gm.DumpCargoOnHighGround();
                 Assert(gm.communityTrust == trustBeforePenaltyDump - 4, "Non-emergency hazard dump deducts 2 trust per hazard unit");
@@ -200,8 +204,8 @@ namespace KaliRiverSweeper.Editor
                 Assert(RiverTrashItem.InferWasteClassFromName("PF_Trash_BiohazardDrum") == WasteClass.Biohazard, "Infer Biohazard");
 
                 gm.cargoCapacity = 8;
-                Assert(gm.TryPickupWaste(WasteClass.Normal, 2), "Pickup 2 Normal");
-                Assert(gm.TryPickupWaste(WasteClass.Biohazard, 1), "Pickup 1 Biohazard");
+                Assert(QaPickup(gm, WasteClass.Normal, 2), "Pickup 2 Normal");
+                Assert(QaPickup(gm, WasteClass.Biohazard, 1), "Pickup 1 Biohazard");
                 Assert(gm.cargoCount == 3 && gm.normalCargo == 2 && gm.biohazardCargo == 1, "3-class cargo split");
 
                 // Correct Normal at BankSampah (Rp 4,000 * 2 = 8,000)
@@ -212,7 +216,7 @@ namespace KaliRiverSweeper.Editor
                 int trustBefore = gm.communityTrust;
                 string preview = gm.GetDepositPreview(DiscardStationType.BankSampah);
                 Assert(preview.Contains("Bank Sampah menerima: Normal") && preview.Contains("Biohazard ×1 → bawa ke Karantina"), "Deposit preview tells truth: " + preview);
-                gm.TryPickupWaste(WasteClass.Normal, 1); // keep trust < 70 so later payouts stay at 1.0x
+                QaPickup(gm, WasteClass.Normal, 1); // keep trust < 70 so later payouts stay at 1.0x
                 Assert(gm.GetDepositPreview(DiscardStationType.BankSampah).StartsWith("Bank Sampah menerima: Normal ×1 → Rp 4.000"), "Deposit preview shows qty and Rp");
                 int legalOut = gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
                 Assert(legalOut == 4000 && gm.normalCargo == 0 && gm.biohazardCargo == 1, "Deposit takes only Normal, Biohazard stays in cargo");
@@ -223,32 +227,32 @@ namespace KaliRiverSweeper.Editor
 
                 // Correct Normal at BankSampah (Rp 4,000)
                 gm.trashBoomActive = true;
-                gm.TryPickupWaste(WasteClass.Normal, 1);
+                QaPickup(gm, WasteClass.Normal, 1);
                 Assert(gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Normal) == 4000, "BankSampah single normal payout");
 
                 // Correct Karantina Biohazard (Rp 14,000)
-                gm.TryPickupWaste(WasteClass.Biohazard, 1);
+                QaPickup(gm, WasteClass.Biohazard, 1);
                 gm.biohazardExposureTimer = 5f;
                 int payoutBio = gm.DiscardWasteAtStation(DiscardStationType.KarantinaBiohazard, WasteClass.Biohazard);
                 Assert(payoutBio == 14000 && gm.biohazardWasteSecured == 1 && gm.biohazardExposureTimer == 0f, "Karantina Biohazard payout & timer reset");
 
                 // Correct Pos Medis B3 (Rp 9,000 + 10 HP heal)
                 gm.playerHealth = 70f;
-                gm.TryPickupWaste(WasteClass.Medical, 1);
+                QaPickup(gm, WasteClass.Medical, 1);
                 float hpBeforeHeal = gm.playerHealth;
                 int payoutMed = gm.DiscardWasteAtStation(DiscardStationType.PosMedisB3, WasteClass.Medical);
                 Assert(payoutMed == 9000 && gm.medicalWasteSecured == 1, "Pos Medis B3 payout");
                 AssertApprox(hpBeforeHeal + 10f, gm.playerHealth, 0.01f, "Pos Medis B3 +10 HP heal");
 
                 // Pengepul bulk sell: 1 Normal (2k) + 1 Medical (3k) + 1 Biohazard (4.5k) = 9.5k, -20 Trust
-                gm.TryPickupWaste(WasteClass.Normal, 1);
-                gm.TryPickupWaste(WasteClass.Medical, 1);
-                gm.TryPickupWaste(WasteClass.Biohazard, 1);
+                QaPickup(gm, WasteClass.Normal, 1);
+                QaPickup(gm, WasteClass.Medical, 1);
+                QaPickup(gm, WasteClass.Biohazard, 1);
                 int trustBeforePengepul = gm.communityTrust;
                 int pengepulPay = gm.SellAllAtPengepul();
                 Assert(pengepulPay == 9500 && gm.pengepulHazardDumped == 2, "SellAllAtPengepul payout & hazard counter");
                 Assert(gm.communityTrust == trustBeforePengepul - 20 && gm.cargoCount == 0, "SellAllAtPengepul trust penalty & cargo clear");
-                gm.TryPickupWaste(WasteClass.Medical, 1);
+                QaPickup(gm, WasteClass.Medical, 1);
                 Assert(gm.GetDepositPreview(DiscardStationType.GudangPengepul).Contains("-8 Trust"), "Pengepul preview warns about hazard trust loss");
                 Assert(gm.DiscardLegalAtStation(DiscardStationType.GudangPengepul) == 3000 && gm.cargoCount == 0, "Pengepul still sells all");
             }
@@ -267,7 +271,7 @@ namespace KaliRiverSweeper.Editor
                 AssertApprox(0f, gm.EquippedTool.MedicalPrickChance, 0.0001f, "#10 Capitan Ular 0% prick chance");
 
                 gm.cargoCapacity = 25;
-                Assert(gm.TryPickupWaste(WasteClass.Medical, 20), "Pickup 20 medical with Capitan Ular");
+                Assert(QaPickup(gm, WasteClass.Medical, 20), "Pickup 20 medical with Capitan Ular");
                 Assert(gm.infectionIncidents == 0 && gm.playerHealth == gm.maxPlayerHealth, "Zero pricks with Capitan Ular");
                 gm.DumpCargoOnHighGround();
 
@@ -282,7 +286,7 @@ namespace KaliRiverSweeper.Editor
                 AssertApprox(1.5f, RiverGameManager.BiohazardDotPerSecond(1), 0.001f, "DoT 1 drum = 1.5 HP/s");
                 AssertApprox(2.5f, RiverGameManager.BiohazardDotPerSecond(3), 0.001f, "DoT 3 drums = 2.5 HP/s");
                 AssertApprox(4f, RiverGameManager.BiohazardDotPerSecond(12), 0.001f, "DoT capped at 4 HP/s");
-                gm.TryPickupWaste(WasteClass.Biohazard, 2);
+                QaPickup(gm, WasteClass.Biohazard, 2);
                 gm.biohazardExposureTimer = 29.5f;
                 Assert(!gm.IsBiohazardDotActive, "DoT inactive before 30s grace");
                 AssertApprox(0.5f, gm.BiohazardGraceRemaining, 0.001f, "BiohazardGraceRemaining = 0.5s");
@@ -310,23 +314,19 @@ namespace KaliRiverSweeper.Editor
         {
             var tools = ToolCatalog.AllTools;
             Assert(tools.Count == 20, "ToolCatalog must have exactly 20 tools");
-            int prevCost = -1;
             for (int i = 0; i < tools.Count; i++)
             {
-                Assert(tools[i].Index == i + 1, $"Tool index sequential at {i + 1}");
-                Assert(tools[i].UnlockRupiah > prevCost, $"UnlockRupiah strictly increasing at #{i + 1}");
-                prevCost = tools[i].UnlockRupiah;
-                if (tools[i].Index < 13) Assert(tools[i].GunungDamagePerSwing == 0f, $"Tool #{i + 1} cannot chip Gunung");
-                else Assert(tools[i].GunungDamagePerSwing > 0f, $"Tool #{i + 1} can chip Gunung");
+                ToolDefinition t = tools[i];
+                Assert(t.Index == i + 1, $"Tool index sequential at {i + 1}");
+                bool dredger = t.Role == ToolRole.Ganco && t.Index >= 13;
+                Assert(dredger == t.GunungDamagePerSwing > 0f, $"#{t.Index}: only Ganco #13+ can chip Gunung");
+                Assert(t.Role == ToolRole.Capit || t.MedicalPrickChance == 0f, $"#{t.Index}: prick risk only on Capit tools");
             }
 
             Assert(ToolCatalog.GetHighestUnlockedIndex(0) == 1, "Threshold 0 -> #01");
-            Assert(ToolCatalog.GetHighestUnlockedIndex(3999) == 1, "Threshold 3,999 -> #01");
-            Assert(ToolCatalog.GetHighestUnlockedIndex(4000) == 2, "Threshold 4,000 -> #02");
-            Assert(ToolCatalog.GetHighestUnlockedIndex(28000) == 6, "Threshold 28,000 -> #06");
-            Assert(ToolCatalog.GetHighestUnlockedIndex(80000) == 10, "Threshold 80,000 -> #10");
-            Assert(ToolCatalog.GetHighestUnlockedIndex(140000) == 13, "Threshold 140,000 -> #13");
-            Assert(ToolCatalog.GetHighestUnlockedIndex(360000) == 20, "Threshold 360,000 -> #20");
+            Assert(ToolCatalog.GetHighestUnlockedIndex(2999) == 1, "Threshold 2,999 -> #01");
+            Assert(ToolCatalog.GetHighestUnlockedIndex(6000) == 11, "Threshold 6,000 -> #11 (all four starters open)");
+            Assert(ToolCatalog.GetHighestUnlockedIndex(280000) == 20, "Threshold 280,000 -> #20");
 
             using (QaContext ctx = new QaContext())
             {
@@ -337,57 +337,40 @@ namespace KaliRiverSweeper.Editor
                 gm.OnEquippedToolChanged += _ => equipChangedCount++;
 
                 InvokeNonPublic(gm, "AddEarnings", 30000);
-                Assert(gm.highestUnlockedToolIndex == 6 && gm.equippedToolIndex == 1 && gm.galahUnlocked, "30k unlocks #06 + galah without auto-equip");
-                Assert(unlockedCount == 5 && equipChangedCount == 0, "Fired OnToolUnlocked for #2..#6 without auto-equip");
+                Assert(gm.IsToolUnlocked(7) && !gm.IsToolUnlocked(9) && gm.equippedToolIndex == 1 && gm.galahUnlocked, "30k unlocks up to #07 + galah without auto-equip");
+                Assert(unlockedCount == 8 && equipChangedCount == 0, $"OnToolUnlocked fires once per tool whose price was crossed (got {unlockedCount})");
 
-                Assert(gm.BuyTool(6) && gm.equippedToolIndex == 6 && gm.IsToolOwned(6), "BuyTool #06 spends 28k and equips it");
+                Assert(gm.BuyTool(6) && gm.equippedToolIndex == 6 && gm.hotbar[0] == 6 && gm.activeSlot == 0, "BuyTool #06 (Serok) replaces #01 in slot 1");
+                Assert(gm.rupiah == 30000 - 18000, "Trading in #01 (Rp 0) credits nothing");
                 Assert(!gm.BuyTool(6), "BuyTool blocks duplicate purchase");
-                Assert(!gm.BuyTool(20), "BuyTool blocks purchase when rupiah is insufficient");
-                Assert(gm.rupiah == 2000 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Buying tool spends rupiah only");
+                Assert(!gm.BuyTool(20), "BuyTool blocks locked tool");
+                Assert(gm.BuyTool(3) && gm.hotbar[1] == 3 && gm.activeSlot == 1, "BuyTool #03 Capit goes into slot 2");
+                Assert(gm.rupiah == 7000 && gm.cumulativeEarnings == 30000, "Buying tools spends rupiah only");
 
-
-                Assert(gm.SelectTool(1) && gm.equippedToolIndex == 1, "SelectTool #01");
-                Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 1, "SelectTool rejects unowned tool #20");
+                Assert(gm.SelectTool(6) && gm.equippedToolIndex == 6, "SelectTool #06");
+                Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 6, "SelectTool rejects unowned tool #20");
                 gm.CycleTool(-1);
-                Assert(gm.equippedToolIndex == 6 && gm.activeSlot == 1, "CycleTool wraps backwards over non-empty hotbar slots");
+                Assert(gm.equippedToolIndex == 3 && gm.activeSlot == 1, "CycleTool wraps backwards over non-empty slots");
                 gm.CycleTool(1);
-                Assert(gm.equippedToolIndex == 1 && gm.activeSlot == 0, "CycleTool wraps forwards to slot 1 (#01)");
+                Assert(gm.equippedToolIndex == 6 && gm.activeSlot == 0, "CycleTool wraps forwards to slot 1");
                 int hotbarEvents = 0;
                 gm.OnHotbarChanged += () => hotbarEvents++;
-                Assert(gm.SelectSlot(1) && gm.equippedToolIndex == 6 && hotbarEvents == 1, "SelectSlot(1) equips #06 and fires OnHotbarChanged");
-                Assert(!gm.SelectSlot(2) && !gm.SelectSlot(4) && gm.equippedToolIndex == 6, "SelectSlot rejects empty / out-of-range slots");
+                Assert(gm.SelectSlot(1) && gm.equippedToolIndex == 3 && hotbarEvents == 1, "SelectSlot(1) equips #03 and fires OnHotbarChanged");
+                Assert(!gm.SelectSlot(2) && !gm.SelectSlot(4) && gm.equippedToolIndex == 3, "SelectSlot rejects empty / out-of-range slots");
+                Assert(gm.lastStatusMessage.Contains("GANCO") && gm.lastStatusMessage.Contains("Kopdes"), "Empty role slot says buy at Kopdes");
 
-                InvokeNonPublic(gm, "AddEarnings", 28000);
+                InvokeNonPublic(gm, "AddEarnings", 30000);
                 Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
             }
 
             using (QaContext ctx = new QaContext())
             {
                 RiverGameManager gm = ctx.Manager;
-                InvokeNonPublic(gm, "AddEarnings", 30000);
-                gm.BuyTool(6);
-                // Spec C hotbar: buying fills the first empty slot at full price; when full, a chosen slot is traded in for 50%
-                gm.rupiah = 500000;
-                Assert(!gm.BuyTool(7), "BuyTool blocks tools not yet unlocked by cumulative earnings");
-                Assert(gm.GetToolPrice(7) == 38000, "Empty-slot purchase costs the full catalog price");
-                InvokeNonPublic(gm, "AddEarnings", 30000); // cumulative 60k -> #08 open
-                int before = gm.rupiah;
-                Assert(gm.BuyTool(7) && before - gm.rupiah == 38000 && gm.hotbar[2] == 7 && gm.activeSlot == 2, "BuyTool #07 goes into empty slot 3");
-                Assert(gm.BuyTool(8) && gm.hotbar[3] == 8 && gm.IsHotbarFull, "BuyTool #08 fills slot 4");
-                InvokeNonPublic(gm, "AddEarnings", 10000); // cumulative 70k -> #09 open
-                before = gm.rupiah;
-                Assert(!gm.BuyTool(9) && gm.rupiah == before && !gm.IsToolOwned(9), "Full hotbar: BuyTool without trade-in slot is refused");
-                Assert(gm.GetTradeInCredit(1) == 14000 && gm.GetToolPrice(9, 1) == 64000 - 14000, "Trade-in credit = 50% of #06 (28k)");
-                Assert(gm.BuyTool(9, 1) && before - gm.rupiah == 50000, "Trade-in charges price minus 50% credit");
-                Assert(gm.hotbar[1] == 9 && !gm.IsToolOwned(6) && gm.equippedToolIndex == 9 && gm.activeSlot == 1, "Trade-in removes #06 and equips #09 in its slot");
-                gm.RestartRun();
-                Assert(gm.hotbar[0] == 1 && gm.hotbar[1] == 0 && gm.hotbar[2] == 0 && gm.hotbar[3] == 0 && gm.activeSlot == 0 && gm.equippedToolIndex == 1, "RestartRun resets hotbar to #01 only");
-
                 // Task 4L: Trash Boom pays rupiah only (no milestone progress) and drains piled trash
                 int cumBefore = gm.cumulativeEarnings;
                 int piledBefore = gm.piledRiverTrashCount;
                 gm.trashBoomActive = true;
-                before = gm.rupiah;
+                int before = gm.rupiah;
                 InvokeNonPublic(gm, "Tick", RiverGameManager.BoomIntervalSeconds + 0.01f);
                 Assert(gm.rupiah - before == RiverGameManager.BoomPayoutRupiah && gm.cumulativeEarnings == cumBefore, "Trash Boom payout is rupiah-only");
                 Assert(gm.piledRiverTrashCount == Mathf.Max(0, piledBefore - 1), "Trash Boom drains one piled unit per cycle");
@@ -436,8 +419,10 @@ namespace KaliRiverSweeper.Editor
                 shopPlayer.OnShopClosed += () => shopClosed++;
                 InvokeNonPublic(shopPlayer, "TryInteractWithNearbyHub");
                 Assert(shopEvents == 1 && shopPlayer.IsShopOpen && gm.rupiah == 50000, "Kopdes [E] at service point opens the shop without spending rupiah");
+                AssertApprox(0f, Time.timeScale, 0.0001f, "Open shop freezes time (timeScale 0)");
                 shopPlayer.CloseShop();
                 Assert(!shopPlayer.IsShopOpen && shopClosed == 1, "CloseShop closes and fires OnShopClosed");
+                AssertApprox(1f, Time.timeScale, 0.0001f, "Closing the shop in Playing resumes time");
             }
         }
 
@@ -468,7 +453,7 @@ namespace KaliRiverSweeper.Editor
 
                 // Unlock & buy #13 Ganco Ganda Winch
                 InvokeNonPublic(gm, "AddEarnings", 140000);
-                Assert(gm.highestUnlockedToolIndex == 13, "140k unlocks #13 Ganco Ganda Winch");
+                Assert(gm.IsToolUnlocked(13), "140k unlocks #13 Ganco Ganda Winch");
                 Assert(gm.BuyTool(13), "BuyTool #13 Ganco Ganda Winch");
 
                 int tierBreaches = 0;
@@ -562,7 +547,7 @@ namespace KaliRiverSweeper.Editor
                 Assert(RiverGameManager.RollWasteClass(0.799f) == WasteClass.Normal && RiverGameManager.RollWasteClass(0.80f) == WasteClass.Medical, "Normal share = 80%");
                 Assert(RiverGameManager.RollWasteClass(0.939f) == WasteClass.Medical && RiverGameManager.RollWasteClass(0.94f) == WasteClass.Biohazard, "Medical share = 14%, Biohazard = 6%");
                 AssertApprox(0.5f, ToolCatalog.PrickChanceScale, 0.0001f, "Prick chance halved");
-                AssertApprox(0.30f, ToolCatalog.GetTool(1).MedicalPrickChance, 0.0001f, "#1 Sendok prick 60% -> 30%");
+                AssertApprox(0.25f, ToolCatalog.GetTool(3).MedicalPrickChance, 0.0001f, "#3 Centong (Capit starter) prick 50% -> 25%");
 
                 item.TryUnregister();
                 Assert(gm.activeRiverTrashCount == beforeActive, "TryUnregister decrements active count");
@@ -886,19 +871,19 @@ namespace KaliRiverSweeper.Editor
                 Assert(!gm.IsToolUnlocked(0) && gm.IsToolUnlocked(1), "IsToolUnlocked must be 1-based");
 
                 // 1. #11-#20 Medical prick safety lock once #10 Capitan Ular is unlocked
-                gm.TryPickupWaste(WasteClass.Normal, 2);
+                QaPickup(gm, WasteClass.Normal, 2);
                 for (int i = 0; i < 20; i++)
                 {
-                    gm.TryPickupWaste(WasteClass.Normal, 1);
+                    QaPickup(gm, WasteClass.Normal, 1);
                     gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
                 }
                 // Bring cumulative earnings past 140k (#13 Ganco Ganda Winch)
-                while (gm.highestUnlockedToolIndex < 13)
+                while (!gm.IsToolUnlocked(13))
                 {
-                    gm.TryPickupWaste(WasteClass.Normal, 4);
+                    QaPickup(gm, WasteClass.Normal, 4);
                     gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
                 }
-                AssertApprox(0f, gm.GetEffectiveMedicalPrickChance(), 0.0001f, "#13+ Medical prick chance locked at 0% after #10 unlock");
+                AssertApprox(0f, gm.GetEffectiveMedicalPrickChance(), 0.0001f, "Non-Capit roles carry no medical prick risk");
 
                 // 2. Duplicate BuyUpgrade guard
                 int preRupiah = gm.rupiah;
@@ -911,8 +896,8 @@ namespace KaliRiverSweeper.Editor
                 // 3. Safe [E] DiscardLegalAtStation leaves Medical/Biohazard untouched with 0 fines
                 int receipts = 0;
                 gm.OnStationAuditReceipt += _ => receipts++;
-                gm.TryPickupWaste(WasteClass.Normal, 2);
-                gm.TryPickupWaste(WasteClass.Medical, 1);
+                QaPickup(gm, WasteClass.Normal, 2);
+                QaPickup(gm, WasteClass.Medical, 1);
                 int legalOut = gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
                 Assert(legalOut > 0 && gm.normalCargo == 0 && gm.medicalCargo == 1 && gm.wrongDiscardCount == 0 && receipts > 0,
                     "DiscardLegalAtStation deposits only legal class with 0 accidental fines and emits audit receipt");
@@ -934,7 +919,9 @@ namespace KaliRiverSweeper.Editor
                 rsSpawner.normalPrefabs = new[] { rsTemplate };
                 ctx.Track(rsSpawner.SpawnTrashAt(Vector3.zero, WasteClass.Normal));
                 gm.RestartRun();
-                Assert(gm.activeRiverTrashCount == 0, "RestartRun leaves no registered RiverTrashItem");
+                int liveUnits = 0;
+                foreach (RiverTrashItem live in UnityEngine.Object.FindObjectsOfType<RiverTrashItem>()) liveUnits += live.trashUnits;
+                Assert(gm.activeRiverTrashCount == liveUnits, "RestartRun registers only the re-seeded map piles");
                 Assert(gm.activeEnding == GameEnding.None && gm.rupiah == 0 && gm.wrongDiscardCount == 0 && gm.unpaidFineDebt == 0 && gm.communityTrust == 40,
                     "RestartRun resets ending, economy, audit debt, and trust");
             }
@@ -1475,7 +1462,7 @@ namespace KaliRiverSweeper.Editor
                 gm.OnObjectiveChanged += o => lastEvent = o;
                 Assert(steps.Length == 5 && gm.CurrentObjective == steps[0], "Objective starts at step 1 (pick up trash)");
 
-                Assert(gm.TryPickupWaste(WasteClass.Normal, 1), "Objective pickup");
+                Assert(QaPickup(gm, WasteClass.Normal, 1), "Objective pickup");
                 Assert(gm.CurrentObjective == steps[1] && lastEvent == steps[1], "First pickup -> step 2 (Bank Sampah)");
 
                 gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Normal);
@@ -1496,8 +1483,8 @@ namespace KaliRiverSweeper.Editor
                 gm.RestartRun();
                 Assert(gm.CurrentObjective == steps[0], "RestartRun resets the objective chain");
 
-                gm.TryPickupWaste(WasteClass.Normal, 1);
-                gm.TryPickupWaste(WasteClass.Medical, 1);
+                QaPickup(gm, WasteClass.Normal, 1);
+                QaPickup(gm, WasteClass.Medical, 1);
                 gm.DiscardWasteAtStation(DiscardStationType.PosMedisB3, WasteClass.Medical);
                 Assert(gm.CurrentObjective == steps[3], "A correct medical deposit completes steps 2 and 3 at once");
             }
@@ -1548,6 +1535,184 @@ namespace KaliRiverSweeper.Editor
                 Assert(tutorialNormal == 10, $"Both Sampah Tutorial piles are pickable (got {tutorialNormal} items)");
                 Assert(medical > 0 && bio > 0 && normal >= 0.75f * (normal + medical + bio), $"Seed mix ~80/14/6 (N{normal} M{medical} B{bio})");
             }
+        }
+
+        // Equips the role a waste class needs (QA gives #10 / #08 if that slot is empty), then picks up.
+        private static bool QaPickup(RiverGameManager gm, WasteClass wc, int amount = 1)
+        {
+            int slot = (int)ToolCatalog.RoleFor(wc);
+            if (gm.hotbar[slot] == 0) gm.hotbar[slot] = wc == WasteClass.Medical ? ToolCatalog.SnakeGrabberIndex : 8;
+            gm.SelectSlot(slot);
+            return gm.TryPickupWaste(wc, amount);
+        }
+
+        private static void VerifyToolRolesAndPickupRules()
+        {
+            // Spec C2: role ladders, cheap starters, slot = role, auto trade-in, role-gated pickups.
+            int[] starters = new int[4];
+            foreach (ToolDefinition t in ToolCatalog.AllTools)
+            {
+                int r = (int)t.Role;
+                if (t.Tier == 0 && t.UnlockRupiah <= 6000 && (starters[r] == 0 || t.UnlockRupiah < ToolCatalog.GetTool(starters[r]).UnlockRupiah)) starters[r] = t.Index;
+            }
+            Assert(starters[0] == 1 && starters[1] == 3 && starters[2] == 8 && starters[3] == 11, "Tier-0 starter <= Rp 6.000 per role: #01 Serok, #03 Capit, #08 Ganco, #11 Garuk");
+            Assert(ToolCatalog.GetTool(10).Role == ToolRole.Capit && ToolCatalog.GetTool(10).MedicalPrickChance == 0f, "#10 Capitan Ular is Capit with 0% prick");
+            Assert(ToolCatalog.GetTool(13).Role == ToolRole.Ganco && ToolCatalog.GetTool(13).GunungDamagePerSwing > 0f, "#13 is the first Ganco that dredges Gunung");
+            foreach (int i in new[] { 2, 5, 6, 7, 9, 12, 14 }) Assert(ToolCatalog.GetTool(i).Role == ToolRole.Serok, $"#{i} is Serok");
+            foreach (int i in new[] { 4 }) Assert(ToolCatalog.GetTool(i).Role == ToolRole.Capit, $"#{i} is Capit");
+            foreach (int i in new[] { 16, 17 }) Assert(ToolCatalog.GetTool(i).Role == ToolRole.Ganco, $"#{i} is Ganco");
+            foreach (int i in new[] { 15, 18, 19, 20 }) Assert(ToolCatalog.GetTool(i).Role == ToolRole.Garuk, $"#{i} is Garuk");
+            for (int r = 0; r < 4; r++)
+            {
+                int prevPrice = -1, prevBatch = 0;
+                List<ToolDefinition> ladder = new List<ToolDefinition>();
+                foreach (ToolDefinition t in ToolCatalog.AllTools) if ((int)t.Role == r) ladder.Add(t);
+                ladder.Sort((a, b) => a.UnlockRupiah.CompareTo(b.UnlockRupiah));
+                foreach (ToolDefinition t in ladder)
+                {
+                    Assert(t.UnlockRupiah > prevPrice && t.BatchCount >= prevBatch, $"{ToolCatalog.RoleName((ToolRole)r)} ladder climbs at #{t.Index}");
+                    prevPrice = t.UnlockRupiah;
+                    prevBatch = t.BatchCount;
+                }
+            }
+
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                Assert(gm.hotbar[0] == 1 && gm.hotbar[1] == 0 && gm.hotbar[2] == 0 && gm.hotbar[3] == 0, "Run starts with only the Serok starter in slot 1");
+                gm.cargoCapacity = 30;
+
+                // Medical needs Capit, Biohazard needs Ganco: blocked with a clear hint, nothing added.
+                Assert(!gm.TryPickupWaste(WasteClass.Medical, 1) && gm.medicalCargo == 0, "Medical blocked without Capit");
+                Assert(gm.lastStatusMessage.Contains("CAPIT (slot 2)") && gm.lastStatusMessage.Contains("Kopdes"), "Medical hint names CAPIT slot 2: " + gm.lastStatusMessage);
+                Assert(!gm.TryPickupWaste(WasteClass.Biohazard, 1) && gm.biohazardCargo == 0, "Biohazard blocked without Ganco");
+                Assert(gm.lastStatusMessage.Contains("GANCO (slot 3)"), "Biohazard hint names GANCO slot 3: " + gm.lastStatusMessage);
+                gm.piledRiverTrashCount = 10;
+                Assert(gm.TryScoopPiledBarrierTrash(3) == 0 && gm.piledRiverTrashCount == 10 && gm.cargoCount == 0, "Barrier pile blocked without Garuk");
+                Assert(gm.lastStatusMessage.Contains("GARUK (slot 4)"), "Pile hint names GARUK slot 4: " + gm.lastStatusMessage);
+
+                // Serok takes the whole Normal bundle.
+                Assert(gm.TryPickupWaste(WasteClass.Normal, 3) && gm.normalCargo == 3, "Serok takes a 3-unit Normal bundle");
+
+                // Buy starters: each goes into its role slot.
+                InvokeNonPublic(gm, "AddEarnings", 100000);
+                Assert(gm.BuyTool(3) && gm.hotbar[1] == 3 && gm.equippedToolIndex == 3, "#03 Capit -> slot 2");
+                Assert(gm.TryPickupWaste(WasteClass.Normal, 3) && gm.normalCargo == 4, "Non-Serok takes max 1 Normal unit per scoop");
+                Assert(gm.normalCargo == 4 && gm.ClampScoopUnits(WasteClass.Normal, 4) == 1, "Capit Normal batch = 1");
+                Assert(gm.TryPickupWaste(WasteClass.Medical, 2) && gm.medicalCargo == 2, "Capit picks up Medical");
+                Assert(!gm.TryPickupWaste(WasteClass.Biohazard, 1), "Capit cannot haul Biohazard");
+                Assert(gm.lastStatusMessage.Contains("GANCO (slot 3)"), "A different blocked class alerts at once (no cross-class throttle)");
+                Assert(gm.BuyTool(8) && gm.hotbar[2] == 8, "#08 Ganco -> slot 3");
+                Assert(gm.TryPickupWaste(WasteClass.Biohazard, 1) && gm.biohazardCargo == 1, "Ganco hauls Biohazard");
+                Assert(!gm.CanDredgeGunung, "#08 Ganco cannot dredge Gunung");
+                AssertApprox(0f, gm.GetEffectiveMedicalPrickChance(), 0.0001f, "Ganco has no prick risk");
+                Assert(gm.BuyTool(11) && gm.hotbar[3] == 11, "#11 Garuk -> slot 4");
+                int pile0 = gm.piledRiverTrashCount;
+                int took = gm.TryScoopPiledBarrierTrash(ToolCatalog.GetTool(11).BatchCount);
+                Assert(took == 2 && gm.piledRiverTrashCount == pile0 - 2, "Garuk clears the barrier pile (batch 2)");
+                Assert(gm.RoleBlockReason(ToolRole.Capit, "limbah medis").Contains("Ganti ke CAPIT [2]"), "Owned role hint says switch to [2]");
+
+                // Auto trade-in: buying #10 replaces #03 in slot 2 for 50% credit.
+                SelectAndAssert(gm, 0);
+                int credit = gm.GetTradeInCredit(10);
+                Assert(credit == 2500 && gm.GetToolPrice(10) == 55000 - 2500, "GetToolPrice(#10) is net of the 50% trade-in of #03");
+                int before = gm.rupiah;
+                Assert(gm.BuyTool(10) && before - gm.rupiah == 52500, "Trade-in charges price minus credit");
+                Assert(gm.hotbar[1] == 10 && !gm.IsToolOwned(3) && gm.activeSlot == 1, "#03 removed, #10 equipped in slot 2");
+                AssertApprox(0f, gm.GetEffectiveMedicalPrickChance(), 0.0001f, "#10 Capitan Ular 0% prick");
+
+                // Gunung: only Ganco #13+ (or excavator).
+                gm.rupiah = 100000;
+                Assert(gm.BuyTool(13) && gm.hotbar[2] == 13 && gm.CanDredgeGunung, "#13 Ganco dredges Gunung");
+                SelectAndAssert(gm, 0);
+                Assert(!gm.CanDredgeGunung, "Serok cannot dredge Gunung");
+            }
+        }
+
+        private static void SelectAndAssert(RiverGameManager gm, int slot)
+        {
+            gm.SelectSlot(slot);
+            Assert(gm.activeSlot == slot, $"Selected slot {slot + 1}");
+        }
+
+        private static void VerifyGameStatesAndRestartReseed()
+        {
+            // Spec I: Title -> Playing <-> Paused -> Ended; Tick only in Playing; pause / ending freeze time.
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                KaliGameState lastState = KaliGameState.Playing;
+                int stateEvents = 0;
+                gm.OnGameStateChanged += st => { lastState = st; stateEvents++; };
+
+                gm.ReturnToTitle();
+                Assert(gm.State == KaliGameState.Title && lastState == KaliGameState.Title, "ReturnToTitle -> Title");
+                float countdown = gm.monsoonCountdownRemaining;
+                InvokeNonPublic(gm, "Tick", 5f);
+                AssertApprox(countdown, gm.monsoonCountdownRemaining, 0.0001f, "Title freezes gameplay Tick");
+                gm.TogglePause();
+                Assert(gm.State == KaliGameState.Title, "Esc does nothing on the title screen");
+
+                gm.StartRun();
+                Assert(gm.State == KaliGameState.Playing && lastState == KaliGameState.Playing, "StartRun -> Playing");
+                InvokeNonPublic(gm, "Tick", 5f);
+                AssertApprox(countdown - 5f, gm.monsoonCountdownRemaining, 0.0001f, "Playing runs Tick");
+
+                gm.TogglePause();
+                Assert(gm.State == KaliGameState.Paused, "TogglePause -> Paused");
+                AssertApprox(0f, Time.timeScale, 0.0001f, "Paused sets timeScale 0");
+                InvokeNonPublic(gm, "Tick", 5f);
+                AssertApprox(countdown - 5f, gm.monsoonCountdownRemaining, 0.0001f, "Paused freezes Tick");
+                gm.TogglePause();
+                Assert(gm.State == KaliGameState.Playing, "TogglePause resumes Playing");
+                AssertApprox(1f, Time.timeScale, 0.0001f, "Resume sets timeScale 1");
+
+                gm.monsoonCountdownRemaining = 0.01f;
+                gm.gunungSampahHealth = 0.5f;
+                InvokeNonPublic(gm, "Tick", 1f);
+                Assert(gm.activeEnding == GameEnding.PartialSurvival && gm.State == KaliGameState.Ended, "Ending -> Ended");
+                AssertApprox(0f, Time.timeScale, 0.0001f, "Ended freezes time");
+                gm.TogglePause();
+                Assert(gm.State == KaliGameState.Ended, "Esc does not leave Ended");
+
+                // RestartRun -> Playing and re-seeds the baked map piles (snagged items) that the reset destroys.
+                RiverTrashSpawner spawner = ctx.Track(new GameObject("QA_ReseedSpawner")).AddComponent<RiverTrashSpawner>();
+                for (int i = 0; i < 3; i++)
+                {
+                    GameObject pile = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Cube));
+                    pile.name = "QA_SeedPile_" + i;
+                    pile.transform.position = new Vector3(7000f + i, 0f, 7000f);
+                    RiverTrashItem it = pile.AddComponent<RiverTrashItem>();
+                    it.wasteClass = i == 2 ? WasteClass.Medical : WasteClass.Normal;
+                    pile.AddComponent<RiverFlowBuoyancy>().driftDownstream = false;
+                }
+                typeof(RiverGameManager).GetField("seedPiles", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(gm, null);
+                InvokeNonPublic(gm, "CaptureSeedPiles");
+                int seeded = CountSnaggedPiles(out int seededMedical);
+                Assert(seeded >= 3 && seededMedical >= 1, $"Seed piles captured (got {seeded})");
+
+                gm.RestartRun();
+                Assert(gm.State == KaliGameState.Playing && gm.activeEnding == GameEnding.None, "RestartRun -> Playing");
+                AssertApprox(1f, Time.timeScale, 0.0001f, "RestartRun resumes time");
+                int reseeded = CountSnaggedPiles(out int reseededMedical);
+                Assert(reseeded == seeded && reseededMedical == seededMedical, $"RestartRun re-seeds the map piles ({reseeded}/{seeded})");
+                Assert(GameObject.Find("QA_SeedPile_0") == null, "RestartRun replaced the old pile objects");
+                Assert(stateEvents >= 6, $"OnGameStateChanged fired per transition (got {stateEvents})");
+            }
+        }
+
+        private static int CountSnaggedPiles(out int medical)
+        {
+            int n = 0;
+            medical = 0;
+            foreach (RiverTrashItem item in UnityEngine.Object.FindObjectsOfType<RiverTrashItem>())
+            {
+                RiverFlowBuoyancy b = item.GetComponent<RiverFlowBuoyancy>();
+                if (b == null || b.driftDownstream || item.isCollected) continue;
+                n++;
+                if (item.wasteClass == WasteClass.Medical) medical++;
+            }
+            return n;
         }
 
         private static void InvokeNonPublic(object target, string methodName, params object[] args)

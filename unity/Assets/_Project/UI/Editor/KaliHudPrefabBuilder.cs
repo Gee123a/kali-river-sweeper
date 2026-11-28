@@ -189,40 +189,31 @@ namespace KaliRiverSweeper.UI.Editor
                 ShopLabel(tier.transform, "TMP_Status", tierPrice[i], 17f, Vellum, new Vector2(28f, -93f), new Vector2(319f, 26f), TextAlignmentOptions.Center);
             }
 
-            // Tools: 20 selectable cells, 5 columns by 4 rows.
-            Text(c, "Tools/TMP_ToolsTitle", "ALAT · 01–20", 16f, InkSecondary, new Vector2(40f, -456f), new Vector2(400f, 24f), new Vector2(0f, 1f));
+            // Tools: one row per role (slot 1-4 = Serok, Capit, Ganco, Garuk), cells in ladder order. Names stay Tool_XX.
+            // TODO(Niki): restyle role rows (icons, DESIGN.md tokens).
+            Text(c, "Tools/TMP_ToolsTitle", "ALAT · SATU SLOT = SATU PERAN", 16f, InkSecondary, new Vector2(40f, -456f), new Vector2(600f, 24f), new Vector2(0f, 1f));
             Transform tools = Holder(c, "Tools");
             Transform grid = Holder(tools, "Grid");
+            int[] perRow = new int[4];
             for (int t = 1; t <= 20; t++)
             {
-                int idx = t - 1;
-                int col = idx % 5;
-                int row = idx / 5;
                 ToolDefinition def = ToolCatalog.GetTool(t);
-                string label = t.ToString("00") + "  " + (def != null ? def.DisplayName : "Alat");
-                int price = def != null ? def.UnlockRupiah : 0;
+                int row = (int)def.Role;
+                if (perRow[row] == 0)
+                {
+                    Text(c, "Tools/Role_" + row, (row + 1) + " " + ToolCatalog.RoleName(def.Role), 14f, Ink, new Vector2(40f, -492f - row * 72f), new Vector2(100f, 40f), new Vector2(0f, 1f));
+                }
+                int col = perRow[row]++;
+                string label = t.ToString("00") + " " + def.DisplayName;
 
-                GameObject cell = Panel(grid, "Tool_" + t.ToString("00"), new Vector2(0f, 1f), new Vector2(40f + col * 212f, -486f - row * 72f), new Vector2(200f, 64f), Track);
-                ButtonPanel(cell.transform, "Btn_Select", Vector2.zero, new Vector2(200f, 64f), Clear);
-                ShopLabel(cell.transform, "TMP_Name", label, 13f, Ink, new Vector2(10f, -7f), new Vector2(184f, 20f), TextAlignmentOptions.Left);
-                ShopLabel(cell.transform, "TMP_Status", "TERKUNCI", 12f, InkSecondary, new Vector2(10f, -34f), new Vector2(110f, 20f), TextAlignmentOptions.Left);
-                ShopLabel(cell.transform, "TMP_Price", price > 0 ? "Rp " + price.ToString("#,0").Replace(',', '.') : "—", 12f, InkSecondary, new Vector2(100f, -34f), new Vector2(90f, 20f), TextAlignmentOptions.Right);
+                GameObject cell = Panel(grid, "Tool_" + t.ToString("00"), new Vector2(0f, 1f), new Vector2(140f + col * 132f, -486f - row * 72f), new Vector2(126f, 64f), Track);
+                ButtonPanel(cell.transform, "Btn_Select", Vector2.zero, new Vector2(126f, 64f), Clear);
+                ShopLabel(cell.transform, "TMP_Name", label, 11f, Ink, new Vector2(6f, -4f), new Vector2(116f, 30f), TextAlignmentOptions.TopLeft);
+                cell.transform.Find("TMP_Name").GetComponent<TMP_Text>().enableWordWrapping = true;
+                ShopLabel(cell.transform, "TMP_Status", "TERKUNCI", 10f, InkSecondary, new Vector2(6f, -40f), new Vector2(116f, 20f), TextAlignmentOptions.Left);
             }
 
             Text(c, "Footer/TMP_Hint", string.Empty, 15f, InkSecondary, new Vector2(40f, -800f), new Vector2(1160f, 22f), new Vector2(0f, 1f));
-
-            // Trade-in picker over the tool grid, hidden until the hotbar is full and a new tool is clicked.
-            GameObject tradeIn = Panel(c, "TradeIn", new Vector2(0f, 1f), new Vector2(40f, -450f), new Vector2(1160f, 330f), VellumSolid);
-            Text(tradeIn.transform, "TMP_Title", "Hotbar penuh. Tukar alat mana?", 20f, Ink, new Vector2(20f, -18f), new Vector2(1120f, 30f), new Vector2(0f, 1f));
-            for (int s = 0; s < 4; s++)
-            {
-                ButtonPanel(tradeIn.transform, "Btn_Slot_" + s, new Vector2(20f + s * 282f, -70f), new Vector2(268f, 150f), Zone0);
-                ShopLabel(tradeIn.transform.Find("Btn_Slot_" + s), "TMP_Label", "Slot " + (s + 1), 15f, Vellum, new Vector2(12f, -12f), new Vector2(244f, 126f), TextAlignmentOptions.TopLeft);
-                tradeIn.transform.Find("Btn_Slot_" + s + "/TMP_Label").GetComponent<TMP_Text>().enableWordWrapping = true;
-            }
-            ButtonPanel(tradeIn.transform, "Btn_Cancel", new Vector2(20f, -250f), new Vector2(240f, 56f), Track);
-            ShopLabel(tradeIn.transform.Find("Btn_Cancel"), "TMP_Label", "BATAL", 17f, Ink, new Vector2(0f, -14f), new Vector2(240f, 28f), TextAlignmentOptions.Center);
-            tradeIn.SetActive(false);
 
             PrefabUtility.SaveAsPrefabAsset(root, PrefabFolder + "/Canvas_ShopBankSampah.prefab");
             Object.DestroyImmediate(root);

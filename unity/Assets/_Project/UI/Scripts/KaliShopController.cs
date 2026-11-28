@@ -44,11 +44,6 @@ namespace KaliRiverSweeper.UI
         private TMP_Text[] toolStatus;
         private Image[] toolBg;
         private TMP_Text footer;
-        private GameObject tradeInPanel;
-        private TMP_Text tradeInTitle;
-        private Button[] tradeInButtons;
-        private TMP_Text[] tradeInLabels;
-        private int pendingTool;
 
         // Tiers in the order the armada row is built: Galah 4m, Sampan, Trash Boom, Excavator.
         private static readonly UpgradeTier[] Tiers =
@@ -87,19 +82,6 @@ namespace KaliRiverSweeper.UI
             }
 
             footer = Find<TMP_Text>("Footer/TMP_Hint");
-
-            // Hotbar full: pick which slot to trade in (50% credit).
-            Image tradeIn = Find<Image>("TradeIn");
-            tradeInPanel = tradeIn != null ? tradeIn.gameObject : null;
-            tradeInTitle = Find<TMP_Text>("TradeIn/TMP_Title");
-            tradeInButtons = new Button[RiverGameManager.HotbarSize];
-            tradeInLabels = new TMP_Text[RiverGameManager.HotbarSize];
-            for (int i = 0; i < RiverGameManager.HotbarSize; i++)
-            {
-                tradeInButtons[i] = Find<Button>("TradeIn/Btn_Slot_" + i);
-                tradeInLabels[i] = Find<TMP_Text>("TradeIn/Btn_Slot_" + i + "/TMP_Label");
-            }
-            if (tradeInPanel != null) tradeInPanel.SetActive(false);
 
             WireButtons();
             SetOpen(false);
@@ -206,15 +188,6 @@ namespace KaliRiverSweeper.UI
                 int toolIndex = i + 1;
                 toolButtons[i].onClick.AddListener(() => OnSelectTool(toolIndex));
             }
-
-            Button cancel = Find<Button>("TradeIn/Btn_Cancel");
-            if (cancel != null) cancel.onClick.AddListener(() => ShowTradeIn(0));
-            for (int i = 0; i < tradeInButtons.Length; i++)
-            {
-                if (tradeInButtons[i] == null) continue;
-                int slot = i;
-                tradeInButtons[i].onClick.AddListener(() => OnTradeInSlot(slot));
-            }
         }
 
         public void OnBuyBins()
@@ -234,25 +207,9 @@ namespace KaliRiverSweeper.UI
         public void OnSelectTool(int toolIndex)
         {
             if (manager == null) return;
+            // Slot = role: buying goes into the tool's role slot and auto trades in the old one (50% credit).
             if (manager.IsToolOwned(toolIndex)) manager.SelectTool(toolIndex);
-            else if (manager.IsHotbarFull) ShowTradeIn(toolIndex);
             else manager.BuyTool(toolIndex);
-            Refresh();
-        }
-
-        public void OnTradeInSlot(int slot)
-        {
-            if (manager == null || pendingTool <= 0) return;
-            manager.BuyTool(pendingTool, slot);
-            ShowTradeIn(0);
-            Refresh();
-        }
-
-        // toolIndex 0 hides the picker.
-        private void ShowTradeIn(int toolIndex)
-        {
-            pendingTool = toolIndex;
-            if (tradeInPanel != null) tradeInPanel.SetActive(toolIndex > 0);
             Refresh();
         }
 
@@ -267,10 +224,6 @@ namespace KaliRiverSweeper.UI
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
                 Refresh();
-            }
-            else if (pendingTool > 0)
-            {
-                ShowTradeIn(0);
             }
         }
 
@@ -298,7 +251,9 @@ namespace KaliRiverSweeper.UI
                 SetText(tierStatus[i], owned ? "DIMILIKI" : (affordable ? "BELI  Rp " + FormatRupiah(cost) : "Rp " + FormatRupiah(cost)));
             }
 
-            // Tools: owned tools are selectable; unlocked unowned tools can be bought with Rupiah.
+            // Tools (grouped by role rows in the prefab): owned tools are selectable; unlocked ones show the net price
+            // after the automatic 50% trade-in of the tool already in that role slot.
+            // TODO(Niki): restyle the role rows / cards (DESIGN.md vellum panels, role icons).
             for (int i = 0; i < ToolCount; i++)
             {
                 int index = i + 1;
@@ -306,30 +261,17 @@ namespace KaliRiverSweeper.UI
                 bool owned = manager.IsToolOwned(index);
                 bool equipped = index == manager.equippedToolIndex;
                 int price = manager.GetToolPrice(index);
-                bool canBuy = unlocked && !owned && (manager.IsHotbarFull || manager.rupiah >= price);
+                bool canBuy = unlocked && !owned && manager.rupiah >= price;
                 SetButton(toolButtons[i], (owned && !equipped) || canBuy);
                 if (toolBg[i] != null) toolBg[i].color = equipped ? Zone0 : (owned ? Vellum : Track);
-                string status = equipped ? "DIPAKAI" : (owned ? "PILIH" : (unlocked ? (manager.IsHotbarFull ? "TUKAR" : "BELI") : "TERKUNCI"));
+                string status = equipped ? "DIPAKAI" : (owned ? "PILIH" : (unlocked
+                    ? (manager.GetTradeInCredit(index) > 0 ? "TUKAR " : "BELI ") + (price >= 0 ? "Rp " + FormatRupiah(price) : "+Rp " + FormatRupiah(-price))
+                    : "TERKUNCI"));
                 SetText(toolStatus[i], status);
                 if (toolStatus[i] != null) toolStatus[i].color = equipped ? Vellum : (owned ? Ink : InkSecondary);
             }
 
-            if (pendingTool > 0)
-            {
-                ToolDefinition next = ToolCatalog.GetTool(pendingTool);
-                SetText(tradeInTitle, "Hotbar penuh. Tukar alat mana untuk #" + pendingTool.ToString("00", Invariant) + " " + next.DisplayName + "?");
-                for (int s = 0; s < tradeInButtons.Length; s++)
-                {
-                    int held = manager.hotbar[s];
-                    int net = manager.GetToolPrice(pendingTool, s);
-                    string name = held > 0 ? "#" + held.ToString("00", Invariant) + " " + ToolCatalog.GetTool(held).DisplayName : "kosong";
-                    string cost = net >= 0 ? "bayar Rp " + FormatRupiah(net) : "kembali Rp " + FormatRupiah(-net);
-                    SetText(tradeInLabels[s], "Slot " + (s + 1).ToString(Invariant) + ": " + name + "\n+Rp " + FormatRupiah(manager.GetTradeInCredit(s)) + " · " + cost);
-                    SetButton(tradeInButtons[s], manager.rupiah >= net);
-                }
-            }
-
-            SetText(footer, "Klik kartu untuk membeli (masuk slot kosong hotbar; penuh = tukar 50%). [E] / Esc untuk menutup.");
+            SetText(footer, "Satu slot = satu peran. Beli → masuk slot perannya; alat lama ditukar otomatis (kredit 50%). [E] / Esc untuk menutup.");
         }
 
         private bool TierOwned(UpgradeTier tier)

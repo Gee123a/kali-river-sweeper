@@ -61,6 +61,8 @@ namespace KaliRiverSweeper.Player
         }
 
         public bool IsShopOpen { get; private set; }
+        // Spec C2: which slot/role the aimed target needs (empty when the equipped role fits). Shown by KaliFieldGuideOverlay.
+        public string AimHint { get; private set; } = string.Empty;
         public bool HasNearbyHub { get; private set; }
         public DiscardStationType NearbyStationType { get; private set; }
         public bool NearbyIsKopdes { get; private set; }
@@ -155,12 +157,11 @@ namespace KaliRiverSweeper.Player
         private void Update()
         {
             RiverGameManager gm = RiverGameManager.Instance;
-            if (gm != null && gm.activeEnding != GameEnding.None)
+            if (gm != null && (gm.State != KaliGameState.Playing || gm.activeEnding != GameEnding.None))
             {
-                if (WasKeyPressed(KeyAction.R))
-                {
-                    gm.RestartRun();
-                }
+                // Spec I: input frozen outside Playing. Title is driven by the menu; Esc resumes from Paused; [R] restarts at the end.
+                if (gm.State == KaliGameState.Paused && WasKeyPressed(KeyAction.Escape)) gm.TogglePause();
+                else if (gm.activeEnding != GameEnding.None && WasKeyPressed(KeyAction.R)) gm.RestartRun();
                 return;
             }
 
@@ -174,6 +175,11 @@ namespace KaliRiverSweeper.Player
             {
                 // Shop UI owns the mouse; movement, look and scoop are paused. Esc / [E] closes.
                 if (WasKeyPressed(KeyAction.Escape) || WasKeyPressed(KeyAction.E)) CloseShop();
+            }
+            else if (gm != null && WasKeyPressed(KeyAction.Escape))
+            {
+                gm.TogglePause();
+                return;
             }
             else
             {
@@ -646,6 +652,7 @@ namespace KaliRiverSweeper.Player
                     return true;
                 }
                 IsShopOpen = true;
+                Time.timeScale = 0f; // spec I: the open shop freezes time
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
                 OnShopRequested.Invoke();
@@ -666,8 +673,13 @@ namespace KaliRiverSweeper.Player
         {
             if (!IsShopOpen) return;
             IsShopOpen = false;
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (gm == null || gm.State == KaliGameState.Playing)
+            {
+                Time.timeScale = 1f;
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
             OnShopClosed?.Invoke();
         }
 
@@ -942,17 +954,26 @@ namespace KaliRiverSweeper.Player
                 trashCandidates.Sort((a, b) => a.score.CompareTo(b.score));
                 int batchLimit = Mathf.Max(1, tool.BatchCount);
                 int scooped = 0;
+                bool blocked = false;
+                WasteClass blockedClass = WasteClass.Normal;
                 Vector3 lastScoopPos = transform.position;
 
                 for (int i = 0; i < trashCandidates.Count && scooped < batchLimit; i++)
                 {
                     RiverTrashItem item = trashCandidates[i].item;
-                    int take = Mathf.Min(item.trashUnits, gm.cargoCapacity - gm.cargoCount);
+                    // Spec C2: Medical needs Capit, Biohazard needs Ganco; skip them and keep scooping what this role can take.
+                    if (!gm.CanPickup(item.wasteClass))
+                    {
+                        if (!blocked) { blocked = true; blockedClass = item.wasteClass; }
+                        continue;
+                    }
+                    int take = Mathf.Min(gm.ClampScoopUnits(item.wasteClass, item.trashUnits), gm.cargoCapacity - gm.cargoCount);
                     if (take > 0 && gm.TryPickupWaste(item.wasteClass, take))
                     {
                         lastScoopPos = item.transform.position;
                         item.ConsumeUnits(take);
                         scooped++;
+                        if (tool.Role != ToolRole.Serok && item.wasteClass == WasteClass.Normal) break; // non-Serok: 1 Normal unit per scoop
                     }
                     else
                     {
@@ -962,6 +983,11 @@ namespace KaliRiverSweeper.Player
                 if (scooped > 0)
                 {
                     gm.NotifyWaterSplash(new Vector3(lastScoopPos.x, gm.currentWaterLevelY, lastScoopPos.z));
+                    return;
+                }
+                if (blocked)
+                {
+                    gm.TryPickupWaste(blockedClass); // raises the throttled "Butuh <ROLE> (slot N)" hint
                     return;
                 }
                 // Nothing scooped (e.g. cargo full): fall through to pile / Gunung branches
@@ -987,8 +1013,7 @@ namespace KaliRiverSweeper.Player
 
         private static bool TryDamageGunungCollider(Collider col, RiverGameManager gm, ToolDefinition tool)
         {
-            bool canDredge = gm.excavatorUnlocked || tool.GunungDamagePerSwing > 0f;
-            if (!canDredge)
+            if (!gm.CanDredgeGunung)
             {
                 gm.NotifyCannotDredgeGunung();
                 return false;
@@ -1085,6 +1110,7 @@ namespace KaliRiverSweeper.Player
             bool hasTarget = false;
             WasteClass targetClass = WasteClass.Normal;
             bool inReach = false;
+            string hint = null;
 
             if (Physics.Raycast(eyeOrigin, eyeForward, out RaycastHit hit, reach + 4f, ~0, QueryTriggerInteraction.Collide))
             {
@@ -1094,8 +1120,22 @@ namespace KaliRiverSweeper.Player
                     hasTarget = true;
                     targetClass = item.wasteClass;
                     inReach = hit.distance <= reach + 0.5f;
+                    if (item.wasteClass != WasteClass.Normal)
+                        hint = gm.RoleBlockReason(ToolCatalog.RoleFor(item.wasteClass), RiverGameManager.WasteNoun(item.wasteClass));
+                    else if (gm.EquippedTool.Role != ToolRole.Serok)
+                        hint = "Sampah biasa: 1 per serok — SEROK [1] lebih cepat";
+                }
+                else if (hit.collider != null && HasHierarchyName(hit.collider.transform, "PintuAirPile"))
+                {
+                    hint = gm.RoleBlockReason(ToolRole.Garuk, "tumpukan Pintu Air");
+                }
+                else if (hit.collider != null && !gm.CanDredgeGunung
+                    && (HasHierarchyName(hit.collider.transform, "Gunung Sampah") || hit.collider.GetComponentInParent<GunungNodeController>() != null))
+                {
+                    hint = "Gunung Sampah: butuh GANCO #13+ [3] atau Excavator";
                 }
             }
+            AimHint = hint ?? string.Empty;
 
             if (hasTarget != lastAimHasTarget || targetClass != lastAimClass || inReach != lastAimInReach || !Mathf.Approximately(prickPct, lastAimPrick))
             {

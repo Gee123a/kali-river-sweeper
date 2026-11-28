@@ -29,14 +29,18 @@ SURGE0, SURGE1 = 8.0, 3.0
 PAY = {"N": 4000, "M": 9000, "B": 14000}
 PENGEPUL = {"N": 2000, "M": 3000, "B": 4500}
 FINE = {"N": 2500, "M": 5000, "B": 8000}
-TOOLS = [  # idx, cost, reach, batch, cooldown, prick, gunungDmg
-    (1, 0, 4.2, 1, .45, .60, 0), (2, 4000, 4.5, 1, .42, .55, 0), (3, 8000, 4.8, 1, .39, .50, 0),
-    (4, 14000, 5.0, 2, .38, .45, 0), (5, 20000, 5.2, 2, .36, .42, 0), (6, 28000, 6.2, 2, .34, .35, 0),
-    (7, 38000, 6.8, 3, .32, .30, 0), (8, 50000, 7.0, 2, .34, .25, 0), (9, 64000, 7.4, 3, .32, .22, 0),
-    (10, 80000, 7.8, 2, .28, 0, 0), (11, 98000, 8.2, 3, .28, .14, 0), (12, 118000, 8.8, 4, .26, .12, 0),
-    (13, 140000, 9.0, 3, .30, .08, .06), (14, 165000, 9.6, 4, .25, .10, .04), (15, 192000, 9.8, 4, .24, .06, .05),
-    (16, 222000, 10.4, 4, .24, .06, .06), (17, 254000, 11.2, 3, .22, .04, .08), (18, 288000, 11.6, 5, .20, .05, .10),
-    (19, 324000, 12.2, 5, .18, .05, .12), (20, 360000, 13.0, 6, .16, .03, .18)]
+# spec C2 role ladders: role 0 Serok (Normal, batch), 1 Capit (only Medical; prick per tier), 2 Ganco (only Biohazard; #13+ dredge),
+# 3 Garuk (only the Pintu Air barrier pile). Non-Serok roles take 1 Normal unit per scoop.
+TOOLS = [  # idx, cost, reach, batch, cooldown, prick, gunungDmg, role
+    (1, 0, 4.2, 1, .45, 0, 0, 0), (2, 3000, 4.5, 2, .42, 0, 0, 0), (3, 5000, 4.8, 1, .39, .50, 0, 1),
+    (4, 22000, 5.0, 1, .38, .24, 0, 1), (5, 9000, 5.2, 2, .36, 0, 0, 0), (6, 18000, 6.2, 3, .34, 0, 0, 0),
+    (7, 30000, 6.8, 3, .32, 0, 0, 0), (8, 6000, 7.0, 1, .34, 0, 0, 2), (9, 45000, 7.4, 4, .32, 0, 0, 0),
+    (10, 55000, 7.8, 2, .28, 0, 0, 1), (11, 6000, 5.5, 2, .40, 0, 0, 3), (12, 75000, 8.8, 5, .26, 0, 0, 0),
+    (13, 65000, 9.0, 2, .30, 0, .06, 2), (14, 120000, 9.6, 6, .25, 0, 0, 0), (15, 50000, 9.8, 4, .24, 0, 0, 3),
+    (16, 150000, 10.4, 2, .24, 0, .08, 2), (17, 210000, 11.2, 3, .22, 0, .10, 2), (18, 110000, 11.6, 5, .20, 0, 0, 3),
+    (19, 180000, 12.2, 6, .18, 0, 0, 3), (20, 280000, 13.0, 8, .16, 0, 0, 3)]
+ROLE_OF = {"N": 0, "M": 1, "B": 2}
+def ladder(role): return sorted((t for t in TOOLS if t[7] == role), key=lambda t: t[1])
 UPG = {"sampan": 40000, "boom": 75000, "bins": 30000, "excavator": 120000}
 # station z (m) and lateral walk (m) from the river bank; from kali-river-map.json (z = (y-720)*0.125)
 ST = {"bank": (58, 30), "kopdes": (46, 30), "pengepul": (70, 22), "medis": (0, 37), "karantina": (-31, 30)}
@@ -48,7 +52,7 @@ class Run:
     def __init__(s, arch, seed):
         s.r = random.Random(seed); s.a = arch
         s.t = 0.0; s.rp = 0; s.cum = 0; s.hp = 100.0; s.trust = 40
-        s.owned = {1}; s.eq = 1; s.unl = 1; s.upg = set(); s.cap = 8
+        s.slot = [1, 0, 0, 0]; s.eq = 1; s.unl = 1; s.upg = set(); s.cap = 8
         s.cargo = {"N": 0, "M": 0, "B": 0}; s.bio_t = 0.0
         s.gunung = [1.0, 1.0, 1.0]
         s.items = []          # [z, cls, units, drifts]
@@ -79,6 +83,15 @@ class Run:
     @property
     def gh(s): return sum(s.gunung) / 3
     def tool(s, i=None): return TOOLS[(i or s.eq) - 1]
+    @property
+    def owned(s): return {i for i in s.slot if i}
+    def unlocked(s, i): return s.cum >= TOOLS[i - 1][1]
+    def price(s, i):   # net of the automatic 50% trade-in of the tool in that role slot
+        held = s.slot[TOOLS[i - 1][7]]
+        return TOOLS[i - 1][1] - (TOOLS[held - 1][1] // 2 if held else 0)
+    def next_in(s, role):
+        cur = TOOLS[s.slot[role] - 1][1] if s.slot[role] else -1
+        return next((t[0] for t in ladder(role) if t[1] > cur), None)
     def cargo_n(s): return sum(s.cargo.values())
 
     def earn(s, amt, milestone=True):
@@ -86,8 +99,8 @@ class Run:
         if milestone:
             s.cum += amt
             for t in TOOLS:
-                if s.cum >= t[1] and t[0] > s.unl:
-                    s.unl = t[0]; s.unlock_t[t[0]] = s.t
+                if s.cum >= t[1] and t[0] not in s.unlock_t and t[0] != 1:
+                    s.unl = max(s.unl, t[0]); s.unlock_t[t[0]] = s.t
         if amt > 0: s.pay_t.append(s.t)
 
     def world(s, dt):
@@ -140,11 +153,13 @@ class Run:
         dz = abs(s.z - z); s.z = z
         return (dz / (BOAT if boat else WALK)) + 2 * lateral / WALK
 
-    def pickup(s, c, units=1):
+    def can_pick(s, c): return c == "N" or s.slot[ROLE_OF[c]] > 0   # ponytail: the agent switches slots for free
+
+    def pickup(s, c, units=1, via=None):
         units = min(units, s.cap - s.cargo_n())   # GM.TryPickupWaste clamps; the rest of the bundle is lost
         s.cargo[c] += units
-        tl = s.tool()
-        prick = 0 if s.unl >= 10 else tl[5] * PRICK_SCALE
+        tl = s.tool(via or (s.slot[1] if c == "M" else s.slot[0]))
+        prick = tl[5] * PRICK_SCALE if tl[7] == 1 else 0   # prick only on Capit tools
         for _ in range(units if c == "M" else 0):
             if s.r.random() < prick: s.hp -= PRICK_DMG; s.pricks += 1
 
@@ -172,7 +187,7 @@ class Run:
     def can_afford_any(s):
         for want in s.a.shopping(s):
             if want in UPG and want not in s.upg and s.rp >= UPG[want]: return True
-            if isinstance(want, int) and want not in s.owned and want <= s.unl and s.rp >= TOOLS[want - 1][1] // 2: return True
+            if isinstance(want, int) and want not in s.owned and s.unlocked(want) and s.rp >= s.price(want): return True
         return False
 
     def shop(s):
@@ -186,26 +201,27 @@ class Run:
                     if want == "sampan": s.cap = max(s.cap, 22)
                     if want == "excavator": s.cap = 60
                     if want == "bins": s.trust = min(100, s.trust + 25)
-                elif isinstance(want, int) and want not in s.owned and want <= s.unl:
-                    best = max([i for i in s.owned if i < want and i >= 2], default=0)
-                    price = max(0, TOOLS[want - 1][1] - (TOOLS[best - 1][1] // 2 if best else 0))
+                elif isinstance(want, int) and want not in s.owned and s.unlocked(want):
+                    price = s.price(want)
                     if s.rp >= price:
-                        s.rp -= price; s.owned.add(want); s.eq = want; s.buy_t[want] = s.t; bought = True
+                        s.rp -= price; s.slot[TOOLS[want - 1][7]] = want; s.buy_t[want] = s.t; bought = True
 
     def decide(s):
         a = s.a
         boat = "sampan" in s.upg
         full = s.cargo_n() >= s.cap
         # dredge Gunung if able and the archetype wants to
-        can_dredge = "excavator" in s.upg or s.tool()[6] > 0
+        ganco = s.tool(s.slot[2]) if s.slot[2] else None
+        can_dredge = "excavator" in s.upg or (ganco is not None and ganco[6] > 0)
         if can_dredge and a.dredges and s.gh > .01 and s.cargo["B"] == 0 and not full:
             t = s.travel(GUNUNG_Z, 0, boat)
-            dmg = max(.20, s.tool()[6]) if "excavator" in s.upg else s.tool()[6]
+            g = ganco[6] if ganco else 0
+            dmg = max(.20, g) if "excavator" in s.upg else g
             for i in range(3):
                 if s.gunung[i] > 0:
                     swings = 3  # one burst per decision
                     s.gunung[i] = max(0, s.gunung[i] - dmg * 1.5 * swings)
-                    t += swings * s.tool()[4] + 1.0
+                    t += swings * (ganco or s.tool())[4] + 1.0
                     break
             return t
         # deliver
@@ -224,13 +240,14 @@ class Run:
                 t += s.travel(ST["kopdes"][0], ST["kopdes"][1] * .3, False); s.shop(); t += 2
             return t
         # collect
-        tl = s.tool()
-        pool = [it for it in s.items]
-        if s.piled and (not pool or s.water > .8 or s.piled >= a.pile_at or (s.storm and s.piled >= a.storm_pile_at)):
+        tl = s.tool(s.slot[0])
+        pool = [it for it in s.items if s.can_pick(it[1])]
+        garuk = s.tool(s.slot[3]) if s.slot[3] else None   # only Garuk clears the barrier pile
+        if garuk and s.piled and (not pool or s.water > .8 or s.piled >= a.pile_at or (s.storm and s.piled >= a.storm_pile_at)):
             t = s.travel(BARRIER_Z - 2, 0, boat)
-            take = min(tl[3], s.piled, s.cap - s.cargo_n())
-            for _ in range(take): s.piled -= 1; s.pickup(s.cls(True))
-            return t + tl[4] + .6
+            take = min(garuk[3], s.piled, s.cap - s.cargo_n())
+            for _ in range(take): s.piled -= 1; s.pickup(s.cls(True), via=garuk[0])
+            return t + garuk[4] + .6
         if not pool:
             return 1.0
         it = min(pool, key=lambda i: abs(i[0] - s.z))
@@ -241,7 +258,7 @@ class Run:
         n = 0
         for other in sorted(pool, key=lambda i: abs(i[0] - s.z)):
             if n >= tl[3] or s.cargo_n() >= s.cap or abs(other[0] - s.z) > reach: break
-            s.items.remove(other); s.pickup(other[1], other[2]); n += 1
+            s.items.remove(other); s.pickup(other[1], other[2]); n += 1   # Serok batch; hazards via their role slot
         return t + tl[4] + a.aim_time
 
     def play(s, dt=0.25):
@@ -254,6 +271,12 @@ class Run:
             elif s.gh <= .01: s.end = "TrueSdgVictory"
         if s.end is None: s.end = "TrueSdgVictory" if s.gh <= .01 else "PartialSurvival"
         return s
+
+
+def cheapest_next(r):
+    """Next ladder step of each role, cheapest net price first (role starters come first naturally)."""
+    nxt = [n for n in (r.next_in(role) for role in range(4)) if n]
+    return sorted(nxt, key=r.price)
 
 
 class Arch:
@@ -270,20 +293,20 @@ class Idle(Arch):
 
 
 class Newbie(Arch):
-    """Picks up everything, sells all at Bank Sampah (fines), buys the next tool when it can."""
+    """Picks up what it can, sells all at Bank Sampah (fines), buys the cheapest next tool of any role."""
     name = "Newbie (sells all at Bank Sampah)"; dump_all_at_bank = True; aim_time = 2.0; bio_patience = 30
-    def shopping(s, r): return [max(r.owned) + 1] if max(r.owned) < 20 else []
+    def shopping(s, r): return cheapest_next(r)
 
 
 class Lazy(Arch):
     """Sells everything at Gudang Pengepul (closest, low price, trust loss)."""
     name = "Lazy (Pengepul only)"; aim_time = 1.5; bio_patience = 30
     def route(s, r): return ["pengepul"]
-    def shopping(s, r): return [max(r.owned) + 1] if max(r.owned) < 20 else []
+    def shopping(s, r): return cheapest_next(r)
 
 
 class Sorter(Arch):
-    """Sorts to the right stations, climbs tools one by one, buys bins + boom."""
+    """Sorts to the right stations, buys the 3 role starters, then climbs ladders cheapest-first, buys bins + boom."""
     name = "Sorter (correct stations, step-by-step)"; aim_time = 1.2; dredges = True; pile_at = 12; storm_pile_at = 6
     bio_patience = 25   # uses most of the 30 s safe carry instead of running to Karantina at once
     def route(s, r):
@@ -296,25 +319,25 @@ class Sorter(Arch):
         if r.cargo["N"]: out.append("bank")
         return out or ["bank"]
     def shopping(s, r):
-        nxt = max(r.owned) + 1
-        return (["bins"] if "bins" not in r.upg and r.t > 60 else []) + ([nxt] if nxt <= 20 else []) + (["boom"] if r.t > 90 else [])
+        return (["bins"] if "bins" not in r.upg and r.t > 60 else []) + cheapest_next(r)[:1] + (["boom"] if r.t > 90 else [])
 
 
 class Defender(Sorter):
     """Sorter who buys the Sampan first (cargo 22) and then defends Pintu Air in the storm."""
     name = "Defender (Sorter + Sampan)"
     def shopping(s, r):
+        starters = [i for i in (11, 3, 8) if i not in r.owned]
+        if starters: return starters[:1]
         if "sampan" not in r.upg: return ["sampan"]
-        nxt = max(r.owned) + 1
-        return (["bins"] if "bins" not in r.upg else []) + ([nxt] if nxt <= 20 else [])
+        return (["bins"] if "bins" not in r.upg else []) + cheapest_next(r)[:1]
 
 
 class Optimizer(Arch):
-    """Knows the game: sorts, saves for #10 then #13, sampan, rushes the Gunung."""
+    """Knows the game: sorts, buys Garuk/Ganco/Capit starters, saves for #13 then #10, sampan, rushes the Gunung."""
     name = "Optimizer (save for #13, rush Gunung)"; aim_time = .8; dredges = True; pile_at = 12; storm_pile_at = 6; bio_patience = 25
     route = Sorter.route
     def shopping(s, r):
-        for t in (10, 13):
+        for t in (11, 8, 3, 13, 10):
             if t not in r.owned: return [t]
         return [u for u in ("sampan", "excavator", "boom") if u not in r.upg]
 

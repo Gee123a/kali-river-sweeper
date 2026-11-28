@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace KaliRiverSweeper.Core
@@ -9,6 +10,15 @@ namespace KaliRiverSweeper.Core
         WoodenSampan = 2,
         TrashBoom = 3,
         AmphibiousExcavator = 4
+    }
+
+    // Spec I: Title -> Playing <-> Paused -> Ended. Gameplay Tick and player input run only in Playing.
+    public enum KaliGameState
+    {
+        Title,
+        Playing,
+        Paused,
+        Ended
     }
 
     public enum GameEnding
@@ -168,6 +178,9 @@ namespace KaliRiverSweeper.Core
         public event Action<StationAuditReceipt> OnStationAuditReceipt;
         public event Action<GameEnding, string> OnEndingWithDiagnosisTriggered;
         public event Action<string> OnObjectiveChanged;
+        public event Action<KaliGameState> OnGameStateChanged;
+
+        public KaliGameState State { get; private set; } = KaliGameState.Title;
 
         // Spec E: household plastic dominates (Normal 80 / Medical 14 / Biohazard 6), river spawns and barrier piles alike.
         public const float NormalWasteShare = 0.80f;
@@ -221,10 +234,48 @@ namespace KaliRiverSweeper.Core
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
-            if (Application.isPlaying) Time.timeScale = 1f;
             monsoonCountdownRemaining = monsoonCountdownSeconds;
             RecalculateWaterMetrics();
             Shader.SetGlobalFloat(WaterClarityId, waterClarity);
+            CaptureSeedPiles();
+            ApplyStateEffects();
+        }
+
+        public void SetState(KaliGameState next)
+        {
+            if (State == next) return;
+            State = next;
+            ApplyStateEffects();
+            OnGameStateChanged?.Invoke(next);
+        }
+
+        // Paused / Ended freeze time and free the cursor; Title keeps time running (fly-over) but Tick is gated.
+        // The open Kopdes shop freezes time too (KaliPlayerController.OpenShop / CloseShop).
+        private void ApplyStateEffects()
+        {
+            Time.timeScale = State == KaliGameState.Paused || State == KaliGameState.Ended ? 0f : 1f;
+            if (!Application.isPlaying) return;
+            bool free = State != KaliGameState.Playing;
+            Cursor.lockState = free ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = free;
+        }
+
+        public void StartRun()
+        {
+            if (State == KaliGameState.Title) SetState(KaliGameState.Playing);
+        }
+
+        public void TogglePause()
+        {
+            if (State == KaliGameState.Playing) SetState(KaliGameState.Paused);
+            else if (State == KaliGameState.Paused) SetState(KaliGameState.Playing);
+        }
+
+        public void ReturnToTitle()
+        {
+            ResetRun();
+            SetState(KaliGameState.Title);
+            NotifyState();
         }
 
         private void OnDestroy()
@@ -239,7 +290,7 @@ namespace KaliRiverSweeper.Core
 
         private void Tick(float dt)
         {
-            if (activeEnding != GameEnding.None) return;
+            if (State != KaliGameState.Playing || activeEnding != GameEnding.None) return;
 
             // 1. Monsoon countdown & automatic storm trigger
             if (monsoonCountdownRemaining > 0f)
@@ -447,6 +498,11 @@ namespace KaliRiverSweeper.Core
         public int TryScoopPiledBarrierTrash(int maxUnits)
         {
             if (activeEnding != GameEnding.None) return 0;
+            if (EquippedTool.Role != ToolRole.Garuk)
+            {
+                RaiseRoleAlert(ToolRole.Garuk, "tumpukan Pintu Air");
+                return 0;
+            }
             int space = cargoCapacity - cargoCount;
             if (space <= 0 || piledRiverTrashCount <= 0) return 0;
 
@@ -472,23 +528,71 @@ namespace KaliRiverSweeper.Core
         public bool TryPickupWaste(WasteClass wasteClass, int amount = 1)
         {
             if (activeEnding != GameEnding.None) return false;
+            if (!CanPickup(wasteClass))
+            {
+                RaiseRoleAlert(ToolCatalog.RoleFor(wasteClass), WasteNoun(wasteClass));
+                return false;
+            }
             if (cargoCount >= cargoCapacity)
             {
                 RaiseAlert("Kargo penuh! Buang ke stasiun atau tekan [Q] di daratan tinggi.", true);
                 return false;
             }
 
-            int added = Mathf.Min(Mathf.Max(1, amount), cargoCapacity - cargoCount);
+            int added = Mathf.Min(ClampScoopUnits(wasteClass, Mathf.Max(1, amount)), cargoCapacity - cargoCount);
             ApplyCargoGainAndMedicalCheck(wasteClass, added);
             RecalculateWaterMetrics();
             NotifyState();
             return true;
         }
 
+        // Spec C2 pickup rules: Medical needs Capit, Biohazard needs Ganco, Normal works with any role.
+        public bool CanPickup(WasteClass wasteClass) =>
+            wasteClass == WasteClass.Normal || EquippedTool.Role == ToolCatalog.RoleFor(wasteClass);
+
+        // Non-Serok roles take at most 1 Normal unit per scoop; Serok (and the specialist role on its own class) takes the bundle.
+        public int ClampScoopUnits(WasteClass wasteClass, int units) =>
+            wasteClass == WasteClass.Normal && EquippedTool.Role != ToolRole.Serok ? Mathf.Min(1, units) : units;
+
+        public bool CanDredgeGunung => excavatorUnlocked || (EquippedTool.Role == ToolRole.Ganco && EquippedTool.GunungDamagePerSwing > 0f);
+
+        public static string WasteNoun(WasteClass wc) => wc switch
+        {
+            WasteClass.Medical => "limbah medis",
+            WasteClass.Biohazard => "drum biohazard",
+            _ => "sampah"
+        };
+
+        /// <summary>Null when the equipped role fits; otherwise the hint naming the slot to switch to or buy.</summary>
+        public string RoleBlockReason(ToolRole need, string what)
+        {
+            if (EquippedTool.Role == need) return null;
+            int slot = (int)need;
+            string role = ToolCatalog.RoleName(need);
+            return hotbar[slot] > 0
+                ? $"Ganti ke {role} [{slot + 1}] untuk {what}"
+                : $"Butuh {role} (slot {slot + 1}) untuk {what} — beli di Kopdes";
+        }
+
+        private string lastRoleAlert;
+        private float nextRoleAlertTime;
+
+        // ponytail: the same blocked-pickup hint repeats at most every 2 s (scoop spam), a different one shows at once.
+        private void RaiseRoleAlert(ToolRole need, string what)
+        {
+            string msg = RoleBlockReason(need, what);
+            if (msg == null) return;
+            float now = Time.realtimeSinceStartup;
+            if (msg == lastRoleAlert && now < nextRoleAlertTime) return;
+            lastRoleAlert = msg;
+            nextRoleAlertTime = now + 2f;
+            RaiseAlert(msg, true);
+        }
+
+        // Spec C2: prick risk applies only to Capit tools (per tier; #10 Capitan Ular = 0%).
         public float GetEffectiveMedicalPrickChance()
         {
-            if (highestUnlockedToolIndex >= ToolCatalog.SnakeGrabberIndex) return 0f;
-            return EquippedTool.MedicalPrickChance;
+            return EquippedTool.Role == ToolRole.Capit ? EquippedTool.MedicalPrickChance : 0f;
         }
 
         private void ApplyCargoGainAndMedicalCheck(WasteClass wasteClass, int added)
@@ -927,7 +1031,8 @@ namespace KaliRiverSweeper.Core
             };
         }
 
-        public bool IsToolUnlocked(int index) => index >= 1 && index <= highestUnlockedToolIndex;
+        public bool IsToolUnlocked(int index) =>
+            index >= 1 && index <= 20 && cumulativeEarnings >= ToolCatalog.GetTool(index).UnlockRupiah;
 
         public bool IsToolOwned(int index) => FindHotbarSlot(index) >= 0;
 
@@ -938,35 +1043,22 @@ namespace KaliRiverSweeper.Core
             return -1;
         }
 
-        public int FirstEmptySlot()
-        {
-            for (int i = 0; i < HotbarSize; i++) if (hotbar[i] == 0) return i;
-            return -1;
-        }
+        public static int RoleSlot(int toolIndex) => (int)ToolCatalog.GetTool(toolIndex).Role;
 
-        public bool IsHotbarFull => FirstEmptySlot() < 0;
-
-        // Task 4L trade-in made literal: the tool handed back from tradeInSlot credits half its catalog price.
+        // Spec C2 auto trade-in: the tool already in the new tool's role slot is returned for 50% of its catalog price.
         public const float ToolTradeInCredit = 0.5f;
 
-        public int GetTradeInCredit(int tradeInSlot)
+        public int GetTradeInCredit(int toolIndex)
         {
-            if (tradeInSlot < 0 || tradeInSlot >= HotbarSize || hotbar[tradeInSlot] == 0) return 0;
-            return GetCreditFor(hotbar[tradeInSlot]);
+            int held = hotbar[RoleSlot(toolIndex)];
+            return held > 0 && held != toolIndex ? GetCreditFor(held) : 0;
         }
 
-        public int GetToolPrice(int toolIndex) => GetToolPrice(toolIndex, -1);
+        // Net price the player actually pays (catalog price minus the role slot's trade-in); negative = paid back.
+        public int GetToolPrice(int toolIndex) => ToolCatalog.GetTool(toolIndex).UnlockRupiah - GetTradeInCredit(toolIndex);
 
-        // Net cost after trade-in; negative means the credit exceeds the price and the rest is paid back.
-        public int GetToolPrice(int toolIndex, int tradeInSlot)
-        {
-            return ToolCatalog.GetTool(toolIndex).UnlockRupiah - GetTradeInCredit(tradeInSlot);
-        }
-
-        public bool BuyTool(int toolIndex) => BuyTool(toolIndex, -1);
-
-        /// <summary>Buys into the first empty slot, or (tradeInSlot 0-3) replaces that slot's tool for a 50% credit.</summary>
-        public bool BuyTool(int toolIndex, int tradeInSlot)
+        /// <summary>Buys into the tool's role slot; an occupied slot is traded in automatically for 50% credit.</summary>
+        public bool BuyTool(int toolIndex)
         {
             if (toolIndex < 1 || toolIndex > 20 || IsToolOwned(toolIndex)) return false;
 
@@ -977,14 +1069,8 @@ namespace KaliRiverSweeper.Core
                 return false;
             }
 
-            int slot = tradeInSlot >= 0 && tradeInSlot < HotbarSize ? tradeInSlot : FirstEmptySlot();
-            if (slot < 0)
-            {
-                RaiseAlert("Hotbar penuh (4 alat). Pilih alat yang ditukar (kredit 50%).", true);
-                return false;
-            }
-
-            int cost = GetToolPrice(toolIndex, slot);
+            int slot = (int)tool.Role;
+            int cost = GetToolPrice(toolIndex);
             if (rupiah < cost)
             {
                 RaiseAlert($"Rupiah kurang untuk #{tool.Index:00} {tool.DisplayName}: butuh Rp {cost:N0} (punya Rp {rupiah:N0}).", true);
@@ -994,8 +1080,7 @@ namespace KaliRiverSweeper.Core
             int oldTool = hotbar[slot];
             rupiah -= cost;
             hotbar[slot] = toolIndex;
-            if (toolIndex > highestUnlockedToolIndex) highestUnlockedToolIndex = toolIndex;
-            if (toolIndex >= 6) galahUnlocked = true;
+            if (tool.Tier >= 1) galahUnlocked = true;
 
             activeSlot = slot;
             equippedToolIndex = toolIndex;
@@ -1004,7 +1089,7 @@ namespace KaliRiverSweeper.Core
             OnHotbarChanged?.Invoke();
             OnEquippedToolChanged?.Invoke(EquippedTool);
             string tradeNote = oldTool > 0 ? $" (tukar #{oldTool:00}, kredit Rp {GetCreditFor(oldTool):N0})" : string.Empty;
-            RaiseAlert($"Alat #{tool.Index:00} {tool.DisplayName} dibeli & dipakai di slot {slot + 1}!{tradeNote}", false);
+            RaiseAlert($"Alat #{tool.Index:00} {tool.DisplayName} dibeli & dipakai di slot {slot + 1} {ToolCatalog.RoleName(tool.Role)}!{tradeNote}", false);
             NotifyState();
             return true;
         }
@@ -1057,7 +1142,12 @@ namespace KaliRiverSweeper.Core
 
         public bool SelectSlot(int slot)
         {
-            if (slot < 0 || slot >= HotbarSize || hotbar[slot] == 0) return false;
+            if (slot < 0 || slot >= HotbarSize) return false;
+            if (hotbar[slot] == 0)
+            {
+                RaiseAlert($"Slot {slot + 1} {ToolCatalog.RoleName((ToolRole)slot)} kosong — beli di Kopdes.", false);
+                return false;
+            }
             if (slot == activeSlot && hotbar[slot] == equippedToolIndex) return false;
             activeSlot = slot;
             equippedToolIndex = hotbar[slot];
@@ -1090,8 +1180,7 @@ namespace KaliRiverSweeper.Core
 
         public void DamageGunungSampah(float amount, Vector3? impactPos = null)
         {
-            bool canDredge = excavatorUnlocked || EquippedTool.GunungDamagePerSwing > 0f;
-            if (!canDredge || gunungSampahHealth <= 0f || activeEnding != GameEnding.None) return;
+            if (!CanDredgeGunung || gunungSampahHealth <= 0f || activeEnding != GameEnding.None) return;
 
             int prevTier = Mathf.CeilToInt(gunungSampahHealth * 4f);
 
@@ -1121,7 +1210,7 @@ namespace KaliRiverSweeper.Core
 
         public void NotifyCannotDredgeGunung()
         {
-            RaiseAlert("Butuh alat #13 Ganco Ganda Winch+ atau Pindad Excavator untuk mengeruk Gunung Sampah!", true);
+            RaiseAlert("Butuh GANCO #13 Ganco Ganda Winch+ (slot 3) atau Pindad Excavator untuk mengeruk Gunung Sampah!", true);
             NotifyState();
         }
 
@@ -1210,25 +1299,23 @@ namespace KaliRiverSweeper.Core
         private void AddEarnings(int amount)
         {
             if (amount <= 0) return;
+            int prevCumulative = cumulativeEarnings;
             rupiah += amount;
             cumulativeEarnings += amount;
-            CheckToolMilestones();
+            CheckToolMilestones(prevCumulative);
         }
 
-        private void CheckToolMilestones()
+        // Role ladders are not index-sorted, so announce every tool whose price was crossed by this payout.
+        private void CheckToolMilestones(int prevCumulative)
         {
-            int newHighest = ToolCatalog.GetHighestUnlockedIndex(cumulativeEarnings);
-            if (newHighest <= highestUnlockedToolIndex) return;
+            highestUnlockedToolIndex = ToolCatalog.GetHighestUnlockedIndex(cumulativeEarnings);
+            if (IsToolUnlocked(6)) galahUnlocked = true;
 
-            int prevHighest = highestUnlockedToolIndex;
-            highestUnlockedToolIndex = newHighest;
-            if (newHighest >= 6) galahUnlocked = true;
-
-            for (int i = prevHighest + 1; i <= newHighest; i++)
+            foreach (ToolDefinition tool in ToolCatalog.AllTools)
             {
-                ToolDefinition tool = ToolCatalog.GetTool(i);
+                if (tool.UnlockRupiah <= prevCumulative || tool.UnlockRupiah > cumulativeEarnings) continue;
                 OnToolUnlocked?.Invoke(tool);
-                RaiseAlert($"Alat Baru Tersedia di Kopdes: #{tool.Index:00} {tool.DisplayName}!", false);
+                RaiseAlert($"Alat Baru di Kopdes: #{tool.Index:00} {tool.DisplayName} ({ToolCatalog.RoleName(tool.Role)}, slot {(int)tool.Role + 1})!", false);
             }
         }
 
@@ -1321,7 +1408,7 @@ namespace KaliRiverSweeper.Core
             GameEnding.FloodFail => "Tinggi air sungai melampaui +2.45m karena penumpukan sampah. Pasang Trash Boom / Kampung Bins dan tahan [Q] saat Sell-Lock!",
             GameEnding.HealthFail => lastDamageWasDrowning
                 ? "HP habis karena tenggelam setelah kehabisan stamina renang! Naik ke Dermaga, daratan, atau gunakan perahu untuk beristirahat."
-                : "HP habis akibat tusukan limbah medis atau paparan Biohazard >30 detik. Buka #10 Capitan Ular (Rp 80rb) & segera setor ke Pos Medis B3 / Karantina!",
+                : "HP habis akibat tusukan limbah medis atau paparan Biohazard >30 detik. Beli CAPIT #10 Capitan Ular (Rp 55rb) & segera setor ke Pos Medis B3 / Karantina!",
             _ => string.Empty
         };
 
@@ -1351,12 +1438,7 @@ namespace KaliRiverSweeper.Core
         {
             activeEnding = ending;
             LastEndingDiagnosis = BuildEndingDiagnosis(ending);
-            if (Application.isPlaying)
-            {
-                Time.timeScale = 0f;
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-            }
+            SetState(KaliGameState.Ended);
             NotifyState();
             OnEndingTriggered?.Invoke(ending);
             OnEndingWithDiagnosisTriggered?.Invoke(ending, LastEndingDiagnosis);
@@ -1364,6 +1446,15 @@ namespace KaliRiverSweeper.Core
 
         public void RestartRun()
         {
+            ResetRun();
+            SetState(KaliGameState.Playing);
+            RaiseAlert("Permainan diulang! Kumpulkan sampah dari sungai & setor ke stasiun yang tepat.", false);
+            NotifyState();
+        }
+
+        private void ResetRun()
+        {
+            CaptureSeedPiles(); // edit-mode / late managers capture before ResetStageState destroys the baked piles
             ResetStageState(targetCumulativeRupiah: 0, targetRupiah: 0, targetToolIdx: 1,
                 galah: false, sampan: false, boom: false, bins: false, excavator: false, monsoon: false);
             piledRiverTrashCount = 4;
@@ -1375,11 +1466,36 @@ namespace KaliRiverSweeper.Core
             RiverTrashSpawner spawner = FindObjectOfType<RiverTrashSpawner>();
             if (spawner != null) spawner.ResetSpawnerState();
 
+            ReseedPiles(spawner);
+
             KaliRiverSweeper.Player.KaliPlayerController player = FindObjectOfType<KaliRiverSweeper.Player.KaliPlayerController>();
             if (player != null) player.ResetToInitialSpawn();
+        }
 
-            RaiseAlert("Permainan diulang! Kumpulkan sampah dari sungai & setor ke stasiun yang tepat.", false);
-            NotifyState();
+        // Baked map trash_pile items (snagged: buoyancy without drift) are destroyed by a restart, so remember where they were.
+        // ponytail: re-seed spot + class through the spawner (prefab may differ from the bake), not a full prefab snapshot.
+        private List<(Vector3 pos, WasteClass wc)> seedPiles;
+
+        private void CaptureSeedPiles()
+        {
+            if (seedPiles != null) return;
+            seedPiles = new List<(Vector3, WasteClass)>();
+            foreach (RiverTrashItem item in FindObjectsOfType<RiverTrashItem>())
+            {
+                RiverFlowBuoyancy buoy = item.GetComponent<RiverFlowBuoyancy>();
+                if (buoy != null && !buoy.driftDownstream && !item.isCollected) seedPiles.Add((item.transform.position, item.wasteClass));
+            }
+        }
+
+        private void ReseedPiles(RiverTrashSpawner spawner)
+        {
+            if (spawner == null || seedPiles == null) return;
+            foreach ((Vector3 pos, WasteClass wc) in seedPiles)
+            {
+                GameObject go = spawner.SpawnTrashAt(pos, wc, 1);
+                RiverFlowBuoyancy buoy = go.GetComponent<RiverFlowBuoyancy>();
+                if (buoy != null) buoy.driftDownstream = false;
+            }
         }
 
         private void RaiseAlert(string msg, bool isDanger)
@@ -1419,7 +1535,6 @@ namespace KaliRiverSweeper.Core
                 item.TryUnregister(); // Synchronous: Destroy() defers OnDisable, and isRegistered guards double decrement
                 if (Application.isPlaying) Destroy(item.gameObject); else DestroyImmediate(item.gameObject); // edit-mode QA calls this too
             }
-            if (Application.isPlaying) Time.timeScale = 1f;
             LastEndingDiagnosis = string.Empty;
             SetWeather(monsoon);
             playerHealth = maxPlayerHealth;

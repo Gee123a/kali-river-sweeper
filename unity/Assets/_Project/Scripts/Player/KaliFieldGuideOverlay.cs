@@ -21,6 +21,13 @@ namespace KaliRiverSweeper.Player
         private bool toastIsDanger;
         private float toastExpiresAt;
         private RiverGameManager subscribedManager;
+        private KaliPlayerController player;
+        private float autoGuideTimer;
+        private bool titleControls;
+        private bool nikiStartMenu;
+        private bool nikiPauseMenu;
+        private float nextUiScanTime;
+        private CanvasGroup sdgReport;
 
         private GUIStyle pillStyle;
         private GUIStyle panelStyle;
@@ -31,6 +38,10 @@ namespace KaliRiverSweeper.Player
         private GUIStyle activeSlotStyle;
         private GUIStyle activeSlotTextStyle;
         private GUIStyle objectiveStyle;
+        private GUIStyle menuTitleStyle;
+        private GUIStyle menuButtonStyle;
+        private GUIStyle dimStyle;
+        private GUIStyle emptySlotTextStyle;
 
         private void OnEnable()
         {
@@ -50,15 +61,48 @@ namespace KaliRiverSweeper.Player
         private void Update()
         {
             TrySubscribe();
+            RiverGameManager gm = subscribedManager;
+            KaliGameState state = gm != null ? gm.State : KaliGameState.Playing;
+
+            // Niki's menus take over once they exist; scan at 1 Hz (unscaled: time is frozen in Paused).
+            if (Time.unscaledTime >= nextUiScanTime)
+            {
+                nextUiScanTime = Time.unscaledTime + 1f;
+                nikiStartMenu = GameObject.Find("Canvas_StartMenu") != null;
+                nikiPauseMenu = GameObject.Find("Canvas_PauseMenu") != null;
+                if (sdgReport == null)
+                {
+                    GameObject report = GameObject.Find("Canvas_SDGImpactReport");
+                    if (report != null) sdgReport = report.GetComponent<CanvasGroup>();
+                }
+                if (player == null) player = FindObjectOfType<KaliPlayerController>();
+            }
+
+            // ponytail: SdgImpactReportController only shows itself, so the fallback hides it again after Main Lagi / Menu.
+            // TODO(Niki): listen to RiverGameManager.OnGameStateChanged in the report and drop this.
+            if (sdgReport != null && state != KaliGameState.Ended && sdgReport.alpha > 0f)
+            {
+                sdgReport.alpha = 0f;
+                sdgReport.blocksRaycasts = false;
+                sdgReport.interactable = false;
+            }
+
+            if (gm != null && state == KaliGameState.Title && !nikiStartMenu && WasStartPressed()) gm.StartRun();
+
             if (WasHelpPressed())
             {
                 showGuide = !showGuide;
                 autoGuide = false;
             }
-            else if (autoGuide && Time.timeSinceLevelLoad >= AutoGuideSeconds)
+            else if (autoGuide && state == KaliGameState.Playing)
             {
-                showGuide = false;
-                autoGuide = false;
+                // Spec F: the controls panel stays open for the first 15 s of play, then folds into the [H] pill.
+                autoGuideTimer += Time.unscaledDeltaTime;
+                if (autoGuideTimer >= AutoGuideSeconds)
+                {
+                    showGuide = false;
+                    autoGuide = false;
+                }
             }
         }
 
@@ -92,6 +136,12 @@ namespace KaliRiverSweeper.Player
         private void OnGUI()
         {
             EnsureStyles();
+            RiverGameManager gmState = subscribedManager != null ? subscribedManager : RiverGameManager.Instance;
+            if (gmState != null && gmState.State == KaliGameState.Title)
+            {
+                if (!nikiStartMenu) DrawTitleMenu(gmState);
+                return;
+            }
 
             // 1. Live alert/fine toast (top-center)
             if (!string.IsNullOrEmpty(toastMessage) && Time.unscaledTime < toastExpiresAt)
@@ -123,8 +173,18 @@ namespace KaliRiverSweeper.Player
                 GUI.Label(new Rect(stamBox.x + 8f, stamBox.y + 2f, stamBox.width - 16f, 18f), stamText, bodyStyle);
             }
 
-            // 1c. Minimal 4-slot hotbar (bottom-centre, above the dock sheet). Niki restyles later.
+            // 1c. Minimal 4-slot role hotbar (bottom-centre, above the dock sheet). Niki restyles later.
             if (gm != null) DrawHotbar(gm);
+
+            // 1c'. Aim hint under the crosshair: which slot the aimed trash / pile / Gunung needs.
+            if (player != null && !string.IsNullOrEmpty(player.AimHint) && gm != null && gm.State == KaliGameState.Playing)
+            {
+                float hw = Mathf.Min(460f, Screen.width - 40f);
+                GUI.Box(new Rect((Screen.width - hw) * 0.5f, Screen.height * 0.5f + 28f, hw, 28f), player.AimHint, objectiveStyle);
+            }
+
+            if (gm != null && gm.State == KaliGameState.Paused && !nikiPauseMenu) DrawPauseMenu(gm);
+            if (gm != null && gm.State == KaliGameState.Ended) DrawEndedBar(gm);
 
             // 1d. Objective pill (top-left, always visible). ponytail: IMGUI polls CurrentObjective, no event needed here.
             if (gm != null && !string.IsNullOrEmpty(gm.CurrentObjective))
@@ -157,8 +217,9 @@ namespace KaliRiverSweeper.Player
                 "  WASD + Shift/Space : Jalan / Lari / Lompat / Berenang Permukaan / Perahu\n" +
                 "  Berenang di Sungai  : Menguras stamina (habis = tenggelam! Pulih di darat/perahu)\n" +
                 "  Klik Kanan (Tahan/Klik) : Putar & Kunci Kamera\n" +
-                "  Klik Kiri : Serok Sampah / Keruk Gunung (#13+ / Excavator)\n" +
-                "  [1]-[4] : Pilih slot hotbar  |  Scroll / [ ] : Ganti slot\n\n" +
+                "  Klik Kiri : Pakai alat  |  [1]-[4] / Scroll / [ ] : Ganti slot  |  [Esc] Jeda\n" +
+                "  Slot = peran: [1] SEROK sampah biasa (cepat) | [2] CAPIT limbah medis\n" +
+                "  [3] GANCO drum biohazard & Gunung (#13+) | [4] GARUK tumpukan Pintu Air\n\n" +
                 "STASIUN (berdiri di depan loket, hadap gedung):\n" +
                 "  [E] Setor: stasiun hanya ambil jenis yg cocok, sisanya tetap di kargo\n" +
                 "  Normal -> Bank Sampah [B] | Medis -> Pos Medis B3 [M] | Biohazard -> Karantina [K]\n" +
@@ -172,7 +233,7 @@ namespace KaliRiverSweeper.Player
 
         private void DrawHotbar(RiverGameManager gm)
         {
-            const float boxW = 132f, boxH = 46f, gap = 6f;
+            const float boxW = 150f, boxH = 46f, gap = 6f;
             float totalW = RiverGameManager.HotbarSize * boxW + (RiverGameManager.HotbarSize - 1) * gap;
             float x0 = (Screen.width - totalW) * 0.5f;
             float y = Screen.height - Screen.height * (160f / 1080f) - boxH;
@@ -182,18 +243,65 @@ namespace KaliRiverSweeper.Player
                 bool active = i == gm.activeSlot && toolIndex > 0;
                 Rect r = new Rect(x0 + i * (boxW + gap), y, boxW, boxH);
                 GUI.Box(r, GUIContent.none, active ? activeSlotStyle : panelStyle);
-                string name = "-";
-                string stats = string.Empty;
+                string role = ToolCatalog.RoleName((ToolRole)i);
+                string name = "Beli di Kopdes";
                 if (toolIndex > 0)
                 {
                     ToolDefinition tool = ToolCatalog.GetTool(toolIndex);
-                    name = tool.DisplayName.Length > 16 ? tool.DisplayName.Substring(0, 15) + "." : tool.DisplayName;
-                    stats = $"{tool.Reach:0.#}m x{tool.BatchCount} tusuk {Mathf.RoundToInt(tool.MedicalPrickChance * 100f)}%";
+                    name = tool.DisplayName.Length > 20 ? tool.DisplayName.Substring(0, 19) + "." : tool.DisplayName;
+                    if (tool.Role == ToolRole.Capit) name += $" · tusuk {Mathf.RoundToInt(tool.MedicalPrickChance * 100f)}%";
                 }
-                GUIStyle txt = active ? activeSlotTextStyle : bodyStyle;
-                GUI.Label(new Rect(r.x + 6f, r.y + 2f, r.width - 10f, 20f), $"{i + 1}  {name}", txt);
-                GUI.Label(new Rect(r.x + 6f, r.y + 22f, r.width - 10f, 20f), stats, txt);
+                GUIStyle txt = active ? activeSlotTextStyle : (toolIndex > 0 ? bodyStyle : emptySlotTextStyle);
+                GUI.Label(new Rect(r.x + 6f, r.y + 2f, r.width - 10f, 20f), $"{i + 1}  {role}", txt);
+                GUI.Label(new Rect(r.x + 6f, r.y + 22f, r.width - 10f, 20f), name, txt);
             }
+        }
+
+        // Fallback menus (spec I). Hidden once Niki's Canvas_StartMenu / Canvas_PauseMenu exist.
+        private void DrawTitleMenu(RiverGameManager gm)
+        {
+            GUI.Box(new Rect(0f, 0f, Screen.width, Screen.height), GUIContent.none, dimStyle);
+            float w = Mathf.Min(420f, Screen.width - 40f);
+            float x = (Screen.width - w) * 0.5f;
+            float y = Screen.height * 0.28f;
+            GUI.Label(new Rect(x - 100f, y, w + 200f, 56f), "KALI — Penyapu Sungai", menuTitleStyle);
+            y += 80f;
+            if (GUI.Button(new Rect(x, y, w, 44f), "Mulai  [Enter]", menuButtonStyle)) gm.StartRun();
+            y += 52f;
+            if (GUI.Button(new Rect(x, y, w, 44f), titleControls ? "Tutup Kontrol" : "Kontrol", menuButtonStyle)) titleControls = !titleControls;
+            y += 52f;
+            if (GUI.Button(new Rect(x, y, w, 44f), "Keluar", menuButtonStyle)) Application.Quit();
+            if (!titleControls) return;
+            y += 60f;
+            GUI.Box(new Rect(x - 40f, y, w + 80f, 128f),
+                "WASD jalan · Klik kanan kunci kamera · Klik kiri pakai alat · [E] stasiun/Kopdes · [Esc] jeda\n" +
+                "Slot = peran: [1] SEROK sampah biasa · [2] CAPIT limbah medis\n" +
+                "[3] GANCO drum biohazard & Gunung (#13+) · [4] GARUK tumpukan Pintu Air\n" +
+                "Normal → Bank Sampah · Medis → Pos Medis · Biohazard → Karantina", objectiveStyle);
+        }
+
+        private void DrawPauseMenu(RiverGameManager gm)
+        {
+            GUI.Box(new Rect(0f, 0f, Screen.width, Screen.height), GUIContent.none, dimStyle);
+            float w = Mathf.Min(360f, Screen.width - 40f);
+            float x = (Screen.width - w) * 0.5f;
+            float y = Screen.height * 0.32f;
+            GUI.Label(new Rect(x - 60f, y, w + 120f, 50f), "JEDA", menuTitleStyle);
+            y += 70f;
+            if (GUI.Button(new Rect(x, y, w, 44f), "Lanjut  [Esc]", menuButtonStyle)) gm.TogglePause();
+            y += 52f;
+            if (GUI.Button(new Rect(x, y, w, 44f), "Ulang", menuButtonStyle)) gm.RestartRun();
+            y += 52f;
+            if (GUI.Button(new Rect(x, y, w, 44f), "Keluar ke Menu", menuButtonStyle)) gm.ReturnToTitle();
+        }
+
+        // Canvas_SDGImpactReport shows the result; these buttons are its Main Lagi / Menu path until Niki adds them.
+        private void DrawEndedBar(RiverGameManager gm)
+        {
+            float w = 220f;
+            float y = Screen.height - 64f;
+            if (GUI.Button(new Rect(Screen.width * 0.5f - w - 8f, y, w, 44f), "Main Lagi  [R]", menuButtonStyle)) gm.RestartRun();
+            if (GUI.Button(new Rect(Screen.width * 0.5f + 8f, y, w, 44f), "Menu Utama", menuButtonStyle)) gm.ReturnToTitle();
         }
 
         private void EnsureStyles()
@@ -261,6 +369,22 @@ namespace KaliRiverSweeper.Player
             };
             objectiveStyle.normal.background = vellumTex;
             objectiveStyle.normal.textColor = ink;
+
+            emptySlotTextStyle = new GUIStyle(bodyStyle);
+            emptySlotTextStyle.normal.textColor = new Color(0.55f, 0.55f, 0.53f, 1f);
+
+            dimStyle = new GUIStyle(GUI.skin.box);
+            dimStyle.normal.background = MakeTex(new Color(0.067f, 0.071f, 0.067f, 0.72f));
+
+            menuTitleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 34,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            menuTitleStyle.normal.textColor = new Color(0.957f, 0.949f, 0.925f, 1f);
+
+            menuButtonStyle = new GUIStyle(pillStyle) { fontSize = 16 };
         }
 
         private static Texture2D MakeTex(Color c)
@@ -269,6 +393,17 @@ namespace KaliRiverSweeper.Player
             tex.SetPixel(0, 0, c);
             tex.Apply();
             return tex;
+        }
+
+        private static bool WasStartPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && (Keyboard.current.enterKey.wasPressedThisFrame || Keyboard.current.numpadEnterKey.wasPressedThisFrame)) return true;
+#endif
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)) return true;
+#endif
+            return false;
         }
 
         private static bool WasHelpPressed()

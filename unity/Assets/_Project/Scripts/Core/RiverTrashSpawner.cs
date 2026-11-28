@@ -44,7 +44,7 @@ namespace KaliRiverSweeper.Core
         private void Update()
         {
             RiverGameManager gm = RiverGameManager.Instance;
-            if (gm == null || gm.activeEnding != GameEnding.None) return;
+            if (gm == null || gm.State != KaliGameState.Playing || gm.activeEnding != GameEnding.None) return;
             if (gm.gunungSampahHealth <= 0.01f) return;
 
             float interval = baseSpawnInterval;
@@ -84,7 +84,8 @@ namespace KaliRiverSweeper.Core
             return SpawnTrashAt(new Vector3(x, y, z), wc);
         }
 
-        public GameObject SpawnTrashAt(Vector3 worldPos, WasteClass wasteClass)
+        // units 0 = random bundle size (minBundleUnits..maxBundleUnits); restart re-seeds map piles with 1.
+        public GameObject SpawnTrashAt(Vector3 worldPos, WasteClass wasteClass, int units = 0)
         {
             GameObject prefab = PickPrefab(wasteClass);
             Transform parent = trashRoot != null ? trashRoot : transform;
@@ -104,7 +105,7 @@ namespace KaliRiverSweeper.Core
             if (item == null) item = go.AddComponent<RiverTrashItem>();
             item.TryUnregister(); // prefab instances register 1 unit in OnEnable; re-register with the bundle size
             item.wasteClass = wasteClass;
-            item.trashUnits = Random.Range(minBundleUnits, maxBundleUnits + 1);
+            item.trashUnits = units > 0 ? units : Random.Range(minBundleUnits, maxBundleUnits + 1);
             item.TryRegister();
 
             if (go.GetComponent<RiverFlowBuoyancy>() == null)
