@@ -294,7 +294,7 @@
       "elev": 12,
       "rot": 0,
       "color": "#38bdf8",
-      "note": "West Bank Plaza facing North — clear sightline straight to Gunung Sampah"
+      "note": "West Bank Plaza facing North \u2014 clear sightline straight to Gunung Sampah"
     },
     {
       "id": "item_33",
@@ -307,7 +307,7 @@
       "elev": 10,
       "rot": 0,
       "color": "#a17a54",
-      "note": "Zona 1 river port near Spawn & Kopdes — embark/disembark boats to/from the river"
+      "note": "Zona 1 river port near Spawn & Kopdes \u2014 embark/disembark boats to/from the river"
     },
     {
       "id": "item_34",
@@ -470,10 +470,10 @@
       "type": "kampung_row",
       "name": "Kampung Hulu Barat",
       "x1": 428,
-      "y1": 385,
-      "x2": 429,
-      "y2": 545,
-      "spacing": 8.5,
+      "y1": 345,
+      "x2": 426,
+      "y2": 425,
+      "spacing": 7.5,
       "seed": 101,
       "depth": 1,
       "mix": {
@@ -482,142 +482,126 @@
       }
     },
     {
-      "id": "krow_west_pasar_north",
+      "id": "krow_west_north_river",
       "type": "kampung_row",
-      "name": "Kampung Pasar Utara Barat",
+      "name": "Kampung Utara Sungai Barat",
       "x1": 428,
-      "y1": 555,
-      "x2": 422,
-      "y2": 700,
-      "spacing": 5.2,
+      "y1": 458,
+      "x2": 424,
+      "y2": 622,
+      "spacing": 6.2,
       "seed": 102,
-      "depth": 3,
+      "depth": 2,
       "mix": {
-        "rumah": 0.6,
-        "warung_madura": 0.4
+        "rumah": 0.65,
+        "warung_madura": 0.35
       }
     },
     {
-      "id": "krow_west_pasar_inland_n",
+      "id": "krow_west_north_inland",
       "type": "kampung_row",
-      "name": "Kampung Dalam Utara Barat",
-      "x1": 195,
-      "y1": 455,
-      "x2": 175,
-      "y2": 670,
-      "spacing": 5.2,
+      "name": "Kampung Utara Dalam Barat",
+      "x1": 214,
+      "y1": 468,
+      "x2": 210,
+      "y2": 598,
+      "spacing": 6.3,
       "seed": 105,
-      "depth": 1,
-      "mix": {
-        "rumah": 0.7,
-        "warung_madura": 0.3
-      }
-    },
-    {
-      "id": "krow_west_pasar_south",
-      "type": "kampung_row",
-      "name": "Kampung Pasar Selatan Barat",
-      "x1": 407,
-      "y1": 785,
-      "x2": 347,
-      "y2": 1020,
-      "spacing": 5.2,
-      "seed": 103,
-      "depth": 3,
-      "mix": {
-        "rumah": 0.6,
-        "warung_madura": 0.4
-      }
-    },
-    {
-      "id": "krow_west_pasar_inland_s",
-      "type": "kampung_row",
-      "name": "Kampung Dalam Selatan Barat",
-      "x1": 180,
-      "y1": 780,
-      "x2": 155,
-      "y2": 1015,
-      "spacing": 5.2,
-      "seed": 106,
-      "depth": 1,
-      "mix": {
-        "rumah": 0.68,
-        "warung_madura": 0.32
-      }
-    },
-    {
-      "id": "krow_west_kampung_south",
-      "type": "kampung_row",
-      "name": "Kampung Hilir Barat",
-      "x1": 342,
-      "y1": 1035,
-      "x2": 330,
-      "y2": 1355,
-      "spacing": 5.2,
-      "seed": 104,
-      "depth": 3,
+      "depth": 2,
       "mix": {
         "rumah": 0.72,
         "warung_madura": 0.28
       }
     },
     {
-      "id": "krow_east_upstream",
+      "id": "krow_west_mid_river",
       "type": "kampung_row",
-      "name": "Kampung Hulu Timur",
-      "x1": 855,
-      "y1": 390,
-      "x2": 850,
-      "y2": 535,
-      "spacing": 7.2,
-      "seed": 201,
+      "name": "Kampung Tengah Sungai Barat",
+      "x1": 382,
+      "y1": 852,
+      "x2": 366,
+      "y2": 1028,
+      "spacing": 6.2,
+      "seed": 103,
       "depth": 1,
       "mix": {
-        "rumah": 0.85,
-        "warung_madura": 0.15
+        "rumah": 0.65,
+        "warung_madura": 0.35
       }
     },
     {
-      "id": "krow_east_pasar_north",
+      "id": "krow_west_mid_inland",
       "type": "kampung_row",
-      "name": "Kampung Pasar Utara Timur",
-      "x1": 719,
-      "y1": 555,
-      "x2": 692,
-      "y2": 705,
-      "spacing": 5.5,
-      "seed": 202,
-      "depth": 3,
+      "name": "Kampung Tengah Dalam Barat",
+      "x1": 242,
+      "y1": 855,
+      "x2": 235,
+      "y2": 918,
+      "spacing": 6.3,
+      "seed": 106,
+      "depth": 2,
       "mix": {
-        "rumah": 0.6,
-        "warung_madura": 0.4
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "krow_west_sw_corner",
+      "type": "kampung_row",
+      "name": "Kampung Pojok Barat Daya",
+      "x1": 140,
+      "y1": 1335,
+      "x2": 146,
+      "y2": 1355,
+      "spacing": 6.5,
+      "seed": 107,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.75,
+        "warung_madura": 0.25
+      }
+    },
+    {
+      "id": "krow_east_bridge_back",
+      "type": "kampung_row",
+      "name": "Kampung Belakang Jembatan Timur",
+      "x1": 842,
+      "y1": 615,
+      "x2": 862,
+      "y2": 818,
+      "spacing": 6.3,
+      "seed": 202,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.65,
+        "warung_madura": 0.35
       }
     },
     {
       "id": "krow_east_pasar_south",
       "type": "kampung_row",
       "name": "Kampung Pasar Selatan Timur",
-      "x1": 678,
-      "y1": 785,
-      "x2": 648,
-      "y2": 1020,
-      "spacing": 5.5,
+      "x1": 658,
+      "y1": 855,
+      "x2": 636,
+      "y2": 1028,
+      "spacing": 6.2,
       "seed": 203,
       "depth": 3,
       "mix": {
-        "rumah": 0.6,
-        "warung_madura": 0.4
+        "rumah": 0.65,
+        "warung_madura": 0.35
       }
     },
     {
-      "id": "krow_east_kampung_south",
+      "id": "krow_east_kampung_mid",
       "type": "kampung_row",
-      "name": "Kampung Hilir Timur",
-      "x1": 644,
-      "y1": 1035,
-      "x2": 617,
-      "y2": 1345,
-      "spacing": 5.6,
+      "name": "Kampung Tengah Timur",
+      "x1": 620,
+      "y1": 1062,
+      "x2": 624,
+      "y2": 1246,
+      "spacing": 6.2,
       "seed": 204,
       "depth": 3,
       "mix": {
@@ -626,19 +610,35 @@
       }
     },
     {
-      "id": "krow_west_hilir_back",
+      "id": "krow_east_kampung_back",
       "type": "kampung_row",
-      "name": "Kampung Hilir Belakang Barat",
-      "x1": 132,
-      "y1": 1035,
-      "x2": 148,
-      "y2": 1355,
-      "spacing": 5.3,
-      "seed": 107,
+      "name": "Kampung Belakang Timur",
+      "x1": 866,
+      "y1": 1058,
+      "x2": 866,
+      "y2": 1248,
+      "spacing": 6.2,
+      "seed": 205,
       "depth": 1,
       "mix": {
-        "rumah": 0.75,
-        "warung_madura": 0.25
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "krow_east_kampung_south",
+      "type": "kampung_row",
+      "name": "Kampung Hilir Selatan Timur",
+      "x1": 696,
+      "y1": 1276,
+      "x2": 698,
+      "y2": 1354,
+      "spacing": 6.3,
+      "seed": 206,
+      "depth": 3,
+      "mix": {
+        "rumah": 0.72,
+        "warung_madura": 0.28
       }
     }
   ],
