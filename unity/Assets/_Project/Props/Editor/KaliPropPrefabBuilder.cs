@@ -442,15 +442,15 @@ namespace Kali.Props.EditorTools
                 if (trashItemType != null)
                 {
                     Component trashComp = root.AddComponent(trashItemType);
-                    // Infer WasteClass: Medical=1 if entry.Variant contains "Medical" or "Syringe",
-                    // Biohazard=2 if entry.Variant contains "Biohazard" or "Radioactive" or "Drum", else Normal=0.
+                    // Infer WasteClass (same keywords as RiverTrashItem.InferWasteClassFromName): Biohazard=2 for
+                    // "Biohazard"/"Radioactive"/"Toxic"/"Drum", Medical=1 for "Medical"/"Syringe"/"Medis"/"Jarum", else Normal=0.
                     int wasteClassVal = 0;
                     string vUpper = entry.Variant != null ? entry.Variant.ToUpperInvariant() : string.Empty;
-                    if (vUpper.Contains("BIOHAZARD") || vUpper.Contains("RADIOACTIVE") || vUpper.Contains("DRUM"))
+                    if (vUpper.Contains("BIOHAZARD") || vUpper.Contains("RADIOACTIVE") || vUpper.Contains("TOXIC") || vUpper.Contains("DRUM"))
                     {
                         wasteClassVal = 2; // WasteClass.Biohazard
                     }
-                    else if (vUpper.Contains("MEDICAL") || vUpper.Contains("SYRINGE"))
+                    else if (vUpper.Contains("MEDICAL") || vUpper.Contains("SYRINGE") || vUpper.Contains("MEDIS") || vUpper.Contains("JARUM"))
                     {
                         wasteClassVal = 1; // WasteClass.Medical
                     }
