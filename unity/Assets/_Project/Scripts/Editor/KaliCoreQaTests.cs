@@ -110,7 +110,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyNpcPickLineAndEsTehPurchase,
                 VerifyNpcFacingTalkRule,
                 VerifyTrashVisualScale,
-                VerifyBakedSceneVillagersAndDirector
+                VerifyBakedSceneVillagersAndDirector,
+                VerifyBakedEnvDressingClearance
             };
 
             assertCount = 0;
@@ -1855,6 +1856,63 @@ namespace KaliRiverSweeper.Editor
             KaliPlayerController player = UnityEngine.Object.FindObjectOfType<KaliPlayerController>(true);
             Assert(player != null && player.boatVisualPrefab != null, "Baked player has boatVisualPrefab");
             Assert(UnityEngine.Object.FindObjectsOfType<KaliRiverSweeper.Audio.KaliAudioDirector>(true).Length == 1, "Baked scene has exactly one audio director");
+        }
+
+        private static void VerifyBakedEnvDressingClearance()
+        {
+            string[] names = { "PF_Env_KampungDressing", "PF_Env_QuestLandmarks" };
+            var roots = new List<Transform>();
+            foreach (string n in names)
+            {
+                int count = 0;
+                foreach (Transform t in UnityEngine.Object.FindObjectsOfType<Transform>(true))
+                {
+                    if (t.name != n) continue;
+                    count++;
+                    roots.Add(t);
+                }
+                Assert(count == 1, $"Baked scene has exactly one {n} (got {count})");
+            }
+
+            var points = new List<Bounds>();
+            foreach (Transform t in UnityEngine.Object.FindObjectsOfType<Transform>(true))
+            {
+                if (t.name.EndsWith(KaliPlayerController.ServicePointSuffix)) points.Add(new Bounds(t.position, Vector3.zero));
+                else if (t.name == "Player_Rig") points.Add(new Bounds(t.position, Vector3.zero));
+                else if (t.name.StartsWith("Dermaga ") && t.parent != null && t.parent.name == "Infrastructure")
+                {
+                    // boarding side = the walk-on deck and steps (Lantai + Tangga), not the pontoon/river end
+                    bool any = false;
+                    Bounds b = new Bounds();
+                    foreach (Collider c in t.GetComponentsInChildren<Collider>(true))
+                    {
+                        if (c.isTrigger || (c.name != "Dermaga_Lantai" && c.name != "Dermaga_Tangga")) continue;
+                        if (!any) b = c.bounds; else b.Encapsulate(c.bounds);
+                        any = true;
+                    }
+                    Assert(any, $"{t.name} has a boarding deck collider");
+                    points.Add(b);
+                }
+            }
+            Assert(points.Count >= 5, $"Found service points, player spawn and docks to protect (got {points.Count})");
+
+            foreach (Transform root in roots)
+            {
+                foreach (Collider c in root.GetComponentsInChildren<Collider>(true))
+                {
+                    if (c.isTrigger || !c.enabled) continue;
+                    Bounds cb = c.bounds;
+                    foreach (Bounds p in points)
+                    {
+                        Vector3 flat = p.center;
+                        flat.y = cb.center.y;
+                        Bounds pb = new Bounds(flat, new Vector3(p.size.x, 0f, p.size.z));
+                        pb.Expand(new Vector3(3f, 0f, 3f)); // +1.5 m on each side
+                        Bounds cf = new Bounds(cb.center, new Vector3(cb.size.x, 0f, cb.size.z));
+                        Assert(!pb.Intersects(cf), $"{c.transform.name} (in {root.name}) is within 1.5 m of a protected spot at {p.center}");
+                    }
+                }
+            }
         }
 
         private static int CountSnaggedPiles(out int medical)

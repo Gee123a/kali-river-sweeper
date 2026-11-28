@@ -536,6 +536,9 @@ namespace KaliRiverSweeper.Editor
                     avoidZones,
                     footpaths);
 
+                AttachPrefabIfPresent(root.transform, "Assets/_Project/Environment/Prefabs/PF_Env_KampungDressing.prefab", Vector3.zero);
+                AttachPrefabIfPresent(root.transform, "Assets/_Project/Environment/Prefabs/PF_Env_QuestLandmarks.prefab", Vector3.zero);
+
                 Physics.SyncTransforms();
                 var npcGroups = CollectNpcGroups(data);
                 var expandedNpcs = KaliNpcBuilder.ExpandNpcGroups(npcGroups, expanded, avoidZones, footpaths);
