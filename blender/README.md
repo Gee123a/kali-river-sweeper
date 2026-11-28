@@ -24,7 +24,7 @@ These scripts build the 3D assets for the Unity 2022.3 URP game with Blender 5.3
   takes `Idle` / `ThrowTrash` / `CarryBin`), its props `SM_Villager_TrashBag` / `SM_Villager_Bin`, and
   `Anim_PlayerToolSwing` (Generic `ToolHolder` rig, takes `SerokanScoop` / `GancoHookSwing`).
   Output: `unity/Assets/_Project/Rigging/*.fbx`, `Rigging/Textures/T_Villager_Palette.png`,
-  `blender/SK_VillagerNPC.blend`, `blender/Anim_PlayerToolSwing.blend`. Unity usage: `unity/Assets/_Project/Rigging/README.md`.
+  `blender/SK_VillagerNPC.blend`, `blender/Anim_PlayerToolSwing.blend`. NPC + interaction takes and `SM_Villager_FishingRod` come from `villager_clips.py`, body variants / accessories / per-NPC palettes from `villager_variants.py`, first-person arms (`SK_PlayerArms`) from `player_arms.py`. Unity usage: `unity/Assets/_Project/Rigging/README.md`.
   Animated FBX keep `bake_space_transform=False` (Apply Transform is unsafe with armature animation) and
   export one take per NLA strip, so take names are exact. QA: `blender -b --factory-startup -P blender/tests/qa_rigging_check.py`;
   renders: `blender -b --factory-startup -P blender/tests/render_rigging_qa.py -- OUT_DIR`.
@@ -84,6 +84,16 @@ Pose = floating pose (print facing up): the spawner only adds a random yaw.
 | 12 | `SM_Trash_AquaBottle_600ml` | Botol PET air mineral 600 ml, label parodi "AQUO", tutup biru, gepeng, penyok, rebah | 0.22 x 0.07 x 0.05 | 236 |
 | 13 | `SM_Trash_AquaGalon_19L` | Galon polikarbonat biru 19 L, rib, stiker "AQUO", tutup putih, penyok, rebah (mengapung tinggi) | 0.48 x 0.27 x 0.27 | 332 |
 | 14 | `SM_Trash_BiohazardDrum` | Drum B3 200 L ungu `#A855F7` + pita lime `#84CC16`, trefoil + stensil BIOHAZARD, penyok, bocor (cairan lime), rebah | 0.89 x 0.58 x 0.58 | 356 |
+| 15 | `SM_Trash_BundleKresek` | Bundel 5 kresek terikat (merah, biru, putih, kuning, hitam); pivot WATERLINE (bundel spec D) | 0.73 x 0.61 x 0.36 | 470 |
+| 16 | `SM_Trash_RaftBotol` | Rakit 12 botol PET 1.5 L diikat tali nilon kuning; pivot WATERLINE | 0.96 x 0.38 x 0.10 | 588 |
+| 17 | `SM_Trash_SlabStyrofoam` | Lempeng styrofoam kemasan patah + pecahan; pivot WATERLINE | 0.95 x 0.55 x 0.15 | 296 |
+| 18 | `SM_Trash_BundleMedis` | Kantong B3 kuning penuh suntikan (nama "Medis" -> WasteClass.Medical); pivot WATERLINE | 0.66 x 0.42 x 0.39 | 346 |
+| 19 | `SM_Trash_DrumBiohazard` | Bundel biohazard: drum 60 L ungu + jeriken lime bocor + genangan lime (beda dari `BiohazardDrum`); pivot WATERLINE | 1.10 x 0.84 x 0.40 | 342 |
+
+Trash 15-19 (bundel, plan_jc 7A) memakai `pivot`/`tris`/`max_size` dari SPEC: origin di permukaan air (RiverFlowBuoyancy menaruh
+pivot di air + `floatOffsetY`), budget 200-600. `PF_Trash_*` dibuat oleh `KALI > JC > Build Trash Prefabs` (buoyancy +
+RiverTrashItem seperti sampah lain). Catatan: `MapJsonImporter` / `RiverTrashSpawner` belum memuat nama bundel ini (daftar
+`NormalTrashNames` / `MedicalTrashNames` / `BiohazardTrashNames` milik Ivan).
 
 Prefab `PF_Trash_<nama>` dibuat dengan menu Unity yang sama (`KALI > JC > Build Trash Prefabs`).
 
@@ -105,8 +115,20 @@ Mesh untuk prefab lampu (dibuat oleh `unity/Assets/_Project/Lighting/Editor/Kali
 | `SM_Prop_RakitGabus` | Rakit gabus (perahu tier 1): 3 balok styrofoam, 4 bambu melintang, ikatan karet ban dalam; pivot WATERLINE | 1.81 x 1.40 x 0.37 | 704 |
 | `SM_Prop_PerahuSampan` | Perahu sampan kayu 3.7 m (tier 2): papan dicat (ter, biru, putih, merah), 7 gading, 2 bangku, dayung di sandaran; pivot WATERLINE | 3.70 x 1.18 x 0.58 | 916 |
 | `SM_Prop_TongSampahKampung` | Tong sampah kampung 200 L biru, stensil kuning SAMPAH ANORGANIK, tutup; pivot DASAR | 0.60 x 0.60 x 0.94 | 330 |
+| `SM_Prop_BolaPlastik` | Bola plastik mengapung, garis merah/kuning/biru (quest 6B); pivot WATERLINE | 0.21 x 0.21 x 0.22 | 166 |
+| `SM_Prop_KailKusut` | Senar pancing kusut (hijau/oranye) melilit kantong plastik, pelampung, pemberat (quest 6B, dermaga 2); pivot WATERLINE | 0.41 x 0.30 x 0.28 | 414 |
+| `SM_Prop_KotakJarum` | Kotak jarum (sharps box) kuning/merah + suntikan lepas (quest 6B, Tangga Cuci); pivot DASAR | 0.53 x 0.16 x 0.31 | 206 |
+| `SM_Prop_GelasEsTeh` | Es teh dalam plastik diikat karet + sedotan belang (quest 6B, warung); pivot DASAR | 0.13 x 0.13 x 0.27 | 245 |
+| `SM_Prop_QuestMarker` | Tanda "!" kuning emisif (swatch putih di peta Emission) + pelat gelap; pivot DASAR (taruh di atas kepala NPC) | 0.34 x 0.13 x 0.50 | 116 |
+| `SM_Prop_FishingRod` | Joran bambu 2.5 m, grip karet, 3 ring, gulungan; pivot GRIP = `Socket_RightHand` (zero local transform), menunjuk +Z Unity | 0.04 x 2.75 x 0.08 | 288 |
+| `SM_Prop_LaundryBasket` | Bakul anyaman bambu (anyaman dilukis `labels.py "anyaman"`) berisi cucian basah; pivot DASAR | 0.56 x 0.56 x 0.26 | 296 |
+| `SM_Prop_WaterBucket` | Ember plastik oranye 10 L, gagang kawat, air keruh; pivot DASAR | 0.30 x 0.28 x 0.41 | 232 |
+| `SM_Prop_SolarInterceptor` | Pencegat sampah surya (5A, map "interceptor"): katamaran 2 ponton, konveyor miring, bak oranye, kabinet + lampu status emisif, kanopi 8 panel surya, 2 boom pengarah, tangga, pelampung; pivot WATERLINE | 8.47 x 3.80 x 3.74 | 1698 |
 
-Budget per aset di SPEC (`tris`, `max_size`, `pivot`): lampu 150-400, boom 200-400, rakit 500-900, sampan 700-1200, tong 250-400.
+Budget per aset di SPEC (`tris`, `max_size`, `pivot`): lampu 150-400, boom 200-400, rakit 500-900, sampan 700-1200, tong 250-400,
+quest 60-500, joran/bakul/ember 150-400, interceptor 1200-3000 (maks 9 m). Pivot GRIP = origin di tangan (vertex < 5 cm dari origin).
+Prop quest/villager/interceptor memakai atlas equipment (bukan `T_Villager_Palette`): satu builder, satu peta Emission untuk "!".
+`PF_Prop_*` semuanya lewat `KALI > JC > Build Equipment Prefabs` (BoxCollider padat, tanpa Rigidbody: kode belum butuh bola mengapung).
 Pivot WATERLINE = origin di permukaan air (importer menaruh `trash_boom` di y = 0), tengah x/y. Prefab `PF_Prop_*` untuk
 boom / perahu / tong dibuat oleh `KALI > JC > Build Equipment Prefabs` (BoxCollider, tanpa Rigidbody); lampu/beacon oleh
 `KALI > Lighting > Build All Lighting Assets`. Keduanya memakai satu material `Props/Equipment/Materials/M_Equipment_Atlas.mat`.

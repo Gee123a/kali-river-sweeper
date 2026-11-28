@@ -51,6 +51,11 @@ TRASH_MODULES = [
     "trash_12_aqua_bottle_600ml",
     "trash_13_aqua_galon_19l",
     "trash_14_biohazard_drum",
+    "trash_15_bundle_kresek",
+    "trash_16_raft_botol",
+    "trash_17_slab_styrofoam",
+    "trash_18_bundle_medis",
+    "trash_19_drum_biohazard",
 ]
 
 
@@ -72,11 +77,15 @@ def build_trash(mod_name, collection=None):
     return obj
 
 
-def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_", pivot="centre",
-                   tris_range=(TRI_MIN, TRI_MAX), max_size=1.5):
+def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_", pivot=None,
+                   tris_range=None, max_size=None):
     """Shared prop checks (products / equipment reuse them with their own material, prefix, pivot, budget, size).
     pivot: "centre" bbox centre, "base" centre of the bbox bottom, "floor" a mount point on the floor plane,
     "waterline" bbox centre in x/y with the origin height ON the water surface (mesh crosses z = 0)."""
+    # per-asset overrides from SPEC (trash bundles float on a waterline pivot with a bigger budget)
+    pivot = pivot or spec.get("pivot", "centre")
+    tris_range = tris_range or spec.get("tris", (TRI_MIN, TRI_MAX))
+    max_size = max_size or spec.get("max_size", 1.5)
     issues = []
     me = obj.data
     tris = tc.tri_count(obj)
@@ -115,6 +124,8 @@ def validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_Trash_",
         centre.z = lo.z            # standing prop: origin at the middle of its footprint, on the ground
     elif pivot == "floor":
         centre = Vector((0.0, 0.0, lo.z))   # origin on the floor plane at a named point (post base, spin axis)
+    elif pivot == "grip":
+        centre = Vector((0.0, 0.0, 0.0))    # held prop: origin at the hand grip (checked by the caller)
     elif pivot == "waterline":
         centre.z = 0.0                      # floats: origin on the water surface, part above and part below
         if not lo.z < 0.0 < hi.z:

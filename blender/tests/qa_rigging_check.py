@@ -13,6 +13,9 @@ from mathutils import Matrix  # noqa: E402
 from kali_blender import rigging_common as rc  # noqa: E402
 from kali_blender import tool_swing as T  # noqa: E402
 from kali_blender import villager as V  # noqa: E402
+from kali_blender import villager_clips as C  # noqa: E402
+from kali_blender import villager_variants as VV  # noqa: E402
+from kali_blender import player_arms as PA  # noqa: E402
 
 fails = []
 
@@ -73,14 +76,14 @@ for socket in V.SOCKETS.values():
     dev = max(abs(a - b) for ra, rb in zip(m, Matrix.Rotation(math.radians(90), 3, "X")) for a, b in zip(ra, rb))
     check(dev < 1e-5, f"{socket} points +Z, roll 0 (identity frame in Unity)")
 tracks = {t.name for t in rig.animation_data.nla_tracks}
-check(tracks == set(V.TAKES), f"NLA takes {sorted(tracks)}")
-for name, frames in V.TAKES.items():
+check(tracks == set(C.ALL_TAKES), f"NLA takes ({len(tracks)}) {sorted(tracks)}")
+for name, frames in C.ALL_TAKES.items():
     act = bpy.data.actions.get(name)
     check(act is not None and tuple(act.frame_range) == (0, frames), f"action {name} 0..{frames}")
 
 # ------------------------------------------------ villager FBX re-import
 fbx = os.path.join(REPO, V.FBX_PATH)
-check(rc.take_names_in_fbx(fbx) == sorted(V.TAKES), f"FBX takes {rc.take_names_in_fbx(fbx)}")
+check(rc.take_names_in_fbx(fbx) == sorted(C.ALL_TAKES), f"FBX takes {rc.take_names_in_fbx(fbx)}")
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=fbx)
 arms = [o for o in bpy.data.objects if o.type == "ARMATURE"]
@@ -95,7 +98,7 @@ if meshes:
     un, o4, bs, stray = skin_stats(m, V.DEFORM_BONES)
     check(un == 0 and not stray, f"FBX unweighted vertices = {un}")
 acts = {a.name: a for a in bpy.data.actions}
-for name, frames in V.TAKES.items():
+for name, frames in C.ALL_TAKES.items():
     hit = [a for k, a in acts.items() if name in k.split("|")]
     ok = bool(hit) and round(hit[0].frame_range[1] - hit[0].frame_range[0]) == frames
     check(ok, f"re-imported action for take {name} ({[a.name for a in hit]}, {frames} frames)")
@@ -131,6 +134,67 @@ for name, frames in T.TAKES.items():
             moving |= max(vals) - min(vals) > 0.05
     ok = bool(hit) and round(hit[0].frame_range[1] - hit[0].frame_range[0]) == frames and moving
     check(ok, f"re-imported take {name}: {frames} frames, ToolHolder animated")
+
+# ------------------------------------------------ villager variety (Task 6C)
+tri_of = {V.NAME: None}
+for body in VV.BODIES:
+    f = os.path.join(REPO, rc.FBX_DIR, body + ".fbx")
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    ok = os.path.exists(f)
+    if ok:
+        bpy.ops.import_scene.fbx(filepath=f)
+        arms = [o for o in bpy.data.objects if o.type == "ARMATURE"]
+        ms = [o for o in bpy.data.objects if o.type == "MESH"]
+        ok = (len(ms) == 1 and ms[0].name == body and arms and sorted(arms[0].data.bones.keys()) == sorted(want)
+              and skin_stats(ms[0], V.DEFORM_BONES)[0] == 0)
+        tri_of[body] = tris(ms[0]) if ms else 0
+        ok = ok and not rc.take_names_in_fbx(f)
+    check(ok, f"body variant {body}: same 21 bones, unweighted 0, no takes ({tri_of.get(body)} tris)")
+for acc in VV.ACCESSORIES:
+    f = os.path.join(REPO, rc.FBX_DIR, acc + ".fbx")
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    ok = os.path.exists(f)
+    if ok:
+        bpy.ops.import_scene.fbx(filepath=f)
+        ms = [o for o in bpy.data.objects if o.type == "MESH"]
+        ok = len(ms) == 1 and ms[0].name == acc
+        tri_of[acc] = tris(ms[0]) if ms else 0
+        zs = [(ms[0].matrix_world @ v.co).z for v in ms[0].data.vertices] if ms else [0]
+        ok = ok and -0.15 < min(zs) and max(zs) < 0.45          # origin at the Head bone head
+    check(ok, f"accessory {acc} ({tri_of.get(acc)} tris, origin at Head bone)")
+tri_of[V.NAME] = n
+for npc in VV.RECIPES:
+    t = VV.assembled_tris(npc, tri_of.get)
+    check(V.TRI_BUDGET[0] <= t <= V.TRI_BUDGET[1], f"{npc} assembled {t} tris in {V.TRI_BUDGET}")
+    pth = os.path.join(REPO, VV.png_path(npc))
+    ok = os.path.exists(pth)
+    if ok:
+        img = bpy.data.images.load(pth)
+        ok = tuple(img.size) == (64, 64)
+    check(ok, f"palette {os.path.basename(pth)} 64x64")
+
+# ------------------------------------------------ first-person arms
+fbx = os.path.join(REPO, PA.FBX_PATH)
+check(rc.take_names_in_fbx(fbx) == sorted(PA.TAKES), f"SK_PlayerArms takes {rc.take_names_in_fbx(fbx)}")
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.import_scene.fbx(filepath=fbx)
+arms = [o for o in bpy.data.objects if o.type == "ARMATURE"]
+ms = [o for o in bpy.data.objects if o.type == "MESH"]
+check(len(arms) == 1 and sorted(arms[0].data.bones.keys()) == sorted(["ToolHolder", "R_Hand", "L_Hand", "R_Arm", "L_Arm"]),
+      "SK_PlayerArms bones ToolHolder, R/L_Hand, R/L_Arm")
+check(len(ms) == 1 and PA.TRI_BUDGET[0] <= tris(ms[0]) <= PA.TRI_BUDGET[1], f"SK_PlayerArms tris {tris(ms[0]) if ms else None}")
+check(bool(ms) and skin_stats(ms[0], ["ToolHolder", "R_Hand", "L_Hand", "R_Arm", "L_Arm"])[0] == 0, "SK_PlayerArms unweighted 0")
+for name, frames in PA.TAKES.items():
+    hit = [a for a in bpy.data.actions if name in a.name.split("|")]
+    check(bool(hit) and round(hit[0].frame_range[1] - hit[0].frame_range[0]) == frames, f"arms take {name} {frames} frames")
+bpy.ops.wm.open_mainfile(filepath=os.path.join(REPO, PA.BLEND_PATH))
+rig = bpy.data.objects[PA.RIG_NAME]
+def _close(a, b):
+    return max(abs(x - y) for ra, rb in zip(a, b) for x, y in zip(ra, rb)) < 1e-5
+
+
+check(_close(rig.matrix_world, T.RIG_MATRIX) and _close(rig.data.bones["ToolHolder"].matrix_local, Matrix.Identity(4)),
+      "arms rig +90 X, ToolHolder identity (same frame as Anim_PlayerToolSwing)")
 
 print(f"\n{len(fails)} FAIL(s)")
 sys.exit(1 if fails else 0)
