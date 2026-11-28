@@ -112,7 +112,7 @@ namespace KaliRiverSweeper.EnvEditor
             EditorUtility.SetDirty(pool);
         }
 
-        private static Material LoadOrCreate(string name, Shader shader)
+        internal static Material LoadOrCreate(string name, Shader shader)
         {
             string path = Mats + name + ".mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -128,7 +128,7 @@ namespace KaliRiverSweeper.EnvEditor
             return m;
         }
 
-        private static void Weathered(string name, string tex, Color tint, float smooth, float moss)
+        internal static void Weathered(string name, string tex, Color tint, float smooth, float moss)
         {
             var m = LoadOrCreate(name, Shader.Find(WeatheredShader));
             m.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(Tex + tex + ".png"));
@@ -201,7 +201,7 @@ namespace KaliRiverSweeper.EnvEditor
             }
         }
 
-        private static void RemapFbx(string fbx)
+        internal static void RemapFbx(string fbx)
         {
             var mi = (ModelImporter)AssetImporter.GetAtPath(fbx);
             mi.importNormals = ModelImporterNormals.Import;        // keep the bent foliage normals
@@ -218,10 +218,10 @@ namespace KaliRiverSweeper.EnvEditor
 
         // ---------------- prefabs ----------------
 
-        private static GameObject MeshObject(string fbx, string meshName, string goName)
+        internal static GameObject MeshObject(string fbx, string meshName, string goName)
         {
             var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbx);
-            var src = model.transform.Find(meshName);
+            var src = model.transform.Find(meshName) ?? model.transform;     // a single-object FBX imports as the root itself
             var go = new GameObject(goName);
             go.AddComponent<MeshFilter>().sharedMesh = src.GetComponent<MeshFilter>().sharedMesh;
             go.AddComponent<MeshRenderer>().sharedMaterials = src.GetComponent<MeshRenderer>().sharedMaterials;
@@ -258,7 +258,7 @@ namespace KaliRiverSweeper.EnvEditor
             return r;
         }
 
-        private static GameObject Save(GameObject root, string name)
+        internal static GameObject Save(GameObject root, string name)
         {
             var asset = PrefabUtility.SaveAsPrefabAsset(root, Prefabs + name + ".prefab");
             UnityEngine.Object.DestroyImmediate(root);
@@ -373,14 +373,14 @@ namespace KaliRiverSweeper.EnvEditor
 
         // ---------------- Priority 0 quest landmarks ----------------
 
-        private static GameObject Child(GameObject root, string fbx, string mesh)
+        internal static GameObject Child(GameObject root, string fbx, string mesh)
         {
             var go = MeshObject(fbx, mesh, mesh);
             go.transform.SetParent(root.transform, false);
             return go;
         }
 
-        private static void Box(GameObject root, string name, Vector3 centre, Vector3 size)
+        internal static void Box(GameObject root, string name, Vector3 centre, Vector3 size)
         {
             var go = new GameObject(name);
             go.transform.SetParent(root.transform, false);
