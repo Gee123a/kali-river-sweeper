@@ -195,14 +195,17 @@ def box(geo, key, lo, hi, n=(1, 1, 1)):
     grid(geo, key, (x1, y0, z0), dy, dz, ny, nz)                # right
 
 
-def torus(geo, key, R, r, nu=8, nv=4):
-    """Ring (shackle, chain link) of radius R and tube radius r around +Z, in geo.xform space."""
-    pts = [[geo.vert(((R + r * math.cos(2 * math.pi * j / nv)) * math.cos(2 * math.pi * i / nu),
-                      (R + r * math.cos(2 * math.pi * j / nv)) * math.sin(2 * math.pi * i / nu),
-                      r * math.sin(2 * math.pi * j / nv))) for j in range(nv)] for i in range(nu)]
+def torus(geo, key, R, r, nu=8, nv=4, arc=1.0):
+    """Ring (shackle, chain link, rim, handle) of radius R and tube radius r around +Z, in geo.xform space.
+    arc < 1 makes an open arc (bucket handle) starting at +X, with nu segments along it."""
+    closed = arc >= 1.0
+    count = nu if closed else nu + 1
+    pts = [[geo.vert(((R + r * math.cos(2 * math.pi * j / nv)) * math.cos(2 * math.pi * arc * i / nu),
+                      (R + r * math.cos(2 * math.pi * j / nv)) * math.sin(2 * math.pi * arc * i / nu),
+                      r * math.sin(2 * math.pi * j / nv))) for j in range(nv)] for i in range(count)]
     for i in range(nu):
         for j in range(nv):
-            i1, j1 = (i + 1) % nu, (j + 1) % nv
+            i1, j1 = (i + 1) % count, (j + 1) % nv
             geo.face(key, [pts[i][j], pts[i1][j], pts[i1][j1], pts[i][j1]])
 
 
