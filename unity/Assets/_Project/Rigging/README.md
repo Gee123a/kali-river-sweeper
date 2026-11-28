@@ -142,3 +142,16 @@ Camera setup:
 4. Set the arms renderer to `ShadowCastingMode.Off`, and disable `KaliPlayerController`'s procedural
    `ToolSocket` swing, as for `Anim_PlayerToolSwing`.
 The arm meshes run 0.9 m back toward points under the camera, so their ends stay outside a 60 deg field of view.
+
+## Task 5C: tool swing wiring (`Editor/KaliToolSwingBuilder.cs`)
+
+Menu **KALI > JC > Build Tool Swing Rig** (run in the team's Unity 2022.3):
+- sets `SK_PlayerArms.fbx` and `Anim_PlayerToolSwing.fbx` to Generic, loops only `Idle_Hold`;
+- builds `Animation/AC_PlayerArms.controller` and `Animation/AC_PlayerToolSwing.controller`: default state
+  `Idle_Hold` (or `Rest` for the arm-less rig), one-shot `SerokanScoop` on trigger `Scoop` and `GancoHookSwing`
+  on trigger `Hook`, both returning to the default state at the end of the clip;
+- saves `PF_PlayerArms.prefab` and `PF_ToolHolderRig.prefab` (Animator, no root motion, never culled).
+
+Player code: put `PF_PlayerArms` under `Main Camera/ToolSocket` at local 0, parent the equipped `PF_Tool_*` under
+`PlayerArmsRig/ToolHolder` at `Euler(65, -8, 0)`, call `animator.SetTrigger("Scoop")` for nets/scoops and
+`SetTrigger("Hook")` for hooks/sickles/rakes, and switch off the procedural `ToolSocket` rock.
