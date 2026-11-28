@@ -3,6 +3,7 @@
     blender -b -P blender/wesley_env/build_env.py                      # everything
     blender -b -P blender/wesley_env/build_env.py -- pintu_air         # only re-export these FBX
     blender -b -P blender/wesley_env/build_env.py -- textures          # only regenerate textures
+    blender -b -P blender/wesley_env/build_env.py -- dressing          # only re-layout lamps + plants (env_dressing.json)
 
 Every mesh is always rebuilt into blender/SM_Env_Pack.blend; only the selected assets are
 re-exported (FBX files embed a timestamp, so untouched assets keep a clean git diff).
@@ -23,7 +24,7 @@ sys.path.insert(0, BLENDER_DIR)
 
 import bpy  # noqa: E402  (must be imported before bmesh / mathutils)
 from kali_blender.export_fbx import FBX_SETTINGS  # noqa: E402  same settings as JC's exports
-from wesley_env import bank_sampah, dermaga, gudang_pengepul, gunung_sampah, karantina_biohazard, koperasi_desa, pos_medis_b3, rumah_panggung, jembatan, pintu_air, terrain, textures, trash_pieces, warung_madura  # noqa: E402
+from wesley_env import bank_sampah, dermaga, dressing, lampu, landmark, vegetasi, gudang_pengepul, gunung_sampah, karantina_biohazard, koperasi_desa, pos_medis_b3, rumah_panggung, jembatan, pintu_air, terrain, textures, trash_pieces, warung_madura  # noqa: E402
 
 ENV_DIR = os.path.join(ROOT, "unity", "Assets", "_Project", "Environment")
 MESH_DIR = os.path.join(ENV_DIR, "Meshes")
@@ -44,6 +45,9 @@ ASSETS = {
     "gudang_pengepul": gudang_pengepul,
     "dermaga": dermaga,
     "rumah_panggung": rumah_panggung,
+    "lampu": lampu,
+    "vegetasi": vegetasi,
+    "landmark": landmark,
 }
 
 
@@ -74,11 +78,13 @@ def main():
     report = []
     if "textures" in selected:
         report.append({"textures": [os.path.relpath(p, ROOT) for p in textures.build_all(TEX_DIR)]})
+    if "dressing" in selected:
+        report.append({"dressing": dressing.build()})
     for key, module in ASSETS.items():
         ob = module.build()
         info = module.stats(ob)
         if key in selected:
-            info["fbx"] = export(ob, module.NAME)
+            info["fbx"] = export(ob, getattr(module, "FBX_NAME", module.NAME))
         report.append(info)
     bpy.ops.wm.save_as_mainfile(filepath=BLEND_PATH)
     print(json.dumps(report, indent=2))

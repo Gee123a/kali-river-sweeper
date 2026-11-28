@@ -297,6 +297,139 @@ def lumpur_dasar(seed=151):
     return np.clip(mud * (1 - mask) + scraps * 0.5 * mask, 0, 1)
 
 
+# ---------------- vegetation (SM_Env_Vegetasi): RGBA cards are alpha-clipped, leaf along V ----------------
+
+def _uv_grid():
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE].astype(np.float32)
+    return xx / SIZE, 1.0 - yy / SIZE                              # u right, v up (v = 1 is the image top)
+
+
+def daun_pisang(seed=161):
+    """Banana leaf card: thick pale midrib up V, parallel side veins, wind-torn edge strips,
+    a dry brown margin and sun-yellowed tip. Base (v = 0) sits on the petiole."""
+    rng = np.random.default_rng(seed)
+    u, v = _uv_grid()
+    half = 0.46 * np.sin(np.clip(v, 0, 1) * np.pi) ** 0.55          # leaf outline
+    du = np.abs(u - 0.5)
+    rows = _value_noise(rng, SIZE, 128)[:, :1]                      # a few thin wind tears along the veins
+    tears = (rows > 0.80) & (np.abs(np.sin(np.arange(SIZE)[:, None] * 0.9)) < 0.6)
+    split = np.repeat(tears, SIZE, 1) & (du > 0.16) & (v > 0.15)
+    inside = (du < half) & (v > 0.02) & (v < 0.99) & ~split
+    vein = 0.5 + 0.5 * np.cos((v * 110 + du * 70) * np.pi)          # angled parallel veins
+    lum = 0.78 + vein * 0.08 + (_fbm(rng, SIZE, 6, 4) - 0.5) * 0.2
+    col = np.stack([0.30, 0.52, 0.16], -1) * lum[..., None]
+    side = np.where(u < 0.5, 1.0, 0.86)[..., None]                  # the two halves catch light differently
+    col *= side
+    rib = np.clip(1 - du / 0.022, 0, 1)[..., None]
+    col = col * (1 - rib) + np.array([0.62, 0.72, 0.38]) * rib
+    edge = np.clip((du - half + 0.05) / 0.05, 0, 1)[..., None] * (_fbm(rng, SIZE, 8, 3)[..., None] > 0.45)
+    col = col * (1 - edge * 0.8) + np.array([0.52, 0.40, 0.22]) * edge * 0.8
+    tip = np.clip((v - 0.8) * 4, 0, 1)[..., None] * 0.5
+    col = col * (1 - tip) + np.array([0.62, 0.58, 0.24]) * tip
+    return np.concatenate([np.clip(col, 0, 1), inside[..., None].astype(float)], -1)
+
+
+def rumput_alang(seed=171):
+    """Grass / alang-alang card: ~70 tapering blades rising from v = 0, green at the root,
+    straw-tipped; a few seed plumes. Alpha = blade coverage."""
+    rng = np.random.default_rng(seed)
+    u, v = _uv_grid()
+    a = np.zeros((SIZE, SIZE)); col = np.zeros((SIZE, SIZE, 3))
+    for _ in range(70):
+        x0, h, lean, w = rng.uniform(0.05, 0.95), rng.uniform(0.45, 0.98), rng.uniform(-0.25, 0.25), rng.uniform(0.006, 0.014)
+        t = np.clip(v / h, 0, 1)
+        cx = x0 + lean * t * t
+        blade = (np.abs(u - cx) < w * (1 - t) + 0.0015) & (v < h)
+        shade = rng.uniform(0.75, 1.1)
+        green, straw = np.array([0.28, 0.46, 0.14]) * shade, np.array([0.70, 0.64, 0.36]) * shade
+        c = green * (1 - t[..., None] ** 2) + straw * t[..., None] ** 2
+        col = np.where(blade[..., None], c, col); a = np.maximum(a, blade)
+    col *= (0.55 + 0.45 * np.clip(v * 2.5, 0, 1))[..., None]          # darker in the dense base
+    return np.concatenate([np.clip(col, 0, 1), a[..., None]], -1)
+
+
+def daun_rimbun(seed=181):
+    """Dense leaf cluster (ketapang / semak / bambu crown): ~900 small overlapping ovate leaves,
+    each lit from the top-left with a pale midrib; deeper layers darker. Alpha = ragged edge."""
+    rng = np.random.default_rng(seed)
+    u, v = _uv_grid()
+    col = np.zeros((SIZE, SIZE, 3)) + np.array([0.06, 0.12, 0.04])
+    alpha = np.zeros((SIZE, SIZE), bool)
+    r_all = np.hypot(u - 0.5, v - 0.5)
+    for i in range(900):
+        cx, cy = rng.uniform(0.04, 0.96, 2)
+        if np.hypot(cx - 0.5, cy - 0.5) > 0.46:
+            continue
+        ln, wd, ang = rng.uniform(0.035, 0.06), rng.uniform(0.014, 0.024), rng.uniform(0, np.pi)
+        x0, x1 = int(max(0, (cx - ln) * SIZE)), int(min(SIZE, (cx + ln) * SIZE + 1))
+        y0, y1 = int(max(0, (1 - cy - ln) * SIZE)), int(min(SIZE, (1 - cy + ln) * SIZE + 1))
+        uu, vv = u[y0:y1, x0:x1] - cx, v[y0:y1, x0:x1] - cy
+        a_ = uu * np.cos(ang) + vv * np.sin(ang)
+        b_ = -uu * np.sin(ang) + vv * np.cos(ang)
+        t = (a_ / ln) ** 2 + (b_ / (wd * (1.15 - 0.6 * (a_ / ln)))) ** 2
+        m = t < 1
+        depth = i / 900.0                                               # later leaves sit on top: lighter
+        hue = rng.random()
+        base = np.array([0.18, 0.36, 0.11]) * (1 - hue) + np.array([0.32, 0.48, 0.15]) * hue
+        lit = 0.55 + 0.45 * depth + 0.25 * np.clip(-b_ / wd, -1, 1)     # one leaf half catches the sun
+        c = base * lit[..., None] * (1 - 0.25 * t[..., None])
+        c = np.where((np.abs(b_) < 0.0025)[..., None], c * 1.35, c)      # midrib
+        col[y0:y1, x0:x1] = np.where(m[..., None], c, col[y0:y1, x0:x1])
+        alpha[y0:y1, x0:x1] |= m
+    col *= (0.75 + 0.5 * _fbm(rng, SIZE, 3, 3))[..., None]
+    alpha &= r_all < 0.48
+    return np.concatenate([np.clip(col, 0, 1), alpha[..., None].astype(float)], -1)
+
+
+def kulit_pohon(seed=191):
+    """Bark: vertical furrows (along V) broken into plates, lichen flecks. Light, tinted per material."""
+    rng = np.random.default_rng(seed)
+    u, v = _uv_grid()
+    warp = _fbm(rng, SIZE, 4, 4)
+    furrow = np.abs(np.sin((u * 9 + warp * 1.4) * np.pi)) ** 0.5
+    plates = _value_noise(rng, SIZE, 32)
+    lum = 0.42 + furrow * 0.38 + (plates - 0.5) * 0.12
+    lichen = np.clip((_fbm(rng, SIZE, 8, 4) - 0.62) * 5, 0, 1)[..., None]
+    col = np.repeat(lum[..., None], 3, -1) * np.array([1.0, 0.93, 0.84])
+    return np.clip(col * (1 - lichen * 0.5) + np.array([0.62, 0.66, 0.50]) * lichen * 0.5, 0, 1)
+
+
+def bambu(seed=201):
+    """Bamboo culm: green-yellow with a node ring every 1/3 tile along V, white bloom below
+    each node and dry brown streaks."""
+    rng = np.random.default_rng(seed)
+    u, v = _uv_grid()
+    ph = (v * 3) % 1.0
+    node = np.exp(-((ph - 0.02) / 0.012) ** 2) + np.exp(-((ph - 0.985) / 0.01) ** 2)
+    bloom = np.clip(1 - np.abs(ph - 0.07) / 0.05, 0, 1) * 0.25
+    streak = np.clip((np.repeat(_value_noise(rng, SIZE, 24)[:1, :], SIZE, 0) - 0.6) * 3, 0, 1)
+    col = np.array([0.46, 0.56, 0.22]) * (0.85 + (_fbm(rng, SIZE, 6, 3) - 0.5) * 0.3)[..., None]
+    col = col * (1 - streak[..., None] * 0.6) + np.array([0.58, 0.48, 0.28]) * streak[..., None] * 0.6
+    col = col + bloom[..., None] * np.array([0.9, 0.9, 0.8])
+    col = col * (1 - node[..., None] * 0.55)
+    return np.clip(col, 0, 1)
+
+
+def daun_kelapa(seed=211):
+    """Coconut frond card: rachis up V with ~34 pairs of narrow drooping leaflets."""
+    rng = np.random.default_rng(seed)
+    u, v = _uv_grid()
+    a = np.abs(u - 0.5) < 0.012
+    col = np.zeros((SIZE, SIZE, 3)) + np.array([0.55, 0.52, 0.28])
+    for i in range(34):
+        vb = 0.03 + i * 0.028
+        ln = 0.46 * np.sin(np.clip((vb - 0.0) / 1.0, 0, 1) * np.pi) ** 0.4
+        for sgn in (-1, 1):
+            d = (u - 0.5) * sgn
+            along = np.clip(d / max(ln, 1e-3), 0, 1)
+            vc = vb + along * 0.07                                      # leaflets sweep toward the tip
+            leaflet = (d > 0) & (d < ln) & (np.abs(v - vc) < 0.007 * (1 - along) + 0.002)
+            shade = rng.uniform(0.8, 1.1)
+            c = np.array([0.30, 0.50, 0.15]) * shade * (1 - along[..., None] * 0.25) + np.array([0.12, 0.08, 0.0]) * along[..., None]
+            col = np.where(leaflet[..., None], c, col); a = a | leaflet
+    return np.concatenate([np.clip(col, 0, 1), a[..., None].astype(float)], -1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -313,6 +446,31 @@ GENERATORS = {
     "T_Env_TanahRumput": tanah_rumput,
     "T_Env_TaludBeton": talud_beton,
     "T_Env_LumpurDasar": lumpur_dasar,
+    "T_Env_DaunPisang": daun_pisang,
+    "T_Env_RumputAlang": rumput_alang,
+    "T_Env_DaunRimbun": daun_rimbun,
+    "T_Env_KulitPohon": kulit_pohon,
+    "T_Env_Bambu": bambu,
+    "T_Env_DaunKelapa": daun_kelapa,
+}
+
+
+def normal_from_albedo(rgb, strength):
+    """Tileable tangent-space normal map (OpenGL / Unity: +G = up the V axis) from albedo
+    luminance used as height: dark joints, ruts and cracks sink, bright blades and stones rise."""
+    h = rgb[..., :3].mean(-1)
+    h = (h + np.roll(h, 1, 0) + np.roll(h, -1, 0) + np.roll(h, 1, 1) + np.roll(h, -1, 1)) / 5.0   # soften pixel noise
+    du = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 0.5
+    dv = (np.roll(h, 1, 0) - np.roll(h, -1, 0)) * 0.5          # image row 0 is the top (v = 1)
+    n = np.stack([-du * strength, -dv * strength, np.ones_like(h)], -1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    return n * 0.5 + 0.5
+
+
+NORMALS = {   # normal map name: (albedo generator, height strength)
+    "T_Env_TanahRumput_N": ("T_Env_TanahRumput", 9.0),
+    "T_Env_TaludBeton_N": ("T_Env_TaludBeton", 14.0),
+    "T_Env_LumpurDasar_N": ("T_Env_LumpurDasar", 22.0),
 }
 
 
@@ -333,4 +491,6 @@ def save_png(name, rgb, out_dir):
 
 
 def build_all(out_dir):
-    return [save_png(name, fn(), out_dir) for name, fn in GENERATORS.items()]
+    paths = [save_png(name, fn(), out_dir) for name, fn in GENERATORS.items()]
+    paths += [save_png(name, normal_from_albedo(GENERATORS[src](), k), out_dir) for name, (src, k) in NORMALS.items()]
+    return paths
