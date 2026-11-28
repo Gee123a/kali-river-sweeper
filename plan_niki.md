@@ -95,6 +95,14 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 
 ---
 
+### New River Loop (do next; master plan: [plan.md](./plan.md))
+Planned, not built. Numbers are starting values until the simulator confirms them.
+- [ ] **R2-N1 HUD**: mountain HP counter (1,000,000), river fill meter, storage meter showing which storage is active; remove Gunung dredge wording.
+- [ ] **R2-N2 Shop**: lift per click, source (Kopdes / quest / easter egg, locked reason), warning "lifts more than you can carry", sack upgrade.
+- [ ] **R3-N1 Truck UI**: call prompt, arrival countdown, payment toast.
+- [ ] **R4-N1 Quest and easter egg notices** (extends Task 6B Quest HUD).
+- [ ] **R5-N1 Audio**: scoop sizes by lift, truck, dense-river ambience.
+
 ### Priority 0-A: Core Mechanics v2 UI ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §B, C, F)
 - [ ] **Task 7A: Restyle what Ivan ships functional-first**: Accepts card replacing the `[1][2][3]`/DENDA dock sheet (station name, accepted class icon + price, cargo preview from `GetDepositPreview`; pink only for real harm like Pengepul hazards); 4-slot hotbar HUD bound to `OnHotbarChanged` (icon, name, reach/batch, prick %); shop trade-in slot picker + upgrades tab polish; objective pill bound to `OnObjectiveChanged`. Ivan made minimal edits in `KaliHudController.cs` / `KaliShopController.cs` marked `TODO(Niki)` — pull first to avoid conflicts.
 

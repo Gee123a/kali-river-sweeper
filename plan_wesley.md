@@ -81,6 +81,13 @@ Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPrevie
 
 ---
 
+### New River Loop (do next; master plan: [plan.md](./plan.md))
+Planned, not built. Numbers are starting values until the simulator confirms them. Your pushed work is merged first (plan.md section 9).
+- [ ] **R1-W1 Water and bank range for a fill-driven river**: check banks, jetties and stations from the normal level to the flood level; jam area at Pintu Air reads as clogged.
+- [ ] **R3-W1 Excavator pad and truck stop**: ramp at the river edge so the parked excavator reaches water, and a truck stop beside it (west bank).
+- [ ] **R4-W1 Easter egg spots** at the mountain foot, reachable on foot, not touching the mountain mesh.
+- [ ] **R5-W1 Dense-river readability**: water shader and colours with thousands of bundles (extends Step 7A).
+
 ### Priority 0-A: Core Mechanics v2 — readability ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §A, D)
 - [ ] **Step 7A: Trash visibility on turbid water**: make sure floating trash at +0.06 m always reads over `SG_KaliWater` at low `_WaterClarity` (no alpha/fog hiding it); keep the polluted look.
 - [ ] **Step 7B: Service-point decals**: a painted floor mark / small mat + sign in front of each counter (Bank Sampah, Pos Medis B3, Karantina, Gudang Pengepul, Kopdes) where Ivan's `<Station>_ServicePoint` sits, so players know where to stand.

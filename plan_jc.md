@@ -55,6 +55,13 @@
 - [x] **Task 2A (Parody Trash & Biohazard Drum) & Task 2B/2C Core Props**: `PF_Trash_BiohazardDrum`, `PF_Trash_AquaBottle_600ml`, `PF_Trash_AquaGalon_19L`, 9 parody-brand trash prefabs + 9 `PF_Product_*` prefabs, `PF_Prop_TrashBoomSegment`, `PF_Prop_RakitGabus`, `PF_Prop_PerahuSampan`, and `PF_Prop_TongSampahKampung` shipped on `main`.
 - [x] **Task 3: Lighting & Base Rigging FBXs (`Assets/_Project/Lighting/`, `Rigging/`)**: procedural skybox & 12-min day/night rig (`KaliSky.shader`, `M_KaliSky.mat`, `VP_KaliSky.asset`, `KaliLightingBuilder.cs`, `PF_LightingRig.prefab`) built by Ivan (`Scripts/Core/KaliDayNightCycle.cs`); `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`, `SK_VillagerNPC.fbx` (`Idle` / `ThrowTrash` / `CarryBin`), `SM_Villager_Bin`, `SM_Villager_TrashBag`, and `Anim_PlayerToolSwing.fbx` (`SerokanScoop` / `GancoHookSwing`) landed on `main`.
 
+### New River Loop (do next; master plan: [plan.md](./plan.md))
+Planned, not built. Numbers are starting values until the simulator confirms them.
+- [ ] **R1-J1 Low-poly floating bundle meshes for instancing**: 3-4 variants plus medical and biohazard, under about 100 tris each, one shared material with GPU instancing on.
+- [ ] **R2-J1 Sack / cart prop** (`PF_Prop_Karung`, `PF_Prop_Gerobak`) for storage level 1.
+- [ ] **R3-J1 Pickup truck** = Task 7C below (`PF_Prop_TrukSampah`).
+- [ ] **R4-J1 Easter egg presentation** for tools #5, #16, #19 (small glint or half-buried pose using the existing tool prefabs).
+
 ### Priority 1: Ambient NPC Animations & Props (Feeds Ivan's NPC System)
 - [x] **Task 4A: Villager NPC Animations (`SK_VillagerNPC.fbx` in `Assets/_Project/Rigging/`)** *(all 8 clips present in the FBX; 30 fps and root-motion settings not re-checked)*: add Humanoid 30 fps clips matching `Rigging/README.md` (`Idle`/`CarryBin` convention, Root Motion off):
   - [x] Fishing cast & seated/standing idle loop (`Bapak-bapak` fishers).

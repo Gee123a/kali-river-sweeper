@@ -94,6 +94,22 @@
   > **📢 Niki — NPC Splash Audio Hook:** `OnWaterSplash(Vector3 worldPos)` exists in `RiverGameManager.cs` and fires on player splash. Wire your `Audio/` splash clip to this event — no `Scripts/` edits needed from Niki's side.
 - [x] **Task 5A: Core Wiring Hardening** *(Play Mode verified at `1280x720`, 0 console errors)*.
 
+### New River Loop (do next; master plan: [plan.md](./plan.md))
+Planned, not built. Numbers are starting values until the simulator confirms them.
+- [ ] **R0-I1 Simulator for the new loop**: 1,000,000 HP, 50 HP bundles, pour + top-up, fill-based water, lift table, storage levels, truck; report idle flood time, winning time, win rate.
+- [ ] **R0-I2 Frame-rate spike**: 8,000 floating bundles drawn as instanced data (not one GameObject each) with pickup queries; 60 FPS on the demo laptop or lower the drawn count.
+- [ ] **R1-I1 Mountain HP and pouring** (`RiverGameManager`, spawner): HP drops only on pickup, dump restores it, pouring stops at zero stock; win at 0 HP.
+- [ ] **R1-I2 Bundle field and jam**: trash never despawns, jams at Pintu Air and fills upstream; water level from fill; river starts well filled.
+- [ ] **R1-I3 Remove Gunung dredging** (hints, damage numbers, excavator dredge, QA).
+- [ ] **R2-I1 Lift table** from `plan.md` section 3 in `ToolCatalog`; medical prick once per click.
+- [ ] **R2-I2 Storage and pay**: 40 / 150 / 600 / 2,000, grab = min(lift, free, reach), new pay per bundle, Pengepul open in high water.
+- [ ] **R3-I1 Vehicle storage** only while aboard; `[E]` moves a load to hands; excavator parked within reach of the river (not drivable).
+- [ ] **R3-I2 Truck service**: call, drive up, load, leave, pay after about 40 s at about 70%; placeholder model until JC Task 7C.
+- [ ] **R4-I1 Quest rewards** give tools (#10, #12, #13, #18); extends 6C.
+- [ ] **R4-I2 Easter eggs** at the mountain foot (#5, #16, #19); they never change HP.
+- [ ] **R6-I1 Balance** with the simulator and QA (folds in 6E).
+- [ ] **R6-I2 Docs**: update PRD, MECHANICS_SPEC, PROGRESSION_REDESIGN to match.
+
 ### Priority 1: Progression, QA & Unity Version Decision (Active Track)
 - [x] **Task 4K: QA-Suite Fixes (`Scripts/Editor/KaliCoreQaTests.cs`)** *(Depends on Task 4L)*:
   - [x] Added `VerifyAmbientRiverNpcs` suite (`npc_group` determinism, per-role counts, hub/Dermaga/spawn/boat-lane clearance, zero blocking colliders, day/night & monsoon checks; `14/14` suites, `1,888` asserts PASS).
@@ -126,10 +142,10 @@
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
 - [x] **Task 6F: Monsoon rework** *(Play Mode not tested; compiles 0 errors, `KALI QA` 24/24, `Main.unity` re-baked)*: storms repeat (first at 180 s, 45 s each, every 180 s start to start); only flood, `0 HP`, dredge to 0% or flush end a run; `PartialSurvival` unreachable; `RainDecayPerSecond` 0.05 → 0.0275 (drain ~20 s); `stormsSurvived` added; `docs/playtest/progression_sim.py` runs 900 s with repeating storms.
 - [ ] **Task 6A: Playtest P0 fixes** *(partial: `trash_pile` clusters baked and biohazard grace is 30 s via Task 7B)*: bake `trash_pile` clusters as live `RiverTrashItem`s in `MapJsonImporter.SpawnTrashCluster` (tutorial piles near spawn first); biohazard grace `10s → 25s` (or timer only on land); ~~stronger storm surge (`5s → 1.5s`)~~ superseded by Task 6F.
-- [ ] **Task 6B: Earned tier progression (`RiverGameManager`, `ToolCatalog`)**: remove cumulative-Rp auto unlocks; add `GetToolTier(int)`, `IsTierOpen(int)` (trust threshold 30/50/70/85 + quest flags), tier gating in `BuyTool`, one `OnTierOpened` event (replaces 20 tool toasts); trust deltas per action (correct sort +2, quest +10–20, prick -5); "Setoran Bersih" combo streak (+5%/step, cap +25%, reset on mistake). Sampan and Trash Boom become quest rewards; Excavator stays Rp + Tier 3.
-- [ ] **Task 6C: Quest system**: `Scripts/Core/KaliQuestCatalog.cs` (static table: Q1 Belajar Memilah, Q2 Jarum di Tangga Cuci, Q3 Kail Nyangkut, Q4 Bola Hanyut, Q5 Gotong Royong, Q6 Evakuasi, side Es Teh) + `KaliQuestManager.cs` (listens to existing GM events, `ActiveQuest`, `OnQuestStarted/Progress/Completed/Failed`, max 1 active + 1 storm quest). Quest spawn points in `kali-river-map.json` (`quest_marker` items) and the ball/snag spawns.
+- [ ] **Task 6B: Earned tier progression (`RiverGameManager`, `ToolCatalog`)** *(paused: replaced by shop / quest / easter egg sources in plan.md)*: remove cumulative-Rp auto unlocks; add `GetToolTier(int)`, `IsTierOpen(int)` (trust threshold 30/50/70/85 + quest flags), tier gating in `BuyTool`, one `OnTierOpened` event (replaces 20 tool toasts); trust deltas per action (correct sort +2, quest +10–20, prick -5); "Setoran Bersih" combo streak (+5%/step, cap +25%, reset on mistake). Sampan and Trash Boom become quest rewards; Excavator stays Rp + Tier 3.
+- [ ] **Task 6C: Quest system** *(feeds R4-I1)*: `Scripts/Core/KaliQuestCatalog.cs` (static table: Q1 Belajar Memilah, Q2 Jarum di Tangga Cuci, Q3 Kail Nyangkut, Q4 Bola Hanyut, Q5 Gotong Royong, Q6 Evakuasi, side Es Teh) + `KaliQuestManager.cs` (listens to existing GM events, `ActiveQuest`, `OnQuestStarted/Progress/Completed/Failed`, max 1 active + 1 storm quest). Quest spawn points in `kali-river-map.json` (`quest_marker` items) and the ball/snag spawns.
 - [ ] **Task 6D: NPC interaction (`KaliAmbientNpc`, new `KaliNpcInteractable.cs`, `KaliNpcDialogue.cs`)** *(partial: `[E]` talk with facing and state-based lines in `KaliNpcInteractable.cs` (no `KaliNpcDialogue.cs`), `OnSpoke` event; not built: head-look, reactive behaviours, NPC↔NPC chains)*: `[E] Bicara` within 2.5 m, state-based line pick (calm/dirty/storm/high-low trust) from Niki's Bahasa table; reactive behaviour (washers leave below clarity 0.25, kids swim only at clarity ≥ 0.4, fishers drop a "sampah nyangkut" pickable every ~20 s while dirty, head-look within 4 m, cheer on a nearby clean combo); NPC↔NPC chains (chatter gossip pairs, kid→fisher point-and-follow every ~45 s, washer calls kids out in storm → Q6).
-- [ ] **Task 6E: QA + balance**: `KaliCoreQaTests` suites for tier gating, each quest's complete/fail path, combo reset, NPC talk prompt; re-run `docs/playtest/progression_sim.py` (add tiers + quests) to hit good-Sorter TrueSdgVictory 30–50%, no reward gap > 40 s, Tier 3 by ~150–170 s. *(Depends on 6B–6D; supersedes Task 4K.)*
+- [ ] **Task 6E: QA + balance** *(folds into R6-I1)*: `KaliCoreQaTests` suites for tier gating, each quest's complete/fail path, combo reset, NPC talk prompt; re-run `docs/playtest/progression_sim.py` (add tiers + quests) to hit good-Sorter TrueSdgVictory 30–50%, no reward gap > 40 s, Tier 3 by ~150–170 s. *(Depends on 6B–6D; supersedes Task 4K.)*
 
 ### Playtest-2 Fixes (merged to `main`, `3b77747`..`6e88c16`; not Play Mode tested)
 - [x] **Waypoint chevrons**: `KaliWaypointChevrons.cs` points at the current objective target; QA token tests in code, one instance in `Main.unity`.
