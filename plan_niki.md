@@ -94,6 +94,14 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 
 ---
 
+### Priority 0: Progression & Village Life — Dialogue, Quest HUD & Audio
+Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
+- [ ] **Task 6A: Dialogue UI (`UI/`)**: world-space speech bubble + `[E] Bicara` prompt, 1–2 lines, auto-hide after 4 s; subscribes to Ivan's `KaliNpcInteractable` events (no per-frame polling).
+- [ ] **Task 6B: Quest HUD**: quest tracker pill (title + progress `2/3` + timer), "!" marker sync, Quest Complete / Failed stamp, **one** "Tier Baru Terbuka!" banner per tier (replaces 20 tool toasts), Kepercayaan Warga bar with tier ticks 30/50/70/85, combo "Setoran Bersih ×N" chip.
+- [ ] **Task 6C: Bahasa script (`KaliNpcDialogue` line table, deliver as text/CSV for Ivan)**: 5 named villagers (Pak RT, Bu Siti, Pak Darto, Raka, Mbok Nah) × states (calm, dirty, storm, high trust, low trust) × quest offer/progress/done lines + chatter gossip pairs; short, natural kampung Bahasa.
+- [ ] **Task 6D: Village audio**: talk blips / short voice barks per villager, kids cheer + splash, quest accept/complete stingers, combo tick, tier-open fanfare, evacuation shout in storm.
+- [ ] **Task 6E: SDG report**: add "Misi Warga" section (quests done, trust tier reached, best combo) to `Canvas_SDGImpactReport`.
+
 ## 4. Verification & Live Sidang Talking Points
 - Test every UI panel at `1920x1080` and `1280x720` with zero overlapping text.
 - Be ready to explain VFX particle emission/collision parameters, how C# events drive the `Siaga` warning feedback without polling every frame, and how `Canvas_SDGImpactReport` proves SDG consequences (**10% Problem & Message + 10% Presentation**).

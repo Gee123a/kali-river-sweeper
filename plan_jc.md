@@ -78,6 +78,12 @@
 
 ---
 
+### Priority 0: Progression & Village Life — NPC Animations & Quest Props
+Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
+- [ ] **Task 6A: Interaction clips (`SK_VillagerNPC`, Humanoid 30 fps, Root Motion off)**: `Talk_Gesture` (2–3 s loop, hand gestures for `[E] Bicara`), `Wave`, `Point_Forward` (giving quest directions / kid→fisher chain), `Cheer_Clap` (clean-combo reaction), `Head_Look` additive or simple neck rig note for Ivan's look-at, `Call_Out` (washer calling kids in storm), `Kid_Run` + `Kid_Celebrate` (Bola Hanyut).
+- [ ] **Task 6B: Quest props (`Props/Equipment/` or `Props/Quest/`, `T_Villager_Palette`)**: `PF_Prop_BolaPlastik` (floating ball, buoyant pivot at waterline), `PF_Prop_KailKusut` (tangled fishing line + bag snag cluster for jetty 2), `PF_Prop_KotakJarum` (needle box / medical cluster for Tangga Cuci), `PF_Prop_GelasEsTeh` (warung side quest), `PF_Prop_QuestMarker` (simple "!" billboard mesh, low-poly, emissive-friendly).
+- [ ] **Task 6C: Villager variety**: 3–4 MaterialPropertyBlock-friendly color sets / hat + sarong variants so quest givers (Pak RT, Bu Siti, Pak Darto, Raka, Mbok Nah) are recognisable at 20 m.
+
 ## 3. Blender Export Checklist & Sidang Q&A Proof
 - Keep raw `.blend` files and UV sheets ready to open live during Sidang Q&A (**30% Understanding of the Process**).
 - Be ready to toggle `CTRL_IK_Bucket` in Blender Pose Mode live to prove zero-clipping mutual `Damped Track` hydraulic telescoping and `Chain Length = 2` IK isolation.
