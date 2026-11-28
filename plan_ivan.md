@@ -117,8 +117,10 @@
 ---
 
 ### Priority 0-A: Core Mechanics v2 from playthrough ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md))
-- [ ] **Task 7A (Wave 1, in progress)**: counter service points (r 2 m, must face the counter), [E] auto-sort deposit with a truthful preview (remove [1][2][3] fine keys), 4-slot hotbar (keys 1–4 + scroll), literal trade-in when full, Kopdes shop wired (`Canvas_ShopBankSampah`) incl. upgrades tab.
-- [ ] **Task 7B (Wave 2)**: readable trash bundles (2.2× scale, 2–4 units, float +0.06 m), spawn ~2 s / cap 120, seeded start piles; water rises from **barrier blockage + storm rain**, not floating items; hazard mix 80/14/6, prick 10 dmg, biohazard 30 s grace + gentle DoT; always-visible objective chain (`CurrentObjective`, `OnObjectiveChanged`). Update `docs/playtest/progression_sim.py` to the new water model.
+- [x] **Task 7A (Wave 1, done d5e4a09)**: counter service points (r 2 m, must face the counter), [E] auto-sort deposit with a truthful preview (remove [1][2][3] fine keys), 4-slot hotbar (keys 1–4 + scroll), literal trade-in when full, Kopdes shop wired (`Canvas_ShopBankSampah`) incl. upgrades tab.
+- [x] **Task 7B (Wave 2, done 0cb3222)**: readable trash bundles (2.2× scale, 2–4 units, float +0.06 m), spawn ~2 s / cap 120, seeded start piles; water rises from **barrier blockage + storm rain**, not floating items; hazard mix 80/14/6, prick 10 dmg, biohazard 30 s grace + gentle DoT; always-visible objective chain (`CurrentObjective`, `OnObjectiveChanged`). Update `docs/playtest/progression_sim.py` to the new water model.
+
+- [ ] **Task 7C: Tool roles + game states ([MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §C2, §I)**: `ToolRole` per tool (Serok/Capit/Ganco/Garuk), slot = role, buy → role slot with auto trade-in, pickup rules per role (Medical needs Capit, Biohazard needs Ganco, barrier pile needs Garuk), re-tuned role ladders + Tier-0 starters; `State` Title/Playing/Paused/Ended + `OnGameStateChanged`, Esc pause, shop freezes time, restart re-seeds map piles; minimal fallback menus until Niki's UI lands.
 
 ### Priority 0: Progression & Village Life Redesign (Core Systems — do first)
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
