@@ -498,6 +498,9 @@ namespace KaliRiverSweeper.Editor
                 spawner.normalPrefabs = LoadTrashPrefabPool(NormalTrashNames);
                 spawner.medicalPrefabs = LoadTrashPrefabPool(MedicalTrashNames);
                 spawner.biohazardPrefabs = LoadTrashPrefabPool(BiohazardTrashNames);
+                KaliWaypointChevrons chevrons = managersGroup.AddComponent<KaliWaypointChevrons>();
+                chevrons.idleMaterial = MakeUnlitMaterial("KaliWaypoint_Idle", "#1B8A7A");
+                chevrons.activeMaterial = MakeUnlitMaterial("KaliWaypoint_Active", "#F59E0B");
 
                 BuildTerrainAndWater(terrainGroup.transform, out Material resolvedWaterMat);
                 SetupLightingRig(lightingGroup.transform);
@@ -1207,6 +1210,15 @@ namespace KaliRiverSweeper.Editor
                 if (t.name == targetName) return t.gameObject;
             }
             return null;
+        }
+
+        private static Material MakeUnlitMaterial(string name, string hex)
+        {
+            Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
+            Material mat = new Material(sh) { name = name };
+            ColorUtility.TryParseHtmlString(hex, out Color col);
+            mat.SetColor("_BaseColor", col);
+            return mat;
         }
 
         private static GameObject CreateGroup(string name, Transform parent)

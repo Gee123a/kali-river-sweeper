@@ -105,7 +105,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyAmbientRiverNpcs,
                 VerifyObjectiveChainAndSeededTrash,
                 VerifyToolRolesAndPickupRules,
-                VerifyGameStatesAndRestartReseed
+                VerifyGameStatesAndRestartReseed,
+                VerifyWaypointChevronTokensAndMaterials
             };
 
             assertCount = 0;
@@ -1699,6 +1700,53 @@ namespace KaliRiverSweeper.Editor
                 Assert(GameObject.Find("QA_SeedPile_0") == null, "RestartRun replaced the old pile objects");
                 Assert(stateEvents >= 6, $"OnGameStateChanged fired per transition (got {stateEvents})");
             }
+        }
+
+        private static void VerifyWaypointChevronTokensAndMaterials()
+        {
+            // Target token priority: storm > biohazard > medical > full or normal cargo > objective step.
+            using (QaContext ctx = new QaContext())
+            {
+                ctx.Manager.isMonsoonStorm = true;
+                Assert(KaliWaypointChevrons.PickTargetToken(ctx.Manager) == "PintuAir", "Storm -> PintuAir token");
+            }
+            using (QaContext ctx = new QaContext())
+            {
+                ctx.Manager.biohazardCargo = 1;
+                Assert(KaliWaypointChevrons.PickTargetToken(ctx.Manager) == "Karantina Biohazard", "Biohazard cargo -> Karantina token");
+            }
+            using (QaContext ctx = new QaContext())
+            {
+                ctx.Manager.medicalCargo = 1;
+                ctx.Manager.cargoCount = 1;
+                Assert(KaliWaypointChevrons.PickTargetToken(ctx.Manager) == "Pos Medis", "Medical cargo -> Pos Medis token");
+            }
+            using (QaContext ctx = new QaContext())
+            {
+                ctx.Manager.normalCargo = ctx.Manager.cargoCapacity;
+                ctx.Manager.cargoCount = ctx.Manager.cargoCapacity;
+                Assert(KaliWaypointChevrons.PickTargetToken(ctx.Manager) == "Bank Sampah", "Full normal cargo -> Bank Sampah token");
+            }
+            using (QaContext ctx = new QaContext())
+            {
+                Assert(KaliWaypointChevrons.PickTargetToken(ctx.Manager) == "Trash", "Objective step 0 -> Trash token");
+            }
+            using (QaContext ctx = new QaContext())
+            {
+                // Same event chain as VerifyObjectiveChainAndSeededTrash: pickup, first deposit, then 90 s hazard timeout.
+                RiverGameManager gm = ctx.Manager;
+                QaPickup(gm, WasteClass.Normal, 1);
+                gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Normal);
+                InvokeNonPublic(gm, "Tick", 60f);
+                InvokeNonPublic(gm, "Tick", 31f);
+                Assert(gm.CurrentObjective == RiverGameManager.ObjectiveSteps[3], "Chain reaches objective step 3 (Kopdes)");
+                Assert(KaliWaypointChevrons.PickTargetToken(gm) == "Kopdes", "Objective step 3 -> Kopdes token");
+            }
+
+            // Importer output: the loaded Main scene carries one chevron component with both materials assigned.
+            KaliWaypointChevrons[] chevrons = UnityEngine.Object.FindObjectsOfType<KaliWaypointChevrons>(true);
+            Assert(chevrons.Length == 1, $"Main scene has one KaliWaypointChevrons (got {chevrons.Length})");
+            Assert(chevrons[0].idleMaterial != null && chevrons[0].activeMaterial != null, "Chevrons have idle and active materials assigned");
         }
 
         private static int CountSnaggedPiles(out int medical)

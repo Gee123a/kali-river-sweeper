@@ -186,11 +186,15 @@ namespace KaliRiverSweeper.Player
             if (gm != null && gm.State == KaliGameState.Paused && !nikiPauseMenu) DrawPauseMenu(gm);
             if (gm != null && gm.State == KaliGameState.Ended) DrawEndedBar(gm);
 
-            // 1d. Objective pill (top-left, always visible). ponytail: IMGUI polls CurrentObjective, no event needed here.
+            // 1d. Objective pill (under Niki's top-left HUD sheets). ponytail: IMGUI polls CurrentObjective, no event needed here.
             if (gm != null && !string.IsNullOrEmpty(gm.CurrentObjective))
             {
+                // Canvas_HUD CanvasScaler: ScaleWithScreenSize, 1920x1080, match 0.5 -> geometric mean of the two ratios.
+                float hudScale = Mathf.Sqrt((Screen.width / 1920f) * (Screen.height / 1080f));
                 float ow = Mathf.Min(520f, Screen.width - 36f);
-                GUI.Box(new Rect(18f, 18f, ow, 34f), "TUJUAN: " + gm.CurrentObjective, objectiveStyle);
+                // Lowest top-left HUD edge: TL_ToolUnlockToast at y -184 + 64 high = 248 reference units.
+                float oy = 248f * hudScale + 8f;
+                GUI.Box(new Rect(36f * hudScale, oy, ow, 52f), "TUJUAN: " + gm.CurrentObjective, objectiveStyle);
             }
 
             // 2. Compact [H] hint pill (bottom-left)
@@ -300,8 +304,11 @@ namespace KaliRiverSweeper.Player
         {
             float w = 220f;
             float y = Screen.height - 64f;
-            if (GUI.Button(new Rect(Screen.width * 0.5f - w - 8f, y, w, 44f), "Main Lagi  [R]", menuButtonStyle)) gm.RestartRun();
-            if (GUI.Button(new Rect(Screen.width * 0.5f + 8f, y, w, 44f), "Menu Utama", menuButtonStyle)) gm.ReturnToTitle();
+            // Niki's Canvas_SDGImpactReport has its own Main Lagi (Card/Btn_PlayAgain): then draw only Menu Utama, centred.
+            bool reportHasRestart = sdgReport != null && sdgReport.transform.Find("Card/Btn_PlayAgain") != null;
+            if (!reportHasRestart && GUI.Button(new Rect(Screen.width * 0.5f - w - 8f, y, w, 44f), "Main Lagi  [R]", menuButtonStyle)) gm.RestartRun();
+            float menuX = reportHasRestart ? Screen.width * 0.5f - w * 0.5f : Screen.width * 0.5f + 8f;
+            if (GUI.Button(new Rect(menuX, y, w, 44f), "Menu Utama", menuButtonStyle)) gm.ReturnToTitle();
         }
 
         private void EnsureStyles()
