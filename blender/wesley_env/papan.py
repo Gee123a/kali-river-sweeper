@@ -800,7 +800,106 @@ def landmark():
     return path
 
 
-ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul, "landmark": landmark}
+# ---------------------------------------------------------------- service-point marks (Core Mechanics v2, spec A)
+LAYANAN_ROWS = [   # key, title, action line, board colour, text colour, icon; must match layanan.py
+    ("BankSampah", "BANK SAMPAH", "[E]  SETOR SAMPAH BIASA", GREEN_DEEP, (250, 250, 246), "leaf"),
+    ("Kopdes", "KOPDES", "[E]  BELI ALAT & UPGRADE", (217, 119, 6), (250, 250, 246), "kopdes"),
+    ("Pengepul", "GUDANG PENGEPUL", "[E]  JUAL SEMUA SEKALIGUS", (168, 112, 24), (250, 250, 246), "rp"),
+    ("PosMedis", "POS MEDIS B3", "[E]  SETOR LIMBAH MEDIS", HAZ_YELLOW, INK, "cross"),
+    ("Karantina", "KARANTINA", "[E]  SETOR BIOHAZARD", BIO_PURPLE, (250, 250, 246), "bio"),
+]
+LAYANAN_ROW_H, LAYANAN_PITCH = 176, 192
+LAYANAN_EDGE = {"wood": (0, 960, 256, 1024), "white": (256, 960, 512, 1024)}
+
+
+def _icon_kopdes(img, b):
+    d = ImageDraw.Draw(img)
+    d.ellipse(b, fill=(250, 250, 244))
+    s = b[2] - b[0]
+    kopdes_emblem(d, (b[0] + b[2]) / 2, b[1] + s * 0.22, s * 0.62)
+
+
+def _icon_rp(img, b):
+    d = ImageDraw.Draw(img)
+    d.ellipse(b, fill=(250, 250, 244))
+    s = b[2] - b[0]
+    d.ellipse((b[0] + s * 0.1, b[1] + s * 0.1, b[2] - s * 0.1, b[3] - s * 0.1), outline=(168, 112, 24), width=max(4, int(s * 0.06)))
+    text_center(d, b, "Rp", font("BarlowCondensed-Bold.ttf", int(s * 0.46)), (120, 78, 14))
+
+
+def layanan_board(img, box, title, sub, colour, ink, icon):
+    d = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = box
+    h = y1 - y0
+    d.rectangle(box, fill=(250, 250, 244))
+    d.rectangle((x0 + 8, y0 + 8, x1 - 8, y1 - 8), fill=colour)
+    s = h - 40
+    {"leaf": _icon_leaf, "kopdes": _icon_kopdes, "rp": _icon_rp, "cross": _icon_cross, "bio": _icon_bio}[icon](img, (x0 + 24, y0 + 20, x0 + 24 + s, y0 + 20 + s))
+    d = ImageDraw.Draw(img)
+    tx0 = x0 + 48 + s
+    shadow = tuple(v // 2 for v in colour)
+    f = fit_font(d, title, "BarlowCondensed-Bold.ttf", x1 - tx0 - 30, h * 0.52)
+    text_center(d, (tx0, y0 + 10, x1 - 20, y0 + h * 0.62), title, f, ink, shadow=None if ink == INK else shadow)
+    f2 = fit_font(d, sub, "BarlowCondensed-SemiBold.ttf", x1 - tx0 - 30, h * 0.26, start=60)
+    text_center(d, (tx0, y0 + h * 0.6, x1 - 20, y1 - 14), sub, f2, ink)
+
+
+def _foot(d, cx, cy, s, flip):
+    """Painted shoe print: sole oval + heel, toe pointing up (toward the counter)."""
+    k = -1 if flip else 1
+    d.ellipse((cx - s * 0.34, cy - s, cx + s * 0.34, cy + s * 0.15), fill=255)
+    d.ellipse((cx - s * 0.27 + k * s * 0.03, cy + s * 0.3, cx + s * 0.27 + k * s * 0.03, cy + s * 0.95), fill=255)
+
+
+def tanda_lantai():
+    """T_Env_TandaLantai: white worn paint (RGBA) tinted per station in Unity. 1024 px = 4.4 m, so the
+    dashed ring sits on the 2.0 m service-point radius. Top of the texture faces the counter."""
+    S = 1024
+    a = Image.new("L", (S, S), 0)
+    d = ImageDraw.Draw(a)
+    c, r, wdt, n = S / 2, 2.0 / 4.4 * S, 30, 28
+    for i in range(n):
+        st = i * 360 / n
+        d.arc((c - r, c - r, c + r, c + r), st, st + 360 / n * 0.62, fill=255, width=wdt)
+    f = font("BarlowCondensed-Bold.ttf", 118)
+    l, t, rr, b = d.textbbox((0, 0), "BERDIRI DI SINI", font=f)
+    d.text(((S - (rr - l)) / 2 - l, 290 - (b - t) / 2 - t), "BERDIRI DI SINI", font=f, fill=255, stroke_width=4, stroke_fill=255)
+    d.rounded_rectangle((c - 62, 380, c + 62, 504), radius=18, outline=255, width=14)
+    text_center(d, (c - 62, 380, c + 62, 500), "E", font("BarlowCondensed-Bold.ttf", 96), 255)
+    _foot(d, c - 70, 680, 120, False)
+    _foot(d, c + 70, 680, 120, True)
+    # worn paint: scuffs and specks knocked out of the alpha
+    n1 = Image.effect_noise((S // 8, S // 8), 60).resize((S, S), Image.BICUBIC)
+    n2 = Image.effect_noise((S, S), 70)
+    wear = Image.composite(Image.new("L", (S, S), 0), Image.new("L", (S, S), 255), n1.point(lambda v: 255 if v > 196 else 0))
+    wear = Image.composite(Image.new("L", (S, S), 0), wear, n2.point(lambda v: 255 if v > 228 else 0))
+    a = ImageChops.multiply(a, wear.filter(ImageFilter.GaussianBlur(1.2)))
+    img = Image.new("RGBA", (S, S), (255, 255, 255, 0))
+    img.putalpha(a)
+    out = os.path.join(TEX, "T_Env_TandaLantai.png")
+    img.save(out, optimize=True)
+    return out
+
+
+def layanan():
+    """T_Env_PapanLayanan (5 station boards for the service-point posts) + T_Env_TandaLantai."""
+    img = Image.new("RGB", (W, W), (40, 42, 46))
+    boxes = []
+    for i, (key, title, sub, col, ink, icon) in enumerate(LAYANAN_ROWS):
+        box = (0, i * LAYANAN_PITCH, W, i * LAYANAN_PITCH + LAYANAN_ROW_H)
+        boxes.append(box)
+        layanan_board(img, box, title, sub, col, ink, icon)
+    d = ImageDraw.Draw(img)
+    d.rectangle(LAYANAN_EDGE["wood"], fill=WOOD_MID)
+    d.rectangle(LAYANAN_EDGE["white"], fill=(250, 250, 244))
+    out = grime(img, boxes, 21)
+    path = os.path.join(TEX, "T_Env_PapanLayanan.png")
+    out.save(path, optimize=True)
+    tanda_lantai()
+    return path
+
+
+ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul, "landmark": landmark, "layanan": layanan}
 
 
 def main():
