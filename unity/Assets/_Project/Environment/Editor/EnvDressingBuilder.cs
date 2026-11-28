@@ -15,7 +15,9 @@ namespace KaliRiverSweeper.EnvEditor
     /// 3. bohlam wall lamps inside every station / building prefab (spots from env_dressing.json)
     /// 4. PF_Env_QuestLandmarks: Priority 0 quest landmarks (Tangga Cuci, Tiang Nyangkut, warung stalls,
     ///    Pos Ronda) + wayfinding signposts, positions from env_dressing.json
-    /// 5. PF_Env_KampungDressing: every street lamp and plant laid out by blender/wesley_env/dressing.py;
+    /// 5. PF_Env_TandaLayanan: floor mark + post sign at every station service point (Core Mechanics v2,
+    ///    spec A); EnvServicePointMarks snaps them onto Ivan's "&lt;Station&gt;_ServicePoint" triggers
+    /// 6. PF_Env_KampungDressing: every street lamp and plant laid out by blender/wesley_env/dressing.py;
     ///    run it with Main.unity open so spots inside houses / near NPCs are skipped
     /// Re-running is safe: assets are updated in place (GUIDs kept), old lamps are replaced.
     /// </summary>
@@ -28,6 +30,7 @@ namespace KaliRiverSweeper.EnvEditor
         private const string LampuFbx = Env + "Meshes/SM_Env_Lampu.fbx";
         private const string VegFbx = Env + "Meshes/SM_Env_Vegetasi.fbx";
         private const string LandmarkFbx = Env + "Meshes/SM_Env_Landmark.fbx";
+        private const string LayananFbx = Env + "Meshes/SM_Env_TandaLayanan.fbx";
         private const string LayoutJson = Env + "Data/env_dressing.json";
         private const string WeatheredShader = "Shader Graphs/SG_EnvWeathered";
 
@@ -36,6 +39,16 @@ namespace KaliRiverSweeper.EnvEditor
         private static readonly Color GlowYellow = new Color(1f, 0.78f, 0.22f);
         private static readonly Vector3 LanternGlass = new Vector3(1.05f, 2.265f, 0f);
         private static readonly Vector3 BulbCentre = new Vector3(0.44f, -0.19f, 0f);
+
+        // station key (SM_Env_PapanLayanan_<key>), name keyword of its service point, floor paint colour (DESIGN.md)
+        private static readonly (string key, string keyword, Color paint)[] Layanan =
+        {
+            ("BankSampah", "Bank Sampah", new Color(0.13f, 0.77f, 0.37f)),
+            ("Kopdes", "Kopdes", new Color(0.96f, 0.62f, 0.04f)),
+            ("Pengepul", "Pengepul", new Color(0.86f, 0.58f, 0.20f)),
+            ("PosMedis", "Pos Medis", new Color(0.92f, 0.70f, 0.03f)),
+            ("Karantina", "Karantina", new Color(0.66f, 0.33f, 0.97f)),
+        };
 
         private static readonly string[] Plants =
             { "PohonPisang", "PohonKelapa", "PohonKetapang", "Bambu", "Semak", "Rumput", "Alang", "RumputKering", "Batu" };
@@ -47,6 +60,7 @@ namespace KaliRiverSweeper.EnvEditor
             RemapFbx(LampuFbx);
             RemapFbx(VegFbx);
             RemapFbx(LandmarkFbx);
+            RemapFbx(LayananFbx);
             var lampuJalan = BuildLampuJalan();
             var bohlam = BuildBohlam();
             var plants = new Dictionary<string, GameObject>();
@@ -54,23 +68,27 @@ namespace KaliRiverSweeper.EnvEditor
             var layout = JsonUtility.FromJson<Layout>(File.ReadAllText(LayoutJson));
             int walls = BuildWallLamps(layout, bohlam);
             var landmarks = BuildLandmarkPrefabs(bohlam);
-            BuildQuestLandmarks(layout, landmarks);
-            int skipped = BuildDressing(layout, lampuJalan, plants);
+            var quest = BuildQuestLandmarks(layout, landmarks);
+            var tanda = BuildServicePointMarks(out int snapped);
+            int skipped = BuildDressing(layout, lampuJalan, plants, tanda, quest);
             AssetDatabase.SaveAssets();
-            Debug.Log($"[EnvDressingBuilder] {layout.lamps.Length} street lamps, {layout.plants.Length} plants ({skipped} skipped: inside a scene collider / near an NPC), {walls} wall lamps, {layout.landmarks.Length} quest landmarks, {layout.signposts.Length} signposts.");
+            Debug.Log($"[EnvDressingBuilder] {layout.lamps.Length} street lamps, {layout.plants.Length} plants ({skipped} skipped: inside a scene collider / near an NPC), {walls} wall lamps, {layout.landmarks.Length} quest landmarks, {layout.signposts.Length} signposts, {snapped}/{Layanan.Length} service-point marks snapped.");
         }
 
         // ---------------- materials ----------------
 
         private static void BuildMaterials()
         {
-            ConfigureCardTextures("T_Env_DaunPisang", "T_Env_DaunKelapa", "T_Env_DaunRimbun", "T_Env_RumputAlang");
+            ConfigureCardTextures("T_Env_DaunPisang", "T_Env_DaunKelapa", "T_Env_DaunRimbun", "T_Env_RumputAlang", "T_Env_TandaLantai");
             Weathered("M_Env_BesiKarat", "T_Env_CatKarat", new Color(0.55f, 0.30f, 0.20f), 0.25f, 0.1f);
             Weathered("M_Env_KulitPohon", "T_Env_KulitPohon", new Color(0.56f, 0.45f, 0.35f), 0.12f, 0.35f);
             Weathered("M_Env_BatangPisang", "T_Env_KulitPohon", new Color(0.66f, 0.72f, 0.42f), 0.2f, 0.15f);
             Weathered("M_Env_DaunRimbunPadat", "T_Env_DaunRimbun", new Color(0.82f, 0.86f, 0.8f), 0.18f, 0f);
             Weathered("M_Env_Bambu", "T_Env_Bambu", Color.white, 0.35f, 0.1f);
             Weathered("M_Env_BatuSungai", "T_Env_BetonKotor", new Color(0.52f, 0.50f, 0.46f), 0.2f, 0.55f);
+            Weathered("M_Env_PapanLayanan", "T_Env_PapanLayanan", new Color(0.93f, 0.93f, 0.93f), 0.2f, 0f);
+            Paint("M_Env_TandaLantai", Color.white);
+            foreach (var l in Layanan) Paint("M_Env_TandaLantai_" + l.key, PaintAlbedo(l.paint));
             Weathered("M_Env_PapanLandmark", "T_Env_PapanLandmark", new Color(0.93f, 0.93f, 0.93f), 0.2f, 0f);
             Cutout("M_Env_DaunPisang", "T_Env_DaunPisang", Color.white);
             Cutout("M_Env_DaunPisangKering", "T_Env_DaunPisang", new Color(0.92f, 0.62f, 0.34f));
@@ -139,6 +157,33 @@ namespace KaliRiverSweeper.EnvEditor
             m.doubleSidedGI = true;
             m.renderQueue = (int)RenderQueue.AlphaTest;
             m.SetOverrideTag("RenderType", "TransparentCutout");
+            EditorUtility.SetDirty(m);
+        }
+
+        /// <summary>Flat ground takes the full noon sun (Unity light intensity is gamma here, so 2.15 acts like
+        /// ~5x). A DESIGN.md colour at full albedo clips to cyan/white, so the paint keeps its hue but its
+        /// brightest linear channel is capped at 0.2, like real sun-faded paint.</summary>
+        private static Color PaintAlbedo(Color c)
+        {
+            Color lin = c.linear;
+            float max = Mathf.Max(lin.r, Mathf.Max(lin.g, lin.b));
+            if (max <= 0.2f) return c;
+            Color g = (lin * (0.2f / max)).gamma;
+            g.a = 1f;                                              // alpha drives the cutout, keep it opaque
+            return g;
+        }
+
+        /// <summary>Worn floor paint: cutout so scuffs show the ground, both faces so it never vanishes.</summary>
+        private static void Paint(string name, Color colour)
+        {
+            Cutout(name, "T_Env_TandaLantai", colour);
+            var m = AssetDatabase.LoadAssetAtPath<Material>(Mats + name + ".mat");
+            m.SetFloat("_Cutoff", 0.5f);
+            m.SetFloat("_Smoothness", 0f);                         // matte: no sky glint turning green cyan
+            m.SetFloat("_SpecularHighlights", 0f);
+            m.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+            m.SetFloat("_EnvironmentReflections", 0f);
+            m.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
             EditorUtility.SetDirty(m);
         }
 
@@ -422,20 +467,16 @@ namespace KaliRiverSweeper.EnvEditor
             return map;
         }
 
-        private static void BuildQuestLandmarks(Layout layout, Dictionary<string, GameObject> map)
+        private static GameObject BuildQuestLandmarks(Layout layout, Dictionary<string, GameObject> map)
         {
             var root = new GameObject("PF_Env_QuestLandmarks");
-            foreach (var l in layout.landmarks)
-            {
-                var inst = (GameObject)PrefabUtility.InstantiatePrefab(map[l.prefab], root.transform);
-                inst.transform.SetPositionAndRotation(new Vector3(l.p[0], l.p[1], l.p[2]), Quaternion.Euler(0f, l.yaw, 0f));
-            }
             for (int i = 0; i < layout.signposts.Length; i++)
             {
                 var sp = layout.signposts[i];
                 var post = (GameObject)PrefabUtility.InstantiatePrefab(map["PF_Env_TiangPapanArah"], root.transform);
                 post.name = $"PapanArah_{i + 1}";
                 post.transform.position = new Vector3(sp.p[0], sp.p[1], sp.p[2]);
+                Physics.SyncTransforms();
                 foreach (var a in sp.arrows)
                 {
                     var arrow = (GameObject)PrefabUtility.InstantiatePrefab(map[a.prefab], post.transform);
@@ -443,13 +484,94 @@ namespace KaliRiverSweeper.EnvEditor
                     arrow.transform.localRotation = Quaternion.Euler(0f, a.yaw, 0f);
                 }
             }
-            Save(root, "PF_Env_QuestLandmarks");
+            Physics.SyncTransforms();
+            foreach (var l in layout.landmarks)
+            {
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(map[l.prefab], root.transform);
+                inst.transform.SetPositionAndRotation(new Vector3(l.p[0], l.p[1], l.p[2]), Quaternion.Euler(0f, l.yaw, 0f));
+                // land pieces (stalls, pos ronda) slide to the nearest free flat ground if Ivan's houses moved in
+                // a stall with no free ground means Ivan's kampung already has a warung there: skip the duplicate
+                if (l.p[1] > 0.5f && !NudgeToFreeGround(inst, 7f)) UnityEngine.Object.DestroyImmediate(inst);
+            }
+            return Save(root, "PF_Env_QuestLandmarks");
+        }
+
+        // ---------------- PF_Env_TandaLayanan (service-point marks) ----------------
+
+        private static GameObject BuildServicePointMarks(out int snapped)
+        {
+            var root = new GameObject("PF_Env_TandaLayanan");
+            var marks = root.AddComponent<EnvServicePointMarks>();
+            var list = new List<EnvServicePointMarks.Mark>();
+            for (int i = 0; i < Layanan.Length; i++)
+            {
+                var l = Layanan[i];
+                var mark = new GameObject("Tanda_" + l.key);
+                mark.transform.SetParent(root.transform, false);
+                mark.transform.localPosition = new Vector3(i * 6f, 1.4f, 0f);        // parked in a row until snapped
+                var decal = Child(mark, LayananFbx, "SM_Env_TandaLantai");
+                var dr = decal.GetComponent<MeshRenderer>();
+                dr.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(Mats + "M_Env_TandaLantai_" + l.key + ".mat");
+                dr.shadowCastingMode = ShadowCastingMode.Off;
+                var sign = Child(mark, LayananFbx, "SM_Env_PapanLayanan_" + l.key);
+                Box(sign, "Papan_Collider", new Vector3(0.03f, 0.6f, 2.65f), new Vector3(0.14f, 1.3f, 1.6f));
+                list.Add(new EnvServicePointMarks.Mark { keyword = l.keyword, root = mark.transform });
+            }
+            marks.marks = list.ToArray();
+            snapped = marks.Snap();                                                   // bake positions when Main.unity is open
+            return Save(root, "PF_Env_TandaLayanan");
+        }
+
+        private static bool IgnoredForPlacement(Collider c) =>
+            c is TerrainCollider || c.name.Contains("Terrain") || c.name.Contains("Ground") || c.name.Contains("Water")
+            || c.transform.root.name.StartsWith("NPC_") || c.name.StartsWith("NPC_") || c.name.Contains("Player");
+
+        private static bool FlatGround(Vector3 p, float groundY)
+        {
+            foreach (var h in Physics.RaycastAll(p + Vector3.up * 6f, Vector3.down, 12f, ~0, QueryTriggerInteraction.Ignore))
+                if (h.collider is TerrainCollider || h.collider.name.Contains("Terrain") || h.collider.name.Contains("Ground"))
+                    return Mathf.Abs(h.point.y - groundY) < 0.3f;
+            return false;
+        }
+
+        /// <summary>Moves a land landmark to the closest spot (rings up to maxRadius) where its footprint hits no
+        /// scene collider and all four corners stand on bank-top ground (not the talud or the river).</summary>
+        private static bool NudgeToFreeGround(GameObject inst, float maxRadius)
+        {
+            var cols = inst.GetComponentsInChildren<Collider>();
+            var b = new Bounds(inst.transform.position, Vector3.zero);
+            foreach (var r in inst.GetComponentsInChildren<Renderer>()) b.Encapsulate(r.bounds);
+            Vector3 offset = b.center - inst.transform.position, ext = b.extents;
+            Vector3 start = inst.transform.position;
+            for (float r = 0f; r <= maxRadius; r += 0.75f)
+            {
+                int steps = r < 0.01f ? 1 : 16;
+                for (int i = 0; i < steps; i++)
+                {
+                    float a = i * Mathf.PI * 2f / steps;
+                    Vector3 p = start + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                    Vector3 c = p + offset;
+                    bool free = true;
+                    foreach (var hit in Physics.OverlapBox(new Vector3(c.x, p.y + 0.3f + ext.y * 0.5f, c.z), new Vector3(ext.x * 0.9f, ext.y * 0.5f, ext.z * 0.9f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
+                        if (Array.IndexOf(cols, hit) < 0 && !IgnoredForPlacement(hit)) { free = false; break; }
+                    if (free)
+                        foreach (var k in new[] { new Vector3(-1, 0, -1), new Vector3(1, 0, -1), new Vector3(1, 0, 1), new Vector3(-1, 0, 1), Vector3.zero })
+                            if (!FlatGround(c + Vector3.Scale(k, ext * 0.9f), p.y)) { free = false; break; }
+                    if (!free) continue;
+                    inst.transform.position = p;
+                    Physics.SyncTransforms();
+                    if (r > 0f) Debug.Log($"[EnvDressingBuilder] {inst.name} moved {r:0.0} m to free ground {p}");
+                    return true;
+                }
+            }
+            Debug.LogWarning($"[EnvDressingBuilder] {inst.name}: no free ground within {maxRadius} m of {start}, not placed");
+            return false;
         }
 
         // ---------------- PF_Env_KampungDressing ----------------
 
         /// <summary>True when a spot is free in the open scene: no building / house / prop collider
-        /// at body height and no ambient NPC within 2.5 m. Lets the Python layout stay approximate
+        /// at body height and no ambient NPC or station service point within 2.5 m. Lets the Python layout stay approximate
         /// while Ivan's 61 procedural houses decide the exact free ground.</summary>
         private static bool SceneFree(Vector3 p, float radius, List<Vector3> npcs)
         {
@@ -463,12 +585,13 @@ namespace KaliRiverSweeper.EnvEditor
             return true;
         }
 
-        private static int BuildDressing(Layout layout, GameObject lampuJalan, Dictionary<string, GameObject> plants)
+        private static int BuildDressing(Layout layout, GameObject lampuJalan, Dictionary<string, GameObject> plants, GameObject tanda, GameObject quest)
         {
+            var questProbe = (GameObject)PrefabUtility.InstantiatePrefab(quest);   // so plants/lamps keep off the landmarks
             Physics.SyncTransforms();
             var npcs = new List<Vector3>();
             foreach (var t in UnityEngine.Object.FindObjectsOfType<Transform>())
-                if (t.name.StartsWith("NPC_")) npcs.Add(t.position);
+                if (t.name.StartsWith("NPC_") || t.name.EndsWith(EnvServicePointMarks.ServicePointSuffix)) npcs.Add(t.position);   // keep the floor rings clear
             int skipped = 0;
             var root = new GameObject("PF_Env_KampungDressing");
             var lampParent = new GameObject("LampuJalan").transform;
@@ -497,6 +620,8 @@ namespace KaliRiverSweeper.EnvEditor
                 inst.transform.localScale = Vector3.one * p.s;
                 GameObjectUtility.SetStaticEditorFlags(inst, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccludeeStatic);
             }
+            UnityEngine.Object.DestroyImmediate(questProbe);
+            PrefabUtility.InstantiatePrefab(tanda, root.transform);                   // service-point marks ride along
             Save(root, "PF_Env_KampungDressing");
             return skipped;
         }
