@@ -98,10 +98,10 @@
 - [ ] **Task 4K: QA-Suite Fixes (`Scripts/Editor/KaliCoreQaTests.cs`)** *(Depends on Task 4L)*:
   - [x] Added `VerifyAmbientRiverNpcs` suite (`npc_group` determinism, per-role counts, hub/Dermaga/spawn/boat-lane clearance, zero blocking colliders, day/night & monsoon checks; `14/14` suites, `1,888` asserts PASS).
   - [ ] Verify/update `VerifyKampungRowsAndMapEdge` & progression assertions alongside Task 4L progression balance fixes (`0` errors).
-- [ ] **Task 4L: Progression Audit Fixes (`Scripts/Core/RiverGameManager.cs`, `ToolCatalog.cs`, `KaliPlayerController.cs`)**:
-  - [ ] Audit & rebalance the **20-tool Kopdes `BuyTool(int)` ladder** (milestone vs purchase flow, cost/unlock pacing, and clear feedback so players climb tiers intentionally instead of skipping tools).
-  - [ ] Rebalance **Trash Boom passive income & water relief** (`boomTimer` `4s` loop in `RiverGameManager.cs`) so it complements active river sweeping without breaking Kopdes tool progression.
-  - [ ] Tune **monsoon storm pressure** (storm trigger, water-rise escalation, and cleanup urgency across the `300s` countdown) so mid-to-late game tension scales cleanly into `TrueSdgVictory` vs `PartialSurvival`.
+- [x] **Task 4L: Progression Audit Fixes (`Scripts/Core/RiverGameManager.cs`, `ToolCatalog.cs`, `KaliPlayerController.cs`)**:
+  - [x] *(Done: `BuyTool` now rejects locked tools with a "kumpulkan Rp X lagi" alert, shows a "Rupiah kurang" alert, and `GetToolPrice(int)` credits 50% of the best owned lower tool so stepping tier-by-tier is never worse than saving to skip — Niki's shop should display `GetToolPrice`.)* Audit & rebalance the **20-tool Kopdes `BuyTool(int)` ladder** (milestone vs purchase flow, cost/unlock pacing, and clear feedback so players climb tiers intentionally instead of skipping tools).
+  - [x] *(Done: Rp 1,500 per 5 s, rupiah-only — no longer counts toward tool milestones; still drains 1 piled unit per cycle.)* Rebalance **Trash Boom passive income & water relief** (`boomTimer` `4s` loop in `RiverGameManager.cs`) so it complements active river sweeping without breaking Kopdes tool progression.
+  - [x] *(Done: 30 s pre-storm warning alert; during the storm an upstream surge adds 1 piled unit every 8 s → 3 s as the countdown runs out, which Trash Boom partly offsets.)* Tune **monsoon storm pressure** (storm trigger, water-rise escalation, and cleanup urgency across the `300s` countdown) so mid-to-late game tension scales cleanly into `TrueSdgVictory` vs `PartialSurvival`.
 - [ ] **Task 4C: Team Unity Version Decision & Git History Hygiene**: finalize team agreement on staying on `Unity 2022.3.46f1 LTS` for dev vs patching `CVE-2025-59489` (`2022.3.67f2` or `Unity 6` `6000.0.58f2+` / `6000.3.29f1 LTS`) prior to final build packaging, and scrub earlier AI bot / `Co-Authored-By` commits if approved.
 
 ### Priority 2: Teammate Deliverable Wiring (`MapJsonImporter.cs`, `Main.unity`)

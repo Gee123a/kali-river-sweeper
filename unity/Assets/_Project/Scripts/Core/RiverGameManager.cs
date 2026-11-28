@@ -161,7 +161,15 @@ namespace KaliRiverSweeper.Core
         public event Action<StationAuditReceipt> OnStationAuditReceipt;
         public event Action<GameEnding, string> OnEndingWithDiagnosisTriggered;
 
+        public const float BoomIntervalSeconds = 5f;
+        public const int BoomPayoutRupiah = 1500;
+        public const float StormWarningLeadSeconds = 30f;
+        public const float StormSurgeStartInterval = 8f;
+        public const float StormSurgeEndInterval = 3f;
+
         private float boomTimer;
+        private float stormSurgeTimer;
+        private bool stormWarned;
         private bool stateDirty;
         private float notifyThrottleTimer;
         private bool isTrustAuditPenaltyActive;
@@ -202,9 +210,28 @@ namespace KaliRiverSweeper.Core
             if (monsoonCountdownRemaining > 0f)
             {
                 monsoonCountdownRemaining = Mathf.Max(0f, monsoonCountdownRemaining - dt);
+                if (!stormWarned && !isMonsoonStorm && monsoonCountdownRemaining <= monsoonStormTriggerRemaining + StormWarningLeadSeconds)
+                {
+                    stormWarned = true;
+                    RaiseAlert("Awan monsun mendekat! Badai dalam 30 detik — turunkan level air sekarang.", true);
+                }
                 if (monsoonCountdownRemaining <= monsoonStormTriggerRemaining && !isMonsoonStorm)
                 {
                     SetWeather(true);
+                }
+                if (isMonsoonStorm)
+                {
+                    // Upstream surge: piled trash arrives faster as the storm goes on (8s -> 3s).
+                    float progress = monsoonStormTriggerRemaining > 0f
+                        ? Mathf.Clamp01(1f - monsoonCountdownRemaining / monsoonStormTriggerRemaining)
+                        : 1f;
+                    stormSurgeTimer += dt;
+                    if (stormSurgeTimer >= Mathf.Lerp(StormSurgeStartInterval, StormSurgeEndInterval, progress))
+                    {
+                        stormSurgeTimer = 0f;
+                        piledRiverTrashCount++;
+                        RecalculateWaterMetrics();
+                    }
                 }
                 MarkStateDirty();
 
@@ -228,10 +255,11 @@ namespace KaliRiverSweeper.Core
             if (trashBoomActive)
             {
                 boomTimer += dt;
-                if (boomTimer >= 4f)
+                if (boomTimer >= BoomIntervalSeconds)
                 {
                     boomTimer = 0f;
-                    AddEarnings(2500);
+                    // Rupiah only: passive income must not count toward Kopdes tool milestones.
+                    rupiah += BoomPayoutRupiah;
                     if (piledRiverTrashCount > 0) piledRiverTrashCount--;
                     RecalculateWaterMetrics();
                     MarkStateDirty();
@@ -810,13 +838,36 @@ namespace KaliRiverSweeper.Core
 
         public bool IsToolOwned(int index) => index >= 1 && index <= 20 && (index == 1 || ownedTools[index]);
 
+        // Trade-in: half the price of the best owned tool below the target is credited,
+        // so climbing tier by tier costs about the same as saving up to jump (no reason to skip).
+        public const float ToolTradeInCredit = 0.5f;
+
+        public int GetToolPrice(int toolIndex)
+        {
+            int best = 0;
+            for (int i = toolIndex - 1; i >= 2; i--)
+            {
+                if (ownedTools[i]) { best = ToolCatalog.GetTool(i).UnlockRupiah; break; }
+            }
+            return Mathf.Max(0, ToolCatalog.GetTool(toolIndex).UnlockRupiah - Mathf.RoundToInt(best * ToolTradeInCredit));
+        }
+
         public bool BuyTool(int toolIndex)
         {
             if (toolIndex < 1 || toolIndex > 20 || IsToolOwned(toolIndex)) return false;
 
             ToolDefinition tool = ToolCatalog.GetTool(toolIndex);
-            int cost = tool.UnlockRupiah;
-            if (rupiah < cost) return false;
+            if (!IsToolUnlocked(toolIndex))
+            {
+                RaiseAlert($"#{tool.Index:00} {tool.DisplayName} belum terbuka — kumpulkan Rp {tool.UnlockRupiah - cumulativeEarnings:N0} lagi dari sungai.", true);
+                return false;
+            }
+            int cost = GetToolPrice(toolIndex);
+            if (rupiah < cost)
+            {
+                RaiseAlert($"Rupiah kurang untuk #{tool.Index:00} {tool.DisplayName}: butuh Rp {cost:N0} (punya Rp {rupiah:N0}).", true);
+                return false;
+            }
 
             rupiah -= cost;
             ownedTools[toolIndex] = true;
@@ -1243,6 +1294,8 @@ namespace KaliRiverSweeper.Core
             communityTrust = 40;
             isTrustAuditPenaltyActive = false;
             boomTimer = 0f;
+            stormSurgeTimer = 0f;
+            stormWarned = false;
             nextEmergencyTriageTime = 0f;
 
             cumulativeEarnings = targetCumulativeRupiah;

@@ -294,6 +294,7 @@ namespace KaliRiverSweeper.Editor
                 Assert(!gm.BuyTool(20), "BuyTool blocks purchase when rupiah is insufficient");
                 Assert(gm.rupiah == 2000 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Buying tool spends rupiah only");
 
+
                 Assert(gm.SelectTool(1) && gm.equippedToolIndex == 1, "SelectTool #01");
                 Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 1, "SelectTool rejects unowned tool #20");
                 gm.CycleTool(-1);
@@ -303,6 +304,45 @@ namespace KaliRiverSweeper.Editor
 
                 InvokeNonPublic(gm, "AddEarnings", 28000);
                 Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
+            }
+
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                InvokeNonPublic(gm, "AddEarnings", 30000);
+                gm.BuyTool(6);
+                // Task 4L: locked tools cannot be bought; trade-in credits half of the best owned lower tool
+                gm.rupiah = 500000;
+                Assert(!gm.BuyTool(7), "BuyTool blocks tools not yet unlocked by cumulative earnings");
+                Assert(gm.GetToolPrice(7) == 38000 - 14000, "Trade-in: #07 costs 38k minus half of owned #06 (28k)");
+                InvokeNonPublic(gm, "AddEarnings", 8000);
+                int before = gm.rupiah;
+                Assert(gm.BuyTool(7) && before - gm.rupiah == 24000, "BuyTool #07 charges the trade-in price");
+
+                // Task 4L: Trash Boom pays rupiah only (no milestone progress) and drains piled trash
+                int cumBefore = gm.cumulativeEarnings;
+                int piledBefore = gm.piledRiverTrashCount;
+                gm.trashBoomActive = true;
+                before = gm.rupiah;
+                InvokeNonPublic(gm, "Tick", RiverGameManager.BoomIntervalSeconds + 0.01f);
+                Assert(gm.rupiah - before == RiverGameManager.BoomPayoutRupiah && gm.cumulativeEarnings == cumBefore, "Trash Boom payout is rupiah-only");
+                Assert(gm.piledRiverTrashCount == Mathf.Max(0, piledBefore - 1), "Trash Boom drains one piled unit per cycle");
+            }
+
+            // Task 4L: monsoon surge adds upstream piled trash during the storm and escalates
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining - 0.01f;
+                int piled0 = gm.piledRiverTrashCount;
+                for (int i = 0; i < 90; i++) InvokeNonPublic(gm, "Tick", 0.1f); // early storm: 9s
+                int earlyAdded = gm.piledRiverTrashCount - piled0;
+                Assert(gm.isMonsoonStorm && earlyAdded == 1, "Early storm surge adds ~1 unit per 8s (got " + earlyAdded + ")");
+                gm.monsoonCountdownRemaining = 10f;
+                int piled1 = gm.piledRiverTrashCount;
+                for (int i = 0; i < 90; i++) InvokeNonPublic(gm, "Tick", 0.1f); // late storm: 9s
+                int lateAdded = gm.piledRiverTrashCount - piled1;
+                Assert(lateAdded >= 2, "Late storm surge escalates (got " + lateAdded + " in 9s)");
             }
 
             // Shop / economy API
