@@ -91,9 +91,10 @@ Cumulative **Rupiah (`cumulativeEarnings`)** unlocks purchase availability (`IsT
    - Dumping everything in one go at **`Gudang Pengepul`** (near Spawn) pays cheaper rates (`2k/3k/4.5k`) with **no fine**, but inflicts severe Community Trust / SDG penalties if hazardous cargo is mixed in.
 2. **Choice B — Personal Vessel vs. Upstream `Kampung Bins` (`30,000 IDR`)**:
    - Skipping prevention keeps upstream shedding relentless; buying `Kampung Bins` cuts upstream shedding ~60% (spawn interval x2.5) and the `Trash Boom` slows downstream drift along `Trash Boom Timur` and pays passive Rp 2.500 / 4 s.
-3. **Choice C — Monsoon `Sell-Lock` Crisis & 5 Endings**:
-   - **`TrueSdgVictory`**: Reach **`0% Gunung Sampah`** (`CompleteCleanBreach()` or survive countdown with `gunungSampahHealth <= 0.01f`) without fatal flood or `0 HP` death.
-   - **`PartialSurvival`**: Survive the 5-minute Monsoon Countdown with `Gunung Sampah` still intact (`> 0.01f`).
+3. **Choice C — Repeating Monsoon Storms & Endings**:
+   - **Storms repeat forever**: first storm at 180 s of play, 45 s long, then every 180 s start to start. 30 s warning alert before each storm; alerts on start and end. Each storm raises the river (rain ramps 0 → 0.55 m, then drains in ~20 s) with the upstream surge. `monsoonCountdownRemaining` (HUD `MONSUN` timer) = seconds to the next storm while calm, seconds left during a storm. Survived storms are counted in `stormsSurvived`.
+   - **`TrueSdgVictory`**: Reach **`0% Gunung Sampah`** (dredging brings `gunungSampahHealth <= 0.01f`, which calls `CompleteCleanBreach()`), at any time, including during a storm, without fatal flood or `0 HP` death.
+   - **`PartialSurvival`**: Unreachable since the rework. Storms never end the run, so this enum value is kept only for UI code.
    - **`CompromisedOceanFlush`**: Panic-open the floodgate (`TriggerEmergencyFlush(confirmed: true)` during Sell-Lock). Saves Kampung from flooding, but flags **SDG 14.1 Failed**.
    - **`FloodFail`**: `waterLevelY >= 2.45m` (`+1.05m` over bank top) floods Kampung Hulu fatally.
    - **`HealthFail`**: `playerHealth <= 0` from repeated `Medical` needle pricks, untreated `Biohazard` Cargo DoT, or **drowning** after exhausting `swimStamina`.

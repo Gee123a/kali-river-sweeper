@@ -8,7 +8,7 @@ namespace KaliRiverSweeper.Core
     /// <summary>
     /// Procedural 12-minute day/night controller driving KALI/Sky globals, directional sun/moon lighting,
     /// trilight ambient, exponential fog, SG_KaliWater sun glint, and URP post-processing overrides.
-    /// Independent of the 300s Monsoon run timer (RestartRun does not reset the time-of-day clock).
+    /// Independent of the monsoon storm cycle (RestartRun does not reset the time-of-day clock).
     /// </summary>
     [ExecuteAlways]
     public class KaliDayNightCycle : MonoBehaviour
@@ -49,7 +49,7 @@ namespace KaliRiverSweeper.Core
             public float hour;
         }
 
-        [Header("Clock (Independent of 300s Run)")]
+        [Header("Clock (Independent of Storm Cycle)")]
         [Min(1f)] public float dayLengthSeconds = 720f;
         [Range(0f, 24f)] public float startHour = 17.4f;
         [Range(0f, 24f)] public float currentHour = 17.4f;

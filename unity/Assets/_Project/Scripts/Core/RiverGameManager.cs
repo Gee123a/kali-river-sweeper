@@ -28,7 +28,7 @@ namespace KaliRiverSweeper.Core
         CompromisedOceanFlush,
         TrueSdgVictory,
         HealthFail,
-        PartialSurvival
+        PartialSurvival // unreachable since the monsoon rework (storms repeat, nothing ends on a timer); kept for UI code
     }
 
     public readonly struct StationAuditReceipt
@@ -121,7 +121,7 @@ namespace KaliRiverSweeper.Core
         public const float WaterRisePerPiledUnit = 0.022f;
         public const float WaterRisePerFloatingUnit = 0.004f;
         public const float MaxRainRiseY = 0.55f;
-        public const float RainDecayPerSecond = 0.05f;
+        public const float RainDecayPerSecond = 0.0275f; // 0.55 m drains to 0 in ~20 s after a storm
         public float rainRiseY;
         public float bankOverflowWaterY = 1.40f;
         public float sellLockWaterY = 1.85f;
@@ -135,10 +135,12 @@ namespace KaliRiverSweeper.Core
         [Range(0, 100)] public int communityTrust = 40;
         public bool isMonsoonStorm;
 
-        [Header("Monsoon Countdown")]
-        public float monsoonCountdownSeconds = 300f;
-        public float monsoonStormTriggerRemaining = 120f;
-        public float monsoonCountdownRemaining = 300f;
+        [Header("Monsoon Storms (repeat forever)")]
+        public float monsoonFirstStormDelay = 180f; // play seconds before the first storm starts
+        public float monsoonStormDuration = 45f;
+        public float monsoonStormPeriod = 180f;     // start to start (calm gap = period - duration)
+        public int stormsSurvived;
+        public float monsoonCountdownRemaining = 180f; // calm: seconds to next storm; storm: seconds left in storm
 
         [Header("Unlocks, Vessels & Choices")]
         public bool galahUnlocked;
@@ -201,7 +203,7 @@ namespace KaliRiverSweeper.Core
             "Badai datang! Bersihkan tumpukan di Pintu Air agar air turun"
         };
         // ponytail: one static filler between "tool bought" and the storm, until Pak RT quests take over.
-        public const string ObjectiveBeforeStorm = "Terus bersihkan sungai — jaga air tetap rendah sebelum badai";
+        public const string ObjectiveBeforeStorm = "Terus bersihkan sungai — jaga air tetap rendah sebelum badai berikutnya";
         public const float HazardObjectiveTimeoutSeconds = 90f;
         public string CurrentObjective { get; private set; } = ObjectiveSteps[0];
         private bool objPickup, objDeposit, objHazard, objTool;
@@ -234,7 +236,7 @@ namespace KaliRiverSweeper.Core
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
-            monsoonCountdownRemaining = monsoonCountdownSeconds;
+            monsoonCountdownRemaining = monsoonFirstStormDelay;
             RecalculateWaterMetrics();
             Shader.SetGlobalFloat(WaterClarityId, waterClarity);
             CaptureSeedPiles();
@@ -294,62 +296,41 @@ namespace KaliRiverSweeper.Core
         {
             if (State != KaliGameState.Playing || activeEnding != GameEnding.None) return;
 
-            // 1. Monsoon countdown & automatic storm trigger
-            if (monsoonCountdownRemaining > 0f)
+            // 1. Monsoon storms repeat forever; they never end the run (only flood, health, dredge or flush do).
+            // monsoonCountdownRemaining = seconds to the next storm while calm, seconds left while a storm runs.
+            monsoonCountdownRemaining = Mathf.Max(0f, monsoonCountdownRemaining - dt);
+            if (!stormWarned && !isMonsoonStorm && monsoonCountdownRemaining <= StormWarningLeadSeconds)
             {
-                monsoonCountdownRemaining = Mathf.Max(0f, monsoonCountdownRemaining - dt);
-                if (!stormWarned && !isMonsoonStorm && monsoonCountdownRemaining <= monsoonStormTriggerRemaining + StormWarningLeadSeconds)
+                stormWarned = true;
+                RaiseAlert("Awan monsun mendekat! Badai dalam 30 detik — turunkan level air sekarang.", true);
+            }
+            if (!isMonsoonStorm && monsoonCountdownRemaining <= 0f) StartStorm();
+            if (isMonsoonStorm)
+            {
+                // Rain ramps 0 -> MaxRainRiseY over the storm; upstream surge: piled trash arrives faster (8s -> 3s).
+                float progress = Mathf.Clamp01(1f - monsoonCountdownRemaining / monsoonStormDuration);
+                rainRiseY = MaxRainRiseY * progress;
+                RecalculateWaterMetrics();
+                stormSurgeTimer += dt;
+                if (stormSurgeTimer >= Mathf.Lerp(StormSurgeStartInterval, StormSurgeEndInterval, progress))
                 {
-                    stormWarned = true;
-                    RaiseAlert("Awan monsun mendekat! Badai dalam 30 detik — turunkan level air sekarang.", true);
-                }
-                if (monsoonCountdownRemaining <= monsoonStormTriggerRemaining && !isMonsoonStorm)
-                {
-                    SetWeather(true);
-                }
-                if (isMonsoonStorm)
-                {
-                    // Upstream surge: piled trash arrives faster as the storm goes on (8s -> 3s).
-                    float progress = monsoonStormTriggerRemaining > 0f
-                        ? Mathf.Clamp01(1f - monsoonCountdownRemaining / monsoonStormTriggerRemaining)
-                        : 1f;
-                    rainRiseY = MaxRainRiseY * progress;
-                    RecalculateWaterMetrics();
-                    stormSurgeTimer += dt;
-                    if (stormSurgeTimer >= Mathf.Lerp(StormSurgeStartInterval, StormSurgeEndInterval, progress))
-                    {
-                        stormSurgeTimer = 0f;
-                        piledRiverTrashCount++;
-                        RecalculateWaterMetrics();
-                    }
-                }
-                else if (rainRiseY > 0f)
-                {
-                    rainRiseY = Mathf.Max(0f, rainRiseY - RainDecayPerSecond * dt);
+                    stormSurgeTimer = 0f;
+                    piledRiverTrashCount++;
                     RecalculateWaterMetrics();
                 }
-                MarkStateDirty();
+                if (monsoonCountdownRemaining <= 0f) EndStorm();
+            }
+            else if (rainRiseY > 0f)
+            {
+                rainRiseY = Mathf.Max(0f, rainRiseY - RainDecayPerSecond * dt);
+                RecalculateWaterMetrics();
+            }
+            MarkStateDirty();
 
-                if (objDeposit && !objHazard)
-                {
-                    objHazardTimer += dt;
-                    if (objHazardTimer >= HazardObjectiveTimeoutSeconds) { objHazard = true; RefreshObjective(); }
-                }
-
-                if (monsoonCountdownRemaining <= 0f)
-                {
-                    if (gunungSampahHealth <= 0.01f)
-                    {
-                        RaiseAlert("Badai Monsun berhasil dilewati & Gunung Sampah bersih! Sungai & desa selamat.", false);
-                        CompleteCleanBreach();
-                    }
-                    else
-                    {
-                        RaiseAlert("Badai Monsun terlewati, tetapi Gunung Sampah masih tersisa! Keruk Gunung untuk Kemenangan SDG Penuh.", false);
-                        TriggerEnding(GameEnding.PartialSurvival);
-                    }
-                    return;
-                }
+            if (objDeposit && !objHazard)
+            {
+                objHazardTimer += dt;
+                if (objHazardTimer >= HazardObjectiveTimeoutSeconds) { objHazard = true; RefreshObjective(); }
             }
 
             // 2. Trash Boom passive income & water relief
@@ -1294,6 +1275,22 @@ namespace KaliRiverSweeper.Core
             NotifyState();
         }
 
+        private void StartStorm()
+        {
+            monsoonCountdownRemaining = monsoonStormDuration;
+            SetWeather(true);
+            RaiseAlert("Badai monsun datang! Air naik — bersihkan tumpukan di Pintu Air.", true);
+        }
+
+        private void EndStorm()
+        {
+            stormsSurvived++;
+            stormWarned = false;
+            monsoonCountdownRemaining = monsoonStormPeriod - monsoonStormDuration;
+            SetWeather(false);
+            RaiseAlert("Badai reda - air surut.", false);
+        }
+
         private void RefreshObjective()
         {
             string next = isMonsoonStorm ? ObjectiveSteps[4]
@@ -1480,7 +1477,7 @@ namespace KaliRiverSweeper.Core
             ResetStageState(targetCumulativeRupiah: 0, targetRupiah: 0, targetToolIdx: 1,
                 galah: false, sampan: false, boom: false, bins: false, excavator: false, monsoon: false);
             piledRiverTrashCount = 4;
-            monsoonCountdownRemaining = monsoonCountdownSeconds;
+            monsoonCountdownRemaining = monsoonFirstStormDelay;
             RestoreAllGunungNodes();
             gunungSampahHealth = 1f;
             RecalculateWaterMetrics();
@@ -1600,6 +1597,7 @@ namespace KaliRiverSweeper.Core
             boomTimer = 0f;
             stormSurgeTimer = 0f;
             stormWarned = false;
+            stormsSurvived = 0;
             nextEmergencyTriageTime = 0f;
 
             cumulativeEarnings = targetCumulativeRupiah;

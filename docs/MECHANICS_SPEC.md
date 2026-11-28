@@ -60,7 +60,8 @@ Builds on [PROGRESSION_REDESIGN.md](./PROGRESSION_REDESIGN.md) and [PLAYTEST_PRO
   - 30–40 units seeded at start from the map `trash_pile` clusters (P0)
 - **Water rises from blockage, not from floating trash.** This is the real backwater mechanism:
   - `waterY = base + piledAtBarrier × 0.022 + floating × 0.004 + rainRise`
-  - `rainRise` ramps 0 → +0.55 m over the storm.
+  - `rainRise` ramps 0 → +0.55 m over each storm, then drains to 0 in ~20 s.
+- **Monsoon storms repeat (no timer ending):** first storm at 180 s of play, 45 s long, then every 180 s start to start (180, 360, 540 …). Alerts: 30 s before, on start, and on end (`Badai reda - air surut.`). The upstream surge (8 s → 3 s per piled unit) runs during each storm. Piled trash stays until the player clears it. Only flood, `0 HP`, dredging Gunung to 0% or an emergency flush end a run.
   - Clearing the **barrier pile** (Pintu Air / Trash Boom) is what lowers the river, which makes it a real place to defend.
 - **Thresholds stay:** bank overflow 1.40, Sell-Lock 1.85, fatal 2.45. Retune so an idle player floods at ~200–240 s and an active sweeper peaks at Siaga 2–1 in the storm. Check with `docs/playtest/progression_sim.py` (update its water model).
 

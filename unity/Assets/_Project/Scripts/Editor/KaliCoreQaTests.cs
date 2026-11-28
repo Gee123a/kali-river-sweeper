@@ -111,7 +111,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyNpcFacingTalkRule,
                 VerifyTrashVisualScale,
                 VerifyBakedSceneVillagersAndDirector,
-                VerifyBakedEnvDressingClearance
+                VerifyBakedEnvDressingClearance,
+                VerifyMonsoonStormCycle
             };
 
             assertCount = 0;
@@ -179,15 +180,16 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.activeEnding == GameEnding.FloodFail && firedEnding == GameEnding.FloodFail, "FloodFail triggered at >= 2.45f");
             }
 
-            // Rain: ramps 0 -> 0.55 m across the storm window, decays after.
+            // Rain: ramps 0 -> 0.55 m across the 45 s storm, decays after.
             using (QaContext ctx = new QaContext())
             {
                 RiverGameManager gm = ctx.Manager;
-                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining;
+                gm.SetWeather(true);
+                gm.monsoonCountdownRemaining = gm.monsoonStormDuration;
                 InvokeNonPublic(gm, "Tick", 0.01f);
                 Assert(gm.isMonsoonStorm && gm.rainRiseY < 0.01f, "Rain starts near 0 when the storm begins");
                 float stormStartWater = gm.currentWaterLevelY - gm.rainRiseY;
-                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining * 0.5f;
+                gm.monsoonCountdownRemaining = gm.monsoonStormDuration * 0.5f;
                 gm.piledRiverTrashCount = 4;
                 InvokeNonPublic(gm, "Tick", 0.0001f);
                 AssertApprox(0.275f, gm.rainRiseY, 0.005f, "Rain is half of 0.55 m halfway through the storm");
@@ -386,7 +388,8 @@ namespace KaliRiverSweeper.Editor
             using (QaContext ctx = new QaContext())
             {
                 RiverGameManager gm = ctx.Manager;
-                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining - 0.01f;
+                gm.SetWeather(true);
+                gm.monsoonCountdownRemaining = gm.monsoonStormDuration - 0.01f;
                 int piled0 = gm.piledRiverTrashCount;
                 for (int i = 0; i < 90; i++) InvokeNonPublic(gm, "Tick", 0.1f); // early storm: 9s
                 int earlyAdded = gm.piledRiverTrashCount - piled0;
@@ -508,11 +511,12 @@ namespace KaliRiverSweeper.Editor
                 gm.SetWeather(true);
                 Assert(weatherEvents == 1 && weatherFlag && gm.isMonsoonStorm, "OnWeatherChanged fires on storm toggle");
 
-                GameEnding timerVictory = GameEnding.None;
-                gm.OnEndingTriggered += e => timerVictory = e;
-                gm.monsoonCountdownRemaining = 0.0001f;
+                GameEnding firedEnding = GameEnding.None;
+                gm.OnEndingTriggered += e => firedEnding = e;
+                gm.monsoonCountdownRemaining = 0.0001f; // storm ends on the next tick
                 InvokeNonPublic(gm, "Tick", 0.1f);
-                Assert(gm.activeEnding == GameEnding.PartialSurvival && timerVictory == GameEnding.PartialSurvival, "Monsoon countdown 0 with Gunung intact triggers PartialSurvival");
+                Assert(gm.activeEnding == GameEnding.None && firedEnding == GameEnding.None && !gm.isMonsoonStorm, "Storm end with Gunung intact does not end the run");
+                Assert(weatherEvents == 2 && !weatherFlag && gm.stormsSurvived == 1, "Storm end fires OnWeatherChanged(false) and counts the storm");
             }
         }
 
@@ -1673,10 +1677,9 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.State == KaliGameState.Playing, "TogglePause resumes Playing");
                 AssertApprox(1f, Time.timeScale, 0.0001f, "Resume sets timeScale 1");
 
-                gm.monsoonCountdownRemaining = 0.01f;
-                gm.gunungSampahHealth = 0.5f;
+                gm.AddPiledTrash(200); // flood past fatalFloodWaterY ends the run
                 InvokeNonPublic(gm, "Tick", 1f);
-                Assert(gm.activeEnding == GameEnding.PartialSurvival && gm.State == KaliGameState.Ended, "Ending -> Ended");
+                Assert(gm.activeEnding == GameEnding.FloodFail && gm.State == KaliGameState.Ended, "Ending -> Ended");
                 AssertApprox(0f, Time.timeScale, 0.0001f, "Ended freezes time");
                 gm.TogglePause();
                 Assert(gm.State == KaliGameState.Ended, "Esc does not leave Ended");
@@ -1927,6 +1930,62 @@ namespace KaliRiverSweeper.Editor
                 if (item.wasteClass == WasteClass.Medical) medical++;
             }
             return n;
+        }
+
+        // Monsoon rework: storms start at 180 s, last 45 s, repeat every 180 s start to start. Only flood, health, dredge or flush end a run.
+        private static void VerifyMonsoonStormCycle()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                Assert(!gm.isMonsoonStorm && gm.monsoonCountdownRemaining == 180f, "Calm run starts with the first storm 180 s away");
+                RunSeconds(gm, 150);
+                Assert(!gm.isMonsoonStorm && gm.lastStatusMessage.Contains("30 detik"), "30 s warning alert at 150 s");
+                RunSeconds(gm, 30);
+                Assert(gm.isMonsoonStorm && gm.monsoonCountdownRemaining == 45f, "First storm starts at 180 s");
+                RunSeconds(gm, 45);
+                Assert(!gm.isMonsoonStorm && gm.stormsSurvived == 1 && gm.lastStatusMessage == "Badai reda - air surut.", "First storm ends at 225 s with the end alert");
+                RunSeconds(gm, 25);
+                AssertApprox(0f, gm.rainRiseY, 0.001f, "Rain drained to 0 by ~250 s");
+                RunSeconds(gm, 110);
+                Assert(gm.isMonsoonStorm, "Second storm starts at 360 s (180 s start to start)");
+                RunSeconds(gm, 45);
+                Assert(!gm.isMonsoonStorm && gm.stormsSurvived == 2 && gm.activeEnding == GameEnding.None, "Second storm ends at 405 s and the run continues");
+                Assert(gm.currentWaterLevelY < gm.fatalFloodWaterY, "Idle low-water run survives two storms");
+            }
+
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                RunSeconds(gm, 180);
+                gm.AddPiledTrash(200);
+                RunSeconds(gm, 1);
+                Assert(gm.isMonsoonStorm && gm.activeEnding == GameEnding.FloodFail, "Flood still ends the run during a storm");
+            }
+
+            using (QaContext ctx = new QaContext(isolateSceneGunungNodes: true))
+            {
+                RiverGameManager gm = ctx.Manager;
+                gm.excavatorUnlocked = true;
+                RunSeconds(gm, 180);
+                gm.DamageGunungSampah(1f);
+                Assert(gm.activeEnding == GameEnding.TrueSdgVictory, "Dredging Gunung to 0 during a storm still wins");
+            }
+
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                RunSeconds(gm, 225);
+                gm.RestartRun();
+                Assert(!gm.isMonsoonStorm && gm.stormsSurvived == 0 && gm.monsoonCountdownRemaining == 180f && gm.rainRiseY == 0f, "RestartRun resets storm state");
+                RunSeconds(gm, 180);
+                Assert(gm.isMonsoonStorm, "Storm cycle restarts at 180 s after RestartRun");
+            }
+        }
+
+        private static void RunSeconds(RiverGameManager gm, int seconds)
+        {
+            for (int i = 0; i < seconds; i++) InvokeNonPublic(gm, "Tick", 1f);
         }
 
         private static void InvokeNonPublic(object target, string methodName, params object[] args)

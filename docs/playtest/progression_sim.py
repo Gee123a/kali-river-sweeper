@@ -1,6 +1,7 @@
 """KALI progression playtest simulator.
 
-Replays a 300 s run with the real constants from RiverGameManager / ToolCatalog /
+Replays a run capped at 900 s with repeating monsoon storms (no timer ending) and the real
+constants from RiverGameManager / ToolCatalog /
 RiverTrashSpawner / RiverFlowBuoyancy / kali-river-map.json and a simple player
 agent per archetype. Distances are metres along the river (+Z downstream) plus the
 station's lateral offset. ponytail: 1-D river + lateral offsets, not a navmesh.
@@ -10,10 +11,11 @@ Usage: python3 docs/playtest/progression_sim.py [seeds]
 import random, sys, statistics as st
 
 # ---- constants mirrored from code (keep in sync) ----
-RUN, STORM_AT = 300.0, 120.0           # monsoonCountdownSeconds, monsoonStormTriggerRemaining
+RUN = 900.0                             # sim cap; the game has no timer ending
+FIRST_STORM, STORM_LEN, STORM_PERIOD = 180.0, 45.0, 180.0   # monsoonFirstStormDelay, monsoonStormDuration, monsoonStormPeriod
 BASE_Y, SELL_LOCK, FATAL = -0.25, 1.85, 2.45
-# spec D water: base + piled*0.022 + floating*0.004 + rainRise (0 -> 0.55 m across the storm window)
-PILE_RISE, FLOAT_RISE, RAIN_MAX, RAIN_DECAY = 0.022, 0.004, 0.55, 0.05
+# spec D water: base + piled*0.022 + floating*0.004 + rainRise (0 -> 0.55 m across each storm, drains in ~20 s)
+PILE_RISE, FLOAT_RISE, RAIN_MAX, RAIN_DECAY = 0.022, 0.004, 0.55, 0.0275
 SPAWN_INT, STORM_MULT, BINS_MULT = 4.0, 0.5, 2.5   # 2.0 s floods every archetype by ~195-212 s (cargo 8 can't keep up)
 VISUAL_CAP, MAX_BARRIER_PROPS = 120, 22   # RiverTrashSpawner.maxVisualFloatingTrash, GM.MaxVisualBarrierProps
 UNITS = (2, 4)                            # trashUnits per spawned bundle
@@ -79,9 +81,7 @@ class Run:
 
     # --- world ---
     @property
-    def remaining(s): return RUN - s.t
-    @property
-    def storm(s): return s.remaining <= STORM_AT
+    def storm(s): return s.t >= FIRST_STORM and (s.t - FIRST_STORM) % STORM_PERIOD < STORM_LEN
     @property
     def water(s): return BASE_Y + s.piled * PILE_RISE + sum(i[2] for i in s.items) * FLOAT_RISE + s.rain
     @property
@@ -120,10 +120,11 @@ class Run:
             else: s.items.append([s.r.uniform(-60, -46), s.cls(), u, True])
         # storm surge + rain
         if s.storm:
-            p = min(1, max(0, 1 - s.remaining / STORM_AT))
+            p = (s.t - FIRST_STORM) % STORM_PERIOD / STORM_LEN
             s.rain = RAIN_MAX * p
             s.surge_t += dt
             if s.surge_t >= SURGE0 + (SURGE1 - SURGE0) * p: s.surge_t = 0; s.piled += 1
+        else: s.rain = max(0.0, s.rain - RAIN_DECAY * dt)
         # boom
         if "boom" in s.upg:
             s.boom_t += dt
@@ -274,7 +275,7 @@ class Run:
             if s.hp <= 0: s.end = "HealthFail"
             elif s.water >= FATAL: s.end = "FloodFail"
             elif s.gh <= .01: s.end = "TrueSdgVictory"
-        if s.end is None: s.end = "TrueSdgVictory" if s.gh <= .01 else "PartialSurvival"
+        if s.end is None: s.end = "TimeCap900"
         return s
 
 
@@ -372,5 +373,13 @@ def summarize(arch, seeds):
 
 if __name__ == "__main__":
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 20
-    for a in (Idle(), Newbie(), Lazy(), Sorter(), Defender(), Optimizer()):
-        summarize(a, n)
+    archs = (Idle(), Newbie(), Lazy(), Sorter(), Defender(), Optimizer())
+    results = [(a, summarize(a, n)) for a in archs]
+    print(f"\n== Flood vs victory ({n} seeds, cap {RUN:.0f} s)")
+    print(f"{'archetype':<44}{'flood n':>8}{'flood med':>10}{'victory n':>10}{'victory med':>12}")
+    for a, runs in results:
+        fl = [x.t for x in runs if x.end == "FloodFail"]
+        vi = [x.t for x in runs if x.end == "TrueSdgVictory"]
+        fm = f"{st.median(fl):.0f}s" if fl else "-"
+        vm = f"{st.median(vi):.0f}s" if vi else "-"
+        print(f"{a.name:<44}{len(fl):>8}{fm:>10}{len(vi):>10}{vm:>12}")
