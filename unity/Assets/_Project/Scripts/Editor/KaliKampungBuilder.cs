@@ -920,6 +920,13 @@ namespace KaliRiverSweeper.Editor
             }
         }
 
+        // The 6x6 m "CahayaTanah" ground-glow quads (M_Env_LightPool, EnvNightLamp) are painted light on the
+        // ground, not building. Counting them inflated every house/hub footprint by up to ~3 m after the lamp pass.
+        internal static bool IsGroundLightPool(Renderer r)
+        {
+            return r != null && r.sharedMaterial != null && r.sharedMaterial.name.StartsWith("M_Env_LightPool");
+        }
+
         private static bool TryGetLocalBounds(GameObject root, out Bounds localBounds)
         {
             localBounds = new Bounds();
@@ -929,6 +936,7 @@ namespace KaliRiverSweeper.Editor
             foreach (MeshFilter mf in root.GetComponentsInChildren<MeshFilter>(true))
             {
                 if (mf.sharedMesh == null) continue;
+                if (IsGroundLightPool(mf.GetComponent<Renderer>())) continue;
                 Bounds mb = mf.sharedMesh.bounds;
                 Matrix4x4 m = worldToLocal * mf.transform.localToWorldMatrix;
                 for (int cx = -1; cx <= 1; cx += 2)

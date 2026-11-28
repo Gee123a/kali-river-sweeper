@@ -180,11 +180,18 @@ namespace KaliRiverSweeper.Editor
                 int payoutNormal = gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Normal);
                 Assert(payoutNormal == 8000 && gm.rupiah == 8000 && gm.recycledKg == 10, "BankSampah normal payout");
 
-                // Wrong station: Biohazard at BankSampah (fine Rp 8,000, -12 Trust)
+                // Spec B auto-sort: [E] at Bank Sampah never touches Biohazard and never fines
                 int trustBefore = gm.communityTrust;
-                int fineBio = gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Biohazard);
-                Assert(fineBio == -8000 && gm.rupiah == 0 && gm.totalFinesPaid == 8000, "Wrong station Biohazard fine");
-                Assert(gm.wrongDiscardCount == 1 && gm.communityTrust == trustBefore - 12, "Wrong discard count and trust loss");
+                string preview = gm.GetDepositPreview(DiscardStationType.BankSampah);
+                Assert(preview.Contains("Bank Sampah menerima: Normal") && preview.Contains("Biohazard ×1 → bawa ke Karantina"), "Deposit preview tells truth: " + preview);
+                gm.TryPickupWaste(WasteClass.Normal, 1); // keep trust < 70 so later payouts stay at 1.0x
+                Assert(gm.GetDepositPreview(DiscardStationType.BankSampah).StartsWith("Bank Sampah menerima: Normal ×1 → Rp 4.000"), "Deposit preview shows qty and Rp");
+                int legalOut = gm.DiscardLegalAtStation(DiscardStationType.BankSampah);
+                Assert(legalOut == 4000 && gm.normalCargo == 0 && gm.biohazardCargo == 1, "Deposit takes only Normal, Biohazard stays in cargo");
+                Assert(gm.totalFinesPaid == 0 && gm.wrongDiscardCount == 0 && gm.communityTrust > trustBefore, "Auto-sort deposit has no fine or trust loss");
+                Assert(gm.DiscardLegalAtStation(DiscardStationType.BankSampah) == 0 && gm.biohazardCargo == 1 && gm.totalFinesPaid == 0, "Deposit with nothing accepted is a no-op, no fine");
+                gm.biohazardCargo = 0;
+                InvokeNonPublic(gm, "SyncCargoTotal");
 
                 // Correct Normal at BankSampah (Rp 4,000)
                 gm.trashBoomActive = true;
@@ -213,6 +220,9 @@ namespace KaliRiverSweeper.Editor
                 int pengepulPay = gm.SellAllAtPengepul();
                 Assert(pengepulPay == 9500 && gm.pengepulHazardDumped == 2, "SellAllAtPengepul payout & hazard counter");
                 Assert(gm.communityTrust == trustBeforePengepul - 20 && gm.cargoCount == 0, "SellAllAtPengepul trust penalty & cargo clear");
+                gm.TryPickupWaste(WasteClass.Medical, 1);
+                Assert(gm.GetDepositPreview(DiscardStationType.GudangPengepul).Contains("-8 Trust"), "Pengepul preview warns about hazard trust loss");
+                Assert(gm.DiscardLegalAtStation(DiscardStationType.GudangPengepul) == 3000 && gm.cargoCount == 0, "Pengepul still sells all");
             }
         }
 
@@ -298,9 +308,13 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.SelectTool(1) && gm.equippedToolIndex == 1, "SelectTool #01");
                 Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 1, "SelectTool rejects unowned tool #20");
                 gm.CycleTool(-1);
-                Assert(gm.equippedToolIndex == 6, "CycleTool wraps backwards to highest owned");
+                Assert(gm.equippedToolIndex == 6 && gm.activeSlot == 1, "CycleTool wraps backwards over non-empty hotbar slots");
                 gm.CycleTool(1);
-                Assert(gm.equippedToolIndex == 1, "CycleTool wraps forwards to #01");
+                Assert(gm.equippedToolIndex == 1 && gm.activeSlot == 0, "CycleTool wraps forwards to slot 1 (#01)");
+                int hotbarEvents = 0;
+                gm.OnHotbarChanged += () => hotbarEvents++;
+                Assert(gm.SelectSlot(1) && gm.equippedToolIndex == 6 && hotbarEvents == 1, "SelectSlot(1) equips #06 and fires OnHotbarChanged");
+                Assert(!gm.SelectSlot(2) && !gm.SelectSlot(4) && gm.equippedToolIndex == 6, "SelectSlot rejects empty / out-of-range slots");
 
                 InvokeNonPublic(gm, "AddEarnings", 28000);
                 Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
@@ -311,13 +325,22 @@ namespace KaliRiverSweeper.Editor
                 RiverGameManager gm = ctx.Manager;
                 InvokeNonPublic(gm, "AddEarnings", 30000);
                 gm.BuyTool(6);
-                // Task 4L: locked tools cannot be bought; trade-in credits half of the best owned lower tool
+                // Spec C hotbar: buying fills the first empty slot at full price; when full, a chosen slot is traded in for 50%
                 gm.rupiah = 500000;
                 Assert(!gm.BuyTool(7), "BuyTool blocks tools not yet unlocked by cumulative earnings");
-                Assert(gm.GetToolPrice(7) == 38000 - 14000, "Trade-in: #07 costs 38k minus half of owned #06 (28k)");
-                InvokeNonPublic(gm, "AddEarnings", 8000);
+                Assert(gm.GetToolPrice(7) == 38000, "Empty-slot purchase costs the full catalog price");
+                InvokeNonPublic(gm, "AddEarnings", 30000); // cumulative 60k -> #08 open
                 int before = gm.rupiah;
-                Assert(gm.BuyTool(7) && before - gm.rupiah == 24000, "BuyTool #07 charges the trade-in price");
+                Assert(gm.BuyTool(7) && before - gm.rupiah == 38000 && gm.hotbar[2] == 7 && gm.activeSlot == 2, "BuyTool #07 goes into empty slot 3");
+                Assert(gm.BuyTool(8) && gm.hotbar[3] == 8 && gm.IsHotbarFull, "BuyTool #08 fills slot 4");
+                InvokeNonPublic(gm, "AddEarnings", 10000); // cumulative 70k -> #09 open
+                before = gm.rupiah;
+                Assert(!gm.BuyTool(9) && gm.rupiah == before && !gm.IsToolOwned(9), "Full hotbar: BuyTool without trade-in slot is refused");
+                Assert(gm.GetTradeInCredit(1) == 14000 && gm.GetToolPrice(9, 1) == 64000 - 14000, "Trade-in credit = 50% of #06 (28k)");
+                Assert(gm.BuyTool(9, 1) && before - gm.rupiah == 50000, "Trade-in charges price minus 50% credit");
+                Assert(gm.hotbar[1] == 9 && !gm.IsToolOwned(6) && gm.equippedToolIndex == 9 && gm.activeSlot == 1, "Trade-in removes #06 and equips #09 in its slot");
+                gm.RestartRun();
+                Assert(gm.hotbar[0] == 1 && gm.hotbar[1] == 0 && gm.hotbar[2] == 0 && gm.hotbar[3] == 0 && gm.activeSlot == 0 && gm.equippedToolIndex == 1, "RestartRun resets hotbar to #01 only");
 
                 // Task 4L: Trash Boom pays rupiah only (no milestone progress) and drains piled trash
                 int cumBefore = gm.cumulativeEarnings;
@@ -358,21 +381,22 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.IsToolUnlocked(1) && !gm.IsToolUnlocked(20), "IsToolUnlocked: #01 open, #20 locked at 0 earnings");
 
                 Vector3 kopdesPos = new Vector3(6000f, 6000f, 6000f);
-                GameObject kopdesRoot = shopCtx.Track(new GameObject("Koperasi Desa (Kopdes)"));
-                kopdesRoot.transform.position = kopdesPos;
-                kopdesRoot.AddComponent<BoxCollider>();
+                MakeStation(shopCtx, "Koperasi Desa (Kopdes)", kopdesPos);
 
                 GameObject shopPlayerGo = shopCtx.Track(new GameObject("QA_ShopPlayer"));
-                shopPlayerGo.transform.position = kopdesPos;
                 shopPlayerGo.AddComponent<CharacterController>();
                 KaliPlayerController shopPlayer = shopPlayerGo.AddComponent<KaliPlayerController>();
-                Physics.SyncTransforms();
+                PlaceAtServicePoint(shopPlayerGo, kopdesPos);
 
                 gm.rupiah = 50000;
                 int shopEvents = 0;
+                int shopClosed = 0;
                 shopPlayer.OnShopRequested += () => shopEvents++;
+                shopPlayer.OnShopClosed += () => shopClosed++;
                 InvokeNonPublic(shopPlayer, "TryInteractWithNearbyHub");
-                Assert(shopEvents == 1 && gm.rupiah == 50000, "Kopdes interaction fires OnShopRequested once without spending rupiah");
+                Assert(shopEvents == 1 && shopPlayer.IsShopOpen && gm.rupiah == 50000, "Kopdes [E] at service point opens the shop without spending rupiah");
+                shopPlayer.CloseShop();
+                Assert(!shopPlayer.IsShopOpen && shopClosed == 1, "CloseShop closes and fires OnShopClosed");
             }
         }
 
@@ -518,11 +542,18 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.BuyTool(13), "BuyTool #13 Ganco Ganda Winch");
 
                 Vector3 isolatedPos = new Vector3(5000f, 5000f, 5000f);
-                GameObject hubRoot = ctx.Track(new GameObject("Bank Sampah Berkah"));
-                hubRoot.transform.position = isolatedPos;
+                GameObject hubRoot = MakeStation(ctx, "Bank Sampah Berkah", isolatedPos);
                 GameObject hubChild = ctx.Track(new GameObject("SM_Env_BankSampah_Mesh"));
                 hubChild.transform.SetParent(hubRoot.transform, false);
+                hubChild.transform.localScale = new Vector3(6f, 4f, 6f);
                 hubChild.AddComponent<BoxCollider>();
+                // The old river dock box must never enable selling.
+                GameObject dockBox = ctx.Track(new GameObject("Bank Sampah Berkah_RiverDockTrigger"));
+                dockBox.transform.SetParent(hubRoot.transform, false);
+                dockBox.transform.localPosition = new Vector3(12f, 0f, 0f);
+                BoxCollider dockCol = dockBox.AddComponent<BoxCollider>();
+                dockCol.isTrigger = true;
+                dockCol.size = new Vector3(20f, 4.5f, 8f);
 
                 GameObject playerGo = ctx.Track(new GameObject("QA_Player"));
                 playerGo.transform.position = isolatedPos;
@@ -542,8 +573,27 @@ namespace KaliRiverSweeper.Editor
                 MethodInfo findHub = typeof(KaliPlayerController).GetMethod("TryFindNearestHub", BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(DiscardStationType).MakeByRefType(), typeof(bool).MakeByRefType() }, null);
                 if (findHub == null) throw new InvalidOperationException("Missing KaliPlayerController.TryFindNearestHub");
                 object[] hubArgs = new object[] { DiscardStationType.GudangPengepul, false };
+                Assert(!(bool)findHub.Invoke(player, hubArgs), "Touching the building (outside its service point) does not enable the station");
+                playerGo.transform.position = isolatedPos + new Vector3(14f, 0f, 0f);
+                playerGo.transform.rotation = Quaternion.LookRotation(Vector3.left);
+                Physics.SyncTransforms();
+                Assert(!(bool)findHub.Invoke(player, hubArgs), "Standing in the river dock trigger does not enable selling");
+                PlaceAtServicePoint(playerGo, isolatedPos);
                 bool foundHub = (bool)findHub.Invoke(player, hubArgs);
-                Assert(foundHub && (DiscardStationType)hubArgs[0] == DiscardStationType.BankSampah, "Child collider matches parent Bank Sampah hub");
+                Assert(foundHub && (DiscardStationType)hubArgs[0] == DiscardStationType.BankSampah, "Service point resolves to Bank Sampah");
+                playerGo.transform.rotation = Quaternion.LookRotation(Vector3.right);
+                Assert(!(bool)findHub.Invoke(player, hubArgs), "Facing away from the counter is not valid");
+                PlaceAtServicePoint(playerGo, isolatedPos);
+                player.isSwimming = true;
+                Assert(!(bool)findHub.Invoke(player, hubArgs), "Swimming player cannot use a station");
+                player.isSwimming = false;
+
+                // Pure service-point math (spec A): radius + 0.3 slack, facing dot >= 0.5
+                Vector3 pt = new Vector3(4f, 0f, 0f);
+                Assert(KaliPlayerController.IsAtServicePoint(new Vector3(6.25f, 1f, 0f), Vector3.left, pt, 2f, Vector3.zero, false), "Inside r+0.3 (2.25 m) facing counter is valid");
+                Assert(!KaliPlayerController.IsAtServicePoint(new Vector3(6.4f, 1f, 0f), Vector3.left, pt, 2f, Vector3.zero, false), "Beyond r+0.3 (2.4 m) is invalid");
+                Assert(!KaliPlayerController.IsAtServicePoint(new Vector3(5f, 1f, 0f), new Vector3(0f, 0f, 1f), pt, 2f, Vector3.zero, false), "Facing sideways (dot 0) is invalid");
+                Assert(!KaliPlayerController.IsAtServicePoint(new Vector3(5f, 1f, 0f), Vector3.left, pt, 2f, Vector3.zero, true), "Swimming is invalid");
 
                 // Every hub token in HubRules resolves to its station + shop flag (hubs spaced 50m apart so each is the only one in range)
                 (string name, DiscardStationType station, bool isKopdes)[] allHubs =
@@ -557,19 +607,15 @@ namespace KaliRiverSweeper.Editor
                 for (int h = 0; h < allHubs.Length; h++)
                 {
                     Vector3 hubPos = isolatedPos + new Vector3(0f, 0f, 50f * (h + 1)); // along Z so the +X hub-exit check below stays empty
-                    GameObject extraHub = ctx.Track(new GameObject(allHubs[h].name));
-                    extraHub.transform.position = hubPos;
-                    extraHub.AddComponent<BoxCollider>();
-                    playerGo.transform.position = hubPos;
-                    Physics.SyncTransforms();
+                    MakeStation(ctx, allHubs[h].name, hubPos);
+                    PlaceAtServicePoint(playerGo, hubPos);
 
                     object[] extraArgs = new object[] { DiscardStationType.GudangPengepul, false };
                     bool foundExtra = (bool)findHub.Invoke(player, extraArgs);
                     Assert(foundExtra && (DiscardStationType)extraArgs[0] == allHubs[h].station && (bool)extraArgs[1] == allHubs[h].isKopdes,
                         $"Hub '{allHubs[h].name}' resolves to {allHubs[h].station} (kopdes={allHubs[h].isKopdes})");
                 }
-                playerGo.transform.position = isolatedPos;
-                Physics.SyncTransforms();
+                PlaceAtServicePoint(playerGo, isolatedPos);
 
                 int hubEvents = 0;
                 bool lastNear = false;
@@ -1341,6 +1387,29 @@ namespace KaliRiverSweeper.Editor
             {
                 cycleInstProp?.SetValue(null, prevCycle);
             }
+        }
+
+        // Station root at pos with its <name>_ServicePoint (r = 2 m trigger) 4 m out on +X, like MapJsonImporter.
+        private static GameObject MakeStation(QaContext ctx, string name, Vector3 pos)
+        {
+            GameObject root = ctx.Track(new GameObject(name));
+            root.transform.position = pos;
+            GameObject sp = new GameObject(name + KaliPlayerController.ServicePointSuffix);
+            sp.transform.SetParent(root.transform, false);
+            sp.transform.localPosition = new Vector3(4f, 0f, 0f);
+            SphereCollider sc = sp.AddComponent<SphereCollider>();
+            sc.isTrigger = true;
+            sc.radius = 2f;
+            Physics.SyncTransforms();
+            return root;
+        }
+
+        // Stands the player just inside the service point, facing the station counter (-X).
+        private static void PlaceAtServicePoint(GameObject playerGo, Vector3 stationPos)
+        {
+            playerGo.transform.position = stationPos + new Vector3(5f, 1f, 0f);
+            playerGo.transform.rotation = Quaternion.LookRotation(Vector3.left);
+            Physics.SyncTransforms();
         }
 
         private static void InvokeNonPublic(object target, string methodName, params object[] args)

@@ -157,6 +157,7 @@ namespace KaliRiverSweeper.Core
         // Extended events for 20-tool milestones & hazard/station feedback
         public event Action<ToolDefinition> OnToolUnlocked;
         public event Action<ToolDefinition> OnEquippedToolChanged;
+        public event Action OnHotbarChanged;
         public event Action<string, bool> OnHazardOrAlert;
         public event Action<StationAuditReceipt> OnStationAuditReceipt;
         public event Action<GameEnding, string> OnEndingWithDiagnosisTriggered;
@@ -177,7 +178,10 @@ namespace KaliRiverSweeper.Core
         private bool lowSwimStaminaWarned;
         private float drowningAlertCooldown;
         private bool lastDamageWasDrowning;
-        private readonly bool[] ownedTools = new bool[21];
+        // Hotbar: 4 carried tools (tool index per slot, 0 = empty). equippedToolIndex follows activeSlot.
+        public const int HotbarSize = 4;
+        public readonly int[] hotbar = { 1, 0, 0, 0 };
+        public int activeSlot;
         private const float NotifyIntervalSeconds = 0.10f; // ~10 Hz throttle for Update ticks
         private const int MaxVisualBarrierProps = 22;
 
@@ -186,7 +190,6 @@ namespace KaliRiverSweeper.Core
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             if (Application.isPlaying) Time.timeScale = 1f;
-            ownedTools[1] = true;
             monsoonCountdownRemaining = monsoonCountdownSeconds;
             RecalculateWaterMetrics();
             Shader.SetGlobalFloat(WaterClarityId, waterClarity);
@@ -558,21 +561,68 @@ namespace KaliRiverSweeper.Core
 
         private string BuildWrongStationHint(DiscardStationType station)
         {
-            if (cargoCount <= 0) return $"Kargo kosong. Serok sampah di sungai dulu untuk setor ke {station}.";
+            if (cargoCount <= 0) return $"Kargo kosong. Serok sampah di sungai dulu untuk setor ke {StationName(station)}.";
+            return GetDepositPreview(station).Replace("\n", " | ");
+        }
 
-            string held = string.Empty;
-            if (normalCargo > 0) held += $"{normalCargo} Normal -> Bank Sampah [1]  ";
-            if (medicalCargo > 0) held += $"{medicalCargo} Medis -> Pos Medis B3 [2]  ";
-            if (biohazardCargo > 0) held += $"{biohazardCargo} Biohazard -> Karantina [3]";
+        public static string StationName(DiscardStationType station) => station switch
+        {
+            DiscardStationType.BankSampah => "Bank Sampah",
+            DiscardStationType.PosMedisB3 => "Pos Medis",
+            DiscardStationType.KarantinaBiohazard => "Karantina",
+            _ => "Gudang Pengepul"
+        };
 
-            string accepts = station switch
+        private static string ClassName(WasteClass wc) => wc switch
+        {
+            WasteClass.Medical => "Medis",
+            WasteClass.Biohazard => "Biohazard",
+            _ => "Normal"
+        };
+
+        private static int StationRate(WasteClass wc) => wc switch
+        {
+            WasteClass.Medical => 9000,
+            WasteClass.Biohazard => 14000,
+            _ => 4000
+        };
+
+        private static string Rp(int amount) => "Rp " + amount.ToString("#,0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', '.');
+
+        /// <summary>
+        /// Truthful [E] prompt: what this station takes from current cargo and for how much (line 1),
+        /// and what has to go elsewhere (line 2, may be empty).
+        /// </summary>
+        public string GetDepositPreview(DiscardStationType station)
+        {
+            if (station == DiscardStationType.GudangPengepul)
             {
-                DiscardStationType.BankSampah => "Bank Sampah hanya terima NORMAL [1]",
-                DiscardStationType.PosMedisB3 => "Pos Medis B3 hanya terima MEDIS [2]",
-                DiscardStationType.KarantinaBiohazard => "Karantina hanya terima BIOHAZARD [3]",
-                _ => station.ToString()
-            };
-            return $"{accepts}! Kargo kamu: {held.Trim()} (salah tekan 1/2/3 = DENDA!)";
+                if (cargoCount <= 0) return "Gudang Pengepul borong semua kelas (harga murah). Kargo kosong.";
+                int pay = normalCargo * 2000 + medicalCargo * 3000 + biohazardCargo * 4500;
+                int trustLoss = medicalCargo * 8 + biohazardCargo * 12;
+                string line1 = $"Gudang Pengepul borong semua ×{cargoCount} → {Rp(pay)} (murah)";
+                return trustLoss > 0 ? line1 + $"\nMedis/Biohazard ikut dijual: -{trustLoss} Trust" : line1;
+            }
+
+            WasteClass legal = GetLegalWasteClassForStation(station);
+            int qty = GetCargoForClass(legal);
+            UpdateTrustAuditState();
+            float trustMult = communityTrust >= 70 ? 1.15f : (isTrustAuditPenaltyActive ? 0.75f : 1.0f);
+            string head = $"{StationName(station)} menerima: {ClassName(legal)}";
+            string first = qty > 0
+                ? $"{head} ×{qty} → {Rp(Mathf.RoundToInt(qty * StationRate(legal) * trustMult))}"
+                : $"{head} ({Rp(StationRate(legal))}/item) — tidak ada di kargo";
+
+            string rest = string.Empty;
+            foreach (WasteClass wc in new[] { WasteClass.Normal, WasteClass.Medical, WasteClass.Biohazard })
+            {
+                int q = GetCargoForClass(wc);
+                if (wc == legal || q <= 0) continue;
+                DiscardStationType target = wc == WasteClass.Medical ? DiscardStationType.PosMedisB3
+                    : wc == WasteClass.Biohazard ? DiscardStationType.KarantinaBiohazard : DiscardStationType.BankSampah;
+                rest += (rest.Length > 0 ? " · " : string.Empty) + $"{ClassName(wc)} ×{q} → bawa ke {StationName(target)}";
+            }
+            return rest.Length > 0 ? first + "\n" + rest : first;
         }
 
         /// <summary>
@@ -611,14 +661,7 @@ namespace KaliRiverSweeper.Core
 
             if (isMatch)
             {
-                int rate = wasteClass switch
-                {
-                    WasteClass.Normal => 4000,
-                    WasteClass.Medical => 9000,
-                    WasteClass.Biohazard => 14000,
-                    _ => 4000
-                };
-                int basePayout = qty * rate;
+                int basePayout = qty * StationRate(wasteClass);
                 UpdateTrustAuditState();
                 float trustMult = communityTrust >= 70 ? 1.15f : (isTrustAuditPenaltyActive ? 0.75f : 1.0f);
                 int grossPayout = Mathf.RoundToInt(basePayout * trustMult);
@@ -836,23 +879,44 @@ namespace KaliRiverSweeper.Core
 
         public bool IsToolUnlocked(int index) => index >= 1 && index <= highestUnlockedToolIndex;
 
-        public bool IsToolOwned(int index) => index >= 1 && index <= 20 && (index == 1 || ownedTools[index]);
+        public bool IsToolOwned(int index) => FindHotbarSlot(index) >= 0;
 
-        // Trade-in: half the price of the best owned tool below the target is credited,
-        // so climbing tier by tier costs about the same as saving up to jump (no reason to skip).
-        public const float ToolTradeInCredit = 0.5f;
-
-        public int GetToolPrice(int toolIndex)
+        public int FindHotbarSlot(int toolIndex)
         {
-            int best = 0;
-            for (int i = toolIndex - 1; i >= 2; i--)
-            {
-                if (ownedTools[i]) { best = ToolCatalog.GetTool(i).UnlockRupiah; break; }
-            }
-            return Mathf.Max(0, ToolCatalog.GetTool(toolIndex).UnlockRupiah - Mathf.RoundToInt(best * ToolTradeInCredit));
+            if (toolIndex < 1) return -1;
+            for (int i = 0; i < HotbarSize; i++) if (hotbar[i] == toolIndex) return i;
+            return -1;
         }
 
-        public bool BuyTool(int toolIndex)
+        public int FirstEmptySlot()
+        {
+            for (int i = 0; i < HotbarSize; i++) if (hotbar[i] == 0) return i;
+            return -1;
+        }
+
+        public bool IsHotbarFull => FirstEmptySlot() < 0;
+
+        // Task 4L trade-in made literal: the tool handed back from tradeInSlot credits half its catalog price.
+        public const float ToolTradeInCredit = 0.5f;
+
+        public int GetTradeInCredit(int tradeInSlot)
+        {
+            if (tradeInSlot < 0 || tradeInSlot >= HotbarSize || hotbar[tradeInSlot] == 0) return 0;
+            return GetCreditFor(hotbar[tradeInSlot]);
+        }
+
+        public int GetToolPrice(int toolIndex) => GetToolPrice(toolIndex, -1);
+
+        // Net cost after trade-in; negative means the credit exceeds the price and the rest is paid back.
+        public int GetToolPrice(int toolIndex, int tradeInSlot)
+        {
+            return ToolCatalog.GetTool(toolIndex).UnlockRupiah - GetTradeInCredit(tradeInSlot);
+        }
+
+        public bool BuyTool(int toolIndex) => BuyTool(toolIndex, -1);
+
+        /// <summary>Buys into the first empty slot, or (tradeInSlot 0-3) replaces that slot's tool for a 50% credit.</summary>
+        public bool BuyTool(int toolIndex, int tradeInSlot)
         {
             if (toolIndex < 1 || toolIndex > 20 || IsToolOwned(toolIndex)) return false;
 
@@ -862,24 +926,38 @@ namespace KaliRiverSweeper.Core
                 RaiseAlert($"#{tool.Index:00} {tool.DisplayName} belum terbuka — kumpulkan Rp {tool.UnlockRupiah - cumulativeEarnings:N0} lagi dari sungai.", true);
                 return false;
             }
-            int cost = GetToolPrice(toolIndex);
+
+            int slot = tradeInSlot >= 0 && tradeInSlot < HotbarSize ? tradeInSlot : FirstEmptySlot();
+            if (slot < 0)
+            {
+                RaiseAlert("Hotbar penuh (4 alat). Pilih alat yang ditukar (kredit 50%).", true);
+                return false;
+            }
+
+            int cost = GetToolPrice(toolIndex, slot);
             if (rupiah < cost)
             {
                 RaiseAlert($"Rupiah kurang untuk #{tool.Index:00} {tool.DisplayName}: butuh Rp {cost:N0} (punya Rp {rupiah:N0}).", true);
                 return false;
             }
 
+            int oldTool = hotbar[slot];
             rupiah -= cost;
-            ownedTools[toolIndex] = true;
+            hotbar[slot] = toolIndex;
             if (toolIndex > highestUnlockedToolIndex) highestUnlockedToolIndex = toolIndex;
             if (toolIndex >= 6) galahUnlocked = true;
 
+            activeSlot = slot;
             equippedToolIndex = toolIndex;
+            OnHotbarChanged?.Invoke();
             OnEquippedToolChanged?.Invoke(EquippedTool);
-            RaiseAlert($"Alat #{tool.Index:00} {tool.DisplayName} dibeli & dipakai!", false);
+            string tradeNote = oldTool > 0 ? $" (tukar #{oldTool:00}, kredit Rp {GetCreditFor(oldTool):N0})" : string.Empty;
+            RaiseAlert($"Alat #{tool.Index:00} {tool.DisplayName} dibeli & dipakai di slot {slot + 1}!{tradeNote}", false);
             NotifyState();
             return true;
         }
+
+        private static int GetCreditFor(int toolIndex) => Mathf.RoundToInt(ToolCatalog.GetTool(toolIndex).UnlockRupiah * ToolTradeInCredit);
 
         public bool IsUpgradeOwned(UpgradeTier tier) => tier switch
         {
@@ -921,27 +999,33 @@ namespace KaliRiverSweeper.Core
 
         public bool SelectTool(int toolIndex)
         {
-            int clamped = Mathf.Clamp(toolIndex, 1, 20);
-            if (!IsToolOwned(clamped)) return false;
-            if (clamped == equippedToolIndex) return false;
-            equippedToolIndex = clamped;
+            int slot = FindHotbarSlot(toolIndex);
+            return slot >= 0 && SelectSlot(slot);
+        }
+
+        public bool SelectSlot(int slot)
+        {
+            if (slot < 0 || slot >= HotbarSize || hotbar[slot] == 0) return false;
+            if (slot == activeSlot && hotbar[slot] == equippedToolIndex) return false;
+            activeSlot = slot;
+            equippedToolIndex = hotbar[slot];
+            OnHotbarChanged?.Invoke();
             OnEquippedToolChanged?.Invoke(EquippedTool);
             NotifyState();
             return true;
         }
 
+        // Cycles non-empty hotbar slots.
         public void CycleTool(int delta)
         {
             int step = delta >= 0 ? 1 : -1;
-            int idx = equippedToolIndex;
-            for (int i = 0; i < 20; i++)
+            int slot = activeSlot;
+            for (int i = 0; i < HotbarSize; i++)
             {
-                idx += step;
-                if (idx < 1) idx = 20;
-                if (idx > 20) idx = 1;
-                if (IsToolOwned(idx))
+                slot = (slot + step + HotbarSize) % HotbarSize;
+                if (hotbar[slot] != 0)
                 {
-                    SelectTool(idx);
+                    SelectSlot(slot);
                     return;
                 }
             }
@@ -1301,11 +1385,11 @@ namespace KaliRiverSweeper.Core
             cumulativeEarnings = targetCumulativeRupiah;
             rupiah = targetRupiah;
             highestUnlockedToolIndex = ToolCatalog.GetHighestUnlockedIndex(cumulativeEarnings);
-            for (int i = 1; i < ownedTools.Length; i++)
-            {
-                ownedTools[i] = i <= targetToolIdx;
-            }
-            equippedToolIndex = Mathf.Clamp(targetToolIdx, 1, 20);
+            for (int i = 0; i < HotbarSize; i++) hotbar[i] = 0;
+            hotbar[0] = Mathf.Clamp(targetToolIdx, 1, 20);
+            activeSlot = 0;
+            equippedToolIndex = hotbar[0];
+            OnHotbarChanged?.Invoke();
             galahUnlocked = galah;
             sampanUnlocked = sampan;
             trashBoomActive = boom;

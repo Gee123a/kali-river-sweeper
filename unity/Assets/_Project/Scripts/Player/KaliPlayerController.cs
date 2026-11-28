@@ -24,7 +24,7 @@ namespace KaliRiverSweeper.Player
         public float boatRideHeight = 0.80f;
         public float freeCamSpeed = 18f;
         public float mouseSensitivity = 2.2f;
-        public float interactRange = 7.5f;
+        public float interactRange = 7.5f; // legacy field kept for serialized scenes; hubs use *_ServicePoint triggers only
         public float dockInteractRange = 8.5f;
 
         [Header("Tool Socket (Optional)")]
@@ -39,6 +39,7 @@ namespace KaliRiverSweeper.Player
         public event Action<bool, DiscardStationType, bool, string> OnNearbyHubChanged;
         public event Action<bool, bool, string> OnNearbyDermagaChanged;
         public event Action OnShopRequested;
+        public event Action OnShopClosed;
         public event Action<bool> OnBoatStateChanged;
         public event Action<bool> OnSwimStateChanged;
         public event Action<bool> OnFreeCamStateChanged;
@@ -59,6 +60,7 @@ namespace KaliRiverSweeper.Player
             }
         }
 
+        public bool IsShopOpen { get; private set; }
         public bool HasNearbyHub { get; private set; }
         public DiscardStationType NearbyStationType { get; private set; }
         public bool NearbyIsKopdes { get; private set; }
@@ -84,6 +86,8 @@ namespace KaliRiverSweeper.Player
         private bool qHoldWarned;
         private float flushHoldTimer;
         private bool flushHoldWarned;
+        private float pengepulHoldTimer;
+        private bool pengepulHoldDone;
         private bool lastAimHasTarget;
         private WasteClass lastAimClass;
         private bool lastAimInReach;
@@ -108,6 +112,7 @@ namespace KaliRiverSweeper.Player
 
         public void ResetToInitialSpawn()
         {
+            CloseShop();
             isInBoat = false;
             climbOutAssistTimer = 0f;
             SetSwimmingState(RiverGameManager.Instance, false, false, false);
@@ -165,9 +170,17 @@ namespace KaliRiverSweeper.Player
                 toolSocket.localRotation = toolSocketBaseRot * Quaternion.Euler(Mathf.Sin(toolSwingTimer * Mathf.PI) * 32f, 0f, 0f);
             }
 
-            HandleLook();
-            HandleActions();
-            HandleMove();
+            if (IsShopOpen)
+            {
+                // Shop UI owns the mouse; movement, look and scoop are paused. Esc / [E] closes.
+                if (WasKeyPressed(KeyAction.Escape) || WasKeyPressed(KeyAction.E)) CloseShop();
+            }
+            else
+            {
+                HandleLook();
+                HandleActions();
+                HandleMove();
+            }
             if (Time.unscaledTime >= nextHubPollTime)
             {
                 nextHubPollTime = Time.unscaledTime + HubPollInterval;
@@ -385,9 +398,14 @@ namespace KaliRiverSweeper.Player
                 gm?.NotifyInfo($"WAKTU: {cycle.CurrentPhaseName} ({cycle.ClockText})");
             }
 
-            // Tool switching via Mouse Scroll or [ / ]
+            // Hotbar: keys 1-4 select a slot; scroll / [ ] cycle non-empty slots
             if (gm != null)
             {
+                if (WasKeyPressed(KeyAction.Digit1)) gm.SelectSlot(0);
+                else if (WasKeyPressed(KeyAction.Digit2)) gm.SelectSlot(1);
+                else if (WasKeyPressed(KeyAction.Digit3)) gm.SelectSlot(2);
+                else if (WasKeyPressed(KeyAction.Digit4)) gm.SelectSlot(3);
+
                 float scroll = GetScrollDelta();
                 if (scroll > 0.01f || WasKeyPressed(KeyAction.BracketRight))
                 {
@@ -465,20 +483,21 @@ namespace KaliRiverSweeper.Player
                 flushHoldWarned = false;
             }
 
-            // Station Quick-Discard (1/2/3), Kopdes explicit upgrade selection (1-4), & Safe Deposit / Boat Toggle (E)
-            if (gm != null && !isFreeCam)
+            // Gudang Pengepul "jual semua" is deliberate: hold [E] for 1 s at its service point.
+            bool atPengepul = gm != null && !isFreeCam && HasNearbyHub && !NearbyIsKopdes && NearbyStationType == DiscardStationType.GudangPengepul;
+            if (atPengepul && IsKeyHeld(KeyAction.E))
             {
-                bool nearStation = TryFindNearestHub(out DiscardStationType station, out bool isKopdes);
-                if (nearStation && !isKopdes)
+                pengepulHoldTimer += Time.deltaTime;
+                if (!pengepulHoldDone && pengepulHoldTimer >= 1.0f)
                 {
-                    if (WasKeyPressed(KeyAction.Digit1)) gm.DiscardWasteAtStation(station, WasteClass.Normal);
-                    else if (WasKeyPressed(KeyAction.Digit2)) gm.DiscardWasteAtStation(station, WasteClass.Medical);
-                    else if (WasKeyPressed(KeyAction.Digit3)) gm.DiscardWasteAtStation(station, WasteClass.Biohazard);
+                    pengepulHoldDone = true;
+                    gm.SellAllAtPengepul();
                 }
-                else if (nearStation && isKopdes && OnShopRequested == null)
-                {
-                    HandleKopdesKeySelection(gm);
-                }
+            }
+            else
+            {
+                pengepulHoldTimer = 0f;
+                pengepulHoldDone = false;
             }
 
             if (WasKeyPressed(KeyAction.E) && !isFreeCam)
@@ -493,29 +512,6 @@ namespace KaliRiverSweeper.Player
             if (WasLeftMousePressed() && !isFreeCam && !pointerOverUi)
             {
                 TryScoopOrDredge();
-            }
-        }
-
-        private static void HandleKopdesKeySelection(RiverGameManager gm)
-        {
-            if (WasKeyPressed(KeyAction.Digit1))
-            {
-                if (!gm.BuyKampungBins()) gm.NotifyInfo("Tong Sampah Kampung sudah terpasang atau Rupiah belum cukup (Rp 30.000).", true);
-            }
-            else if (WasKeyPressed(KeyAction.Digit2))
-            {
-                if (gm.BuyUpgrade(UpgradeTier.WoodenSampan)) gm.NotifyInfo("Perahu Sampan Kayu dibeli di Kopdes! (Kapasitas 22)");
-                else gm.NotifyInfo("Perahu Sampan Kayu sudah dimiliki atau Rupiah belum cukup (Rp 40.000).", true);
-            }
-            else if (WasKeyPressed(KeyAction.Digit3))
-            {
-                if (gm.BuyUpgrade(UpgradeTier.TrashBoom)) gm.NotifyInfo("Trash Boom aktif! (+Rp 2.500/4s)");
-                else gm.NotifyInfo("Trash Boom sudah aktif atau Rupiah belum cukup (Rp 75.000).", true);
-            }
-            else if (WasKeyPressed(KeyAction.Digit4))
-            {
-                if (gm.BuyUpgrade(UpgradeTier.AmphibiousExcavator)) gm.NotifyInfo("Pindad Amphibious Excavator terbuka! Keruk Gunung Sampah!");
-                else gm.NotifyInfo("Excavator sudah terbuka atau Rupiah belum cukup (Rp 120.000).", true);
             }
         }
 
@@ -563,44 +559,67 @@ namespace KaliRiverSweeper.Player
             return TryFindNearestHub(out stationType, out isKopdes, out _);
         }
 
+        public const string ServicePointSuffix = "_ServicePoint";
+        public const float ServicePointSlack = 0.3f;
+        public const float ServicePointFacingDot = 0.5f;
+
+        /// <summary>
+        /// Spec A: valid only inside the service point (horizontal distance <= radius + 0.3, similar height),
+        /// facing the counter (dot >= 0.5) and not swimming.
+        /// ponytail: "facing" is measured toward the station counter (the point's parent), so standing
+        /// between the point centre and the door still counts.
+        /// </summary>
+        public static bool IsAtServicePoint(Vector3 playerPos, Vector3 playerForward, Vector3 pointPos, float radius, Vector3 counterPos, bool swimming)
+        {
+            if (swimming) return false;
+            Vector3 d = pointPos - playerPos;
+            if (Mathf.Abs(d.y) > 2.5f) return false;
+            d.y = 0f;
+            if (d.magnitude > radius + ServicePointSlack) return false;
+
+            Vector3 toCounter = counterPos - playerPos;
+            toCounter.y = 0f;
+            Vector3 fwd = playerForward;
+            fwd.y = 0f;
+            if (toCounter.sqrMagnitude < 0.0001f || fwd.sqrMagnitude < 0.0001f) return true;
+            return Vector3.Dot(fwd.normalized, toCounter.normalized) >= ServicePointFacingDot;
+        }
+
         private bool TryFindNearestHub(out DiscardStationType stationType, out bool isKopdes, out string hubName)
         {
             stationType = DiscardStationType.BankSampah;
             isKopdes = false;
             hubName = string.Empty;
+            if (isFreeCam || isSwimming) return false;
 
-            Collider[] hits = Physics.OverlapSphere(transform.position, interactRange);
+            Collider[] hits = Physics.OverlapSphere(transform.position, 3.5f, ~0, QueryTriggerInteraction.Collide);
             float bestDistSq = float.MaxValue;
             bool found = false;
 
             foreach (Collider col in hits)
             {
-                if (col == null) continue;
+                if (!(col is SphereCollider sphere) || !col.name.EndsWith(ServicePointSuffix, StringComparison.Ordinal)) continue;
 
-                Transform match = null;
-                DiscardStationType candidateType = DiscardStationType.BankSampah;
-                bool candidateShop = false;
-
+                int rule = -1;
                 for (int i = 0; i < HubRules.Length; i++)
                 {
-                    match = FindHierarchyMatch(col.transform, HubRules[i].token);
-                    if (match != null)
-                    {
-                        candidateType = HubRules[i].station;
-                        candidateShop = HubRules[i].isShop;
-                        break;
-                    }
+                    if (col.name.Contains(HubRules[i].token)) { rule = i; break; }
                 }
+                if (rule < 0) continue;
 
-                if (match == null) continue;
+                Transform t = col.transform;
+                Vector3 center = t.TransformPoint(sphere.center);
+                float radius = sphere.radius * Mathf.Max(Mathf.Abs(t.lossyScale.x), Mathf.Abs(t.lossyScale.z));
+                Vector3 counter = t.parent != null ? t.parent.position : center;
+                if (!IsAtServicePoint(transform.position, transform.forward, center, radius, counter, isSwimming)) continue;
 
-                float dSq = (SafeClosestPoint(col, transform.position) - transform.position).sqrMagnitude;
+                float dSq = (center - transform.position).sqrMagnitude;
                 if (dSq < bestDistSq)
                 {
                     bestDistSq = dSq;
-                    stationType = candidateType;
-                    isKopdes = candidateShop;
-                    hubName = match.name;
+                    stationType = HubRules[rule].station;
+                    isKopdes = HubRules[rule].isShop;
+                    hubName = t.parent != null ? t.parent.name : col.name.Substring(0, col.name.Length - ServicePointSuffix.Length);
                     found = true;
                 }
             }
@@ -620,13 +639,35 @@ namespace KaliRiverSweeper.Player
 
             if (isKopdes)
             {
-                if (OnShopRequested != null) { OnShopRequested.Invoke(); return true; }
-                gm.NotifyInfo("Kopdes: [1] Tong Kampung (30rb) | [2] Sampan (40rb) | [3] Trash Boom (75rb) | [4] Excavator (120rb)");
+                if (OnShopRequested == null)
+                {
+                    gm.NotifyInfo("Toko Kopdes belum terpasang di scene (Canvas_ShopBankSampah).", true);
+                    return true;
+                }
+                IsShopOpen = true;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                OnShopRequested.Invoke();
+                return true;
+            }
+
+            if (station == DiscardStationType.GudangPengepul)
+            {
+                gm.NotifyInfo("Tahan [E] 1 detik untuk jual semua ke Pengepul. " + gm.GetDepositPreview(station).Replace("\n", " | "), gm.medicalCargo + gm.biohazardCargo > 0);
                 return true;
             }
 
             gm.DiscardLegalAtStation(station);
             return true;
+        }
+
+        public void CloseShop()
+        {
+            if (!IsShopOpen) return;
+            IsShopOpen = false;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            OnShopClosed?.Invoke();
         }
 
         private bool TryToggleBoat(RiverGameManager gm)
@@ -1064,7 +1105,7 @@ namespace KaliRiverSweeper.Player
             }
         }
 
-        private enum KeyAction { E, Q, F, R, T, X, Space, Digit1, Digit2, Digit3, Digit4, BracketLeft, BracketRight }
+        private enum KeyAction { E, Q, F, R, T, X, Space, Digit1, Digit2, Digit3, Digit4, BracketLeft, BracketRight, Escape }
 
         private static Vector2 GetMoveAxis()
         {
@@ -1205,6 +1246,7 @@ namespace KaliRiverSweeper.Player
                     KeyAction.Digit4 => Keyboard.current.digit4Key.wasPressedThisFrame,
                     KeyAction.BracketLeft => Keyboard.current.leftBracketKey.wasPressedThisFrame,
                     KeyAction.BracketRight => Keyboard.current.rightBracketKey.wasPressedThisFrame,
+                    KeyAction.Escape => Keyboard.current.escapeKey.wasPressedThisFrame,
                     _ => false
                 };
                 if (hit) return true;
@@ -1226,6 +1268,7 @@ namespace KaliRiverSweeper.Player
                 KeyAction.Digit4 => KeyCode.Alpha4,
                 KeyAction.BracketLeft => KeyCode.LeftBracket,
                 KeyAction.BracketRight => KeyCode.RightBracket,
+                KeyAction.Escape => KeyCode.Escape,
                 _ => KeyCode.None
             };
             if (kc != KeyCode.None && Input.GetKeyDown(kc)) return true;

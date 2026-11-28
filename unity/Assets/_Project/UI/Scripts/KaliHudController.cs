@@ -29,7 +29,6 @@ namespace KaliRiverSweeper.UI
         private static readonly Color SiagaAmber = new Color32(0xC9, 0x7A, 0x0A, 255);
         private static readonly Color SiagaOrange = new Color32(0xEA, 0x58, 0x0C, 255);
         private static readonly Color SiagaRed = new Color32(0xE1, 0x1D, 0x8F, 255);
-        private static readonly string[] KeyBaseLabels = { "[1] Normal", "[2] Medis B3", "[3] Biohazard", "[E] Setor Aman" };
 
         private RiverGameManager manager;
         private KaliPlayerController player;
@@ -280,33 +279,27 @@ namespace KaliRiverSweeper.UI
                 if (isShop)
                 {
                     SetText(dockHeader, "KOPERASI DESA: " + nearbyHubName.ToUpper(Invariant));
-                    SetText(dockAccepted, "Upgrade kapal, tempat sampah kampung & peralatan");
+                    SetText(dockAccepted, "Alat (hotbar 4 slot), tempat sampah kampung & armada");
                 }
                 else
                 {
                     SetText(dockHeader, "STASIUN: " + nearbyHubName.ToUpper(Invariant) + " (" + StationLetter(nearbyStation) + ")");
-                    SetText(dockAccepted, AcceptedLabel(nearbyStation));
+                    // TODO(Niki): restyle Accepts card (icon + price + cargo preview). Grey second line = take elsewhere.
+                    string preview = manager != null ? manager.GetDepositPreview(nearbyStation) : AcceptedLabel(nearbyStation);
+                    SetText(dockAccepted, preview.Replace("\n", "\n<color=#54534E>") + (preview.Contains("\n") ? "</color>" : string.Empty));
                 }
 
+                // [1][2][3] discard keys are gone (spec B): only the [E] slot remains, no DENDA hatch.
                 for (int i = 0; i < 4; i++)
                 {
-                    if (keyBg[i] != null) keyBg[i].gameObject.SetActive(!isShop || i == 3);
-                    if (isShop && i < 3) continue;
-
-                    bool legal = isShop ? (i == 3) : IsLegalKey(nearbyStation, i);
-                    bool neutral = i == 3 || isGudang || isShop;
-                    bool denda = !neutral && !legal;
-
-                    if (keyBg[i] != null) keyBg[i].color = legal ? Zone0 : Color.clear;
-                    if (keyCrossHatch[i] != null) keyCrossHatch[i].SetActive(denda);
-                    if (keyLabel[i] != null)
-                    {
-                        keyLabel[i].color = legal ? Vellum : Ink;
-                        string label = KeyBaseLabels[i];
-                        if (isShop && i == 3) label = "[E] BUKA KOPDES";
-                        else if (i == 3 && isGudang) label = "[E] JUAL SEMUA\n<size=70%>(MURAH \u00B7 TURUN WARGA)</size>";
-                        keyLabel[i].text = denda ? label + "\n<size=70%><color=#F43F5E>DENDA</color></size>" : label;
-                    }
+                    if (keyBg[i] != null) keyBg[i].gameObject.SetActive(i == 3);
+                    if (keyCrossHatch[i] != null) keyCrossHatch[i].SetActive(false);
+                }
+                if (keyBg[3] != null) keyBg[3].color = Zone0;
+                if (keyLabel[3] != null)
+                {
+                    keyLabel[3].color = Vellum;
+                    keyLabel[3].text = isShop ? "[E] BUKA KOPDES" : (isGudang ? "TAHAN [E] JUAL SEMUA" : "[E] SETOR");
                 }
                 return;
             }
@@ -335,18 +328,6 @@ namespace KaliRiverSweeper.UI
             }
 
             SetDockVisible(false);
-        }
-
-        // Key 0 is Normal at Bank Sampah, key 1 is Medis B3 at Pos Medis B3, key 2 is Biohazard at Karantina.
-        private static bool IsLegalKey(DiscardStationType station, int keyIndex)
-        {
-            switch (station)
-            {
-                case DiscardStationType.BankSampah: return keyIndex == 0;
-                case DiscardStationType.PosMedisB3: return keyIndex == 1;
-                case DiscardStationType.KarantinaBiohazard: return keyIndex == 2;
-                default: return false;
-            }
         }
 
         private static string StationLetter(DiscardStationType station)
@@ -431,6 +412,7 @@ namespace KaliRiverSweeper.UI
         private void Refresh()
         {
             if (manager == null) return;
+            if (nearHub) UpdateDockSheet(); // cargo changed: keep the deposit preview truthful
 
             float hpRatio = manager.maxPlayerHealth > 0f ? Mathf.Clamp01(manager.playerHealth / manager.maxPlayerHealth) : 0f;
             int filled = Mathf.RoundToInt(hpRatio * rampCells.Length);

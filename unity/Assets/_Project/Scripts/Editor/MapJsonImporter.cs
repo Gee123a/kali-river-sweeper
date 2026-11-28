@@ -368,7 +368,7 @@ namespace KaliRiverSweeper.Editor
         }
 
         // Replaces the hardcoded hub/Dermaga footprints with the real XZ bounds of the spawned objects.
-        // Zones with no matching renderer keep their spec fallback. Particle renderers are skipped.
+        // Zones with no matching renderer keep their spec fallback. Particle renderers and ground light pools are skipped.
         private static void RefineAvoidZonesToRealFootprints(Transform root, List<KaliKampungBuilder.AvoidanceZone> avoidZones)
         {
             Transform[] all = root.GetComponentsInChildren<Transform>(true);
@@ -390,7 +390,7 @@ namespace KaliRiverSweeper.Editor
                 Bounds b = default;
                 foreach (Renderer r in match.GetComponentsInChildren<Renderer>(true))
                 {
-                    if (r is ParticleSystemRenderer) continue;
+                    if (r is ParticleSystemRenderer || KaliKampungBuilder.IsGroundLightPool(r)) continue;
                     if (!any) { b = r.bounds; any = true; }
                     else b.Encapsulate(r.bounds);
                 }
@@ -833,6 +833,41 @@ namespace KaliRiverSweeper.Editor
             {
                 CreateStationRiverDockTrigger(item, go.transform);
             }
+
+            if (item.type is "bank_sampah" or "pos_medis" or "karantina_biohazard" or "pengepul" or "kopdes")
+            {
+                CreateStationServicePoint(item, go.transform);
+            }
+        }
+
+        /// <summary>
+        /// Spec A: the only place a station can be used. A 2 m trigger sphere on the ground, 2.5 m out from the
+        /// building's river-facing side (the side the footpath runs along), outside the building collider.
+        /// </summary>
+        private static void CreateStationServicePoint(MapItem item, Transform stationTransform)
+        {
+            const float Radius = 2.0f;
+            const float GapFromWall = 2.5f;
+
+            Bounds b = new Bounds(stationTransform.position, Vector3.one * 2f);
+            Renderer[] renderers = stationTransform.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length > 0)
+            {
+                b = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+            }
+
+            float cxWorld = (RiverMath.RiverCenterMapX(item.y) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+            float dirX = cxWorld >= b.center.x ? 1f : -1f;
+            float x = (dirX > 0f ? b.max.x : b.min.x) + dirX * GapFromWall;
+
+            GameObject sp = new GameObject($"{item.name}_ServicePoint");
+            sp.transform.SetParent(stationTransform, worldPositionStays: true);
+            sp.transform.position = new Vector3(x, BankTopY, b.center.z);
+            SphereCollider sc = sp.AddComponent<SphereCollider>();
+            sc.isTrigger = true;
+            Vector3 ls = sp.transform.lossyScale;
+            sc.radius = Radius / Mathf.Max(0.0001f, Mathf.Max(Mathf.Abs(ls.x), Mathf.Abs(ls.z)));
         }
 
         private static void CreateStationRiverDockTrigger(MapItem item, Transform stationTransform)

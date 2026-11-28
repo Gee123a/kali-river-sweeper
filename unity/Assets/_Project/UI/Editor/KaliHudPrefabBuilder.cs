@@ -211,6 +211,19 @@ namespace KaliRiverSweeper.UI.Editor
 
             Text(c, "Footer/TMP_Hint", string.Empty, 15f, InkSecondary, new Vector2(40f, -800f), new Vector2(1160f, 22f), new Vector2(0f, 1f));
 
+            // Trade-in picker over the tool grid, hidden until the hotbar is full and a new tool is clicked.
+            GameObject tradeIn = Panel(c, "TradeIn", new Vector2(0f, 1f), new Vector2(40f, -450f), new Vector2(1160f, 330f), VellumSolid);
+            Text(tradeIn.transform, "TMP_Title", "Hotbar penuh. Tukar alat mana?", 20f, Ink, new Vector2(20f, -18f), new Vector2(1120f, 30f), new Vector2(0f, 1f));
+            for (int s = 0; s < 4; s++)
+            {
+                ButtonPanel(tradeIn.transform, "Btn_Slot_" + s, new Vector2(20f + s * 282f, -70f), new Vector2(268f, 150f), Zone0);
+                ShopLabel(tradeIn.transform.Find("Btn_Slot_" + s), "TMP_Label", "Slot " + (s + 1), 15f, Vellum, new Vector2(12f, -12f), new Vector2(244f, 126f), TextAlignmentOptions.TopLeft);
+                tradeIn.transform.Find("Btn_Slot_" + s + "/TMP_Label").GetComponent<TMP_Text>().enableWordWrapping = true;
+            }
+            ButtonPanel(tradeIn.transform, "Btn_Cancel", new Vector2(20f, -250f), new Vector2(240f, 56f), Track);
+            ShopLabel(tradeIn.transform.Find("Btn_Cancel"), "TMP_Label", "BATAL", 17f, Ink, new Vector2(0f, -14f), new Vector2(240f, 28f), TextAlignmentOptions.Center);
+            tradeIn.SetActive(false);
+
             PrefabUtility.SaveAsPrefabAsset(root, PrefabFolder + "/Canvas_ShopBankSampah.prefab");
             Object.DestroyImmediate(root);
             AssetDatabase.Refresh();

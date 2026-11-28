@@ -25,6 +25,8 @@ namespace KaliRiverSweeper.Player
         private GUIStyle bodyStyle;
         private GUIStyle alertStyle;
         private GUIStyle infoStyle;
+        private GUIStyle activeSlotStyle;
+        private GUIStyle activeSlotTextStyle;
 
         private void OnEnable()
         {
@@ -111,6 +113,9 @@ namespace KaliRiverSweeper.Player
                 GUI.Label(new Rect(stamBox.x + 8f, stamBox.y + 2f, stamBox.width - 16f, 18f), stamText, bodyStyle);
             }
 
+            // 1c. Minimal 4-slot hotbar (bottom-centre, above the dock sheet). Niki restyles later.
+            if (gm != null) DrawHotbar(gm);
+
             // 2. Compact [H] hint pill (bottom-left)
             Rect pillRect = new Rect(18f, Screen.height - 44f, 228f, 28f);
             if (GUI.Button(pillRect, showGuide ? "[H] Tutup Panduan Kontrol" : "[H] Kontrol & Pemilahan", pillStyle))
@@ -122,7 +127,7 @@ namespace KaliRiverSweeper.Player
 
             // 3. Toggleable Controls & Waste-Sorting Guide
             float gw = Mathf.Min(470f, Screen.width - 36f);
-            float gh = 300f;
+            float gh = 320f;
             Rect guideRect = new Rect(18f, Screen.height - gh - 90f, gw, gh);
             GUI.Box(guideRect, GUIContent.none, panelStyle);
 
@@ -135,15 +140,42 @@ namespace KaliRiverSweeper.Player
                 "  Berenang di Sungai  : Menguras stamina (habis = tenggelam! Pulih di darat/perahu)\n" +
                 "  Klik Kanan (Tahan/Klik) : Putar & Kunci Kamera\n" +
                 "  Klik Kiri : Serok Sampah / Keruk Gunung (#13+ / Excavator)\n" +
-                "  Scroll / [ ] : Ganti Alat Terbeli (#01-#20)\n\n" +
-                "STASIUN & PEMILAHAN (SALAH STASIUN = DENDA!):\n" +
-                "  [E] Setor Aman (otomatis jenis yg cocok) / Naik-Turun Perahu di Dermaga / Kopdes\n" +
-                "  [1] Normal -> Bank Sampah [B]   |   [2] Medis -> Pos Medis B3 [M]\n" +
-                "  [3] Biohazard -> Karantina [K]  |   Gudang Pengepul [P]: Beli semua (Penalti Trust!)\n" +
+                "  [1]-[4] : Pilih slot hotbar  |  Scroll / [ ] : Ganti slot\n\n" +
+                "STASIUN (berdiri di depan loket, hadap gedung):\n" +
+                "  [E] Setor: stasiun hanya ambil jenis yg cocok, sisanya tetap di kargo\n" +
+                "  Normal -> Bank Sampah [B] | Medis -> Pos Medis B3 [M] | Biohazard -> Karantina [K]\n" +
+                "  Gudang Pengepul [P]: Tahan [E] 1 dtk jual semua (murah, Penalti Trust!)\n" +
+                "  Kopdes: [E] buka toko alat & armada | Dermaga: [E] naik/turun perahu\n" +
                 "  Tahan [Q] 0.5s : Buang Kargo Darurat  |  Tahan [Shift+X] 1.5s : Flush (Sell-Lock)\n" +
                 "  [R] (Saat Ending) : Ulang Permainan",
                 bodyStyle);
             GUILayout.EndArea();
+        }
+
+        private void DrawHotbar(RiverGameManager gm)
+        {
+            const float boxW = 132f, boxH = 46f, gap = 6f;
+            float totalW = RiverGameManager.HotbarSize * boxW + (RiverGameManager.HotbarSize - 1) * gap;
+            float x0 = (Screen.width - totalW) * 0.5f;
+            float y = Screen.height - Screen.height * (160f / 1080f) - boxH;
+            for (int i = 0; i < RiverGameManager.HotbarSize; i++)
+            {
+                int toolIndex = gm.hotbar[i];
+                bool active = i == gm.activeSlot && toolIndex > 0;
+                Rect r = new Rect(x0 + i * (boxW + gap), y, boxW, boxH);
+                GUI.Box(r, GUIContent.none, active ? activeSlotStyle : panelStyle);
+                string name = "-";
+                string stats = string.Empty;
+                if (toolIndex > 0)
+                {
+                    ToolDefinition tool = ToolCatalog.GetTool(toolIndex);
+                    name = tool.DisplayName.Length > 16 ? tool.DisplayName.Substring(0, 15) + "." : tool.DisplayName;
+                    stats = $"{tool.Reach:0.#}m x{tool.BatchCount} tusuk {Mathf.RoundToInt(tool.MedicalPrickChance * 100f)}%";
+                }
+                GUIStyle txt = active ? activeSlotTextStyle : bodyStyle;
+                GUI.Label(new Rect(r.x + 6f, r.y + 2f, r.width - 10f, 20f), $"{i + 1}  {name}", txt);
+                GUI.Label(new Rect(r.x + 6f, r.y + 22f, r.width - 10f, 20f), stats, txt);
+            }
         }
 
         private void EnsureStyles()
@@ -195,6 +227,11 @@ namespace KaliRiverSweeper.Player
 
             infoStyle = new GUIStyle(alertStyle);
             infoStyle.normal.background = tealTex;
+
+            activeSlotStyle = new GUIStyle(GUI.skin.box);
+            activeSlotStyle.normal.background = MakeTex(new Color(0.067f, 0.071f, 0.067f, 0.95f));
+            activeSlotTextStyle = new GUIStyle(bodyStyle);
+            activeSlotTextStyle.normal.textColor = new Color(0.957f, 0.949f, 0.925f, 1f);
         }
 
         private static Texture2D MakeTex(Color c)
