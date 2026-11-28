@@ -98,7 +98,8 @@ namespace KaliRiverSweeper.Editor
                 VerifyDermagaRiverPortLimits,
                 VerifyTask4dAnd4fUxContracts,
                 VerifySwimmingStaminaAndDrowning,
-                VerifyDayNightCycle
+                VerifyDayNightCycle,
+                VerifyKampungRowsAndMapEdge
             };
 
             assertCount = 0;
@@ -1020,6 +1021,74 @@ namespace KaliRiverSweeper.Editor
             {
                 cycleInstProp?.SetValue(null, prevCycle);
             }
+        }
+
+        private static void VerifyKampungRowsAndMapEdge()
+        {
+            AssertApprox(1040f, RiverMath.WorldW, 0.0001f, "RiverMath.WorldW");
+            AssertApprox(1440f, RiverMath.WorldH, 0.0001f, "RiverMath.WorldH");
+            AssertApprox(0.125f, RiverMath.MapScale, 0.0001f, "RiverMath.MapScale");
+
+            var runA = MapJsonImporter.ExpandDefaultMapKampungRows();
+            var runB = MapJsonImporter.ExpandDefaultMapKampungRows();
+
+            Assert(runA.Count >= 60, $"kampung_row expansion produces >= 60 buildings (got {runA.Count})");
+            Assert(runA.Count == runB.Count, $"kampung_row expansion count is deterministic ({runA.Count} vs {runB.Count})");
+
+            Vector2[] protectedMapPoints = new Vector2[]
+            {
+                new Vector2(195f, 1185f), // Bank Sampah
+                new Vector2(195f, 1085f), // Koperasi Desa
+                new Vector2(285f, 1280f), // Gudang Pengepul
+                new Vector2(220f, 720f),  // Pos Medis B3
+                new Vector2(760f, 475f),  // Karantina Biohazard
+                new Vector2(378f, 1210f), // Dermaga Awal
+                new Vector2(645f, 615f),  // Dermaga Tengah
+                new Vector2(310f, 1210f)  // Spawn
+            };
+            Vector2[] protectedWorldXZ = new Vector2[protectedMapPoints.Length];
+            for (int p = 0; p < protectedMapPoints.Length; p++)
+            {
+                Vector3 wp = RiverMath.ToWorld3D(protectedMapPoints[p].x, protectedMapPoints[p].y, 0f);
+                protectedWorldXZ[p] = new Vector2(wp.x, wp.z);
+            }
+
+            int westCount = 0;
+            int eastCount = 0;
+
+            for (int i = 0; i < runA.Count; i++)
+            {
+                KaliKampungBuilder.ExpandedBuilding a = runA[i];
+                KaliKampungBuilder.ExpandedBuilding b = runB[i];
+
+                Assert(a.rowId == b.rowId, $"Deterministic rowId at index {i}");
+                Assert(a.buildingType == b.buildingType, $"Deterministic buildingType at index {i}");
+                Assert(Vector3.Distance(a.worldPos, b.worldPos) < 0.0001f, $"Deterministic worldPos at index {i}");
+                Assert(Mathf.Abs(a.yawDeg - b.yawDeg) < 0.0001f, $"Deterministic yawDeg at index {i}");
+                Assert(a.hasJetty == b.hasJetty, $"Deterministic hasJetty at index {i}");
+
+                Assert(!RiverMath.IsInRiver(a.worldPos), $"Expanded building {i} ({a.rowId}) must not be inside river");
+
+                if (a.isEastBank) eastCount++;
+                else westCount++;
+
+                float mapY = a.worldPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+                float riverCxWorld = (RiverMath.RiverCenterMapX(mapY) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+                Vector2 toRiver = new Vector2(riverCxWorld - a.worldPos.x, 0f).normalized;
+                float yawRad = a.yawDeg * Mathf.Deg2Rad;
+                Vector2 localPlusX = new Vector2(Mathf.Cos(yawRad), -Mathf.Sin(yawRad));
+                float dot = Vector2.Dot(localPlusX, toRiver);
+                Assert(dot > 0.70f, $"Building {i} ({a.rowId}) must face river (dot={dot:F3})");
+
+                Vector2 posXZ = new Vector2(a.worldPos.x, a.worldPos.z);
+                for (int p = 0; p < protectedWorldXZ.Length; p++)
+                {
+                    float dist = Vector2.Distance(posXZ, protectedWorldXZ[p]);
+                    Assert(dist >= 6.0f, $"Building {i} ({a.rowId}) too close to protected hub/dermaga/spawn #{p} ({dist:F2}m < 6.0m)");
+                }
+            }
+
+            Assert(westCount >= 20 && eastCount >= 20, $"Both banks populated (west={westCount}, east={eastCount})");
         }
 
         private static void InvokeNonPublic(object target, string methodName, params object[] args)
