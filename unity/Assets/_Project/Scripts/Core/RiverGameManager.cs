@@ -509,11 +509,8 @@ namespace KaliRiverSweeper.Core
             int take = Mathf.Min(maxUnits, Mathf.Min(space, piledRiverTrashCount));
             piledRiverTrashCount -= take;
 
-            // Barrier piles are mixed Normal/Medical/Biohazard
-            for (int i = 0; i < take; i++)
-            {
-                ApplyCargoGainAndMedicalCheck(RollWasteClass(UnityEngine.Random.value), 1);
-            }
+            // ponytail: the rake pulls the bulk plastic jam; hazards in the pile need Capit/Ganco, so raked units count as Normal.
+            ApplyCargoGainAndMedicalCheck(WasteClass.Normal, take);
 
             RecalculateWaterMetrics();
             NotifyState();
