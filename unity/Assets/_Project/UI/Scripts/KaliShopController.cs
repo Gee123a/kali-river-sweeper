@@ -50,7 +50,7 @@ namespace KaliRiverSweeper.UI
         {
             UpgradeTier.Galah4m,
             UpgradeTier.WoodenSampan,
-            UpgradeTier.TrashBoomAndPosSortir,
+            UpgradeTier.TrashBoom,
             UpgradeTier.AmphibiousExcavator,
         };
 
@@ -147,11 +147,15 @@ namespace KaliRiverSweeper.UI
             if (player == null) return;
 
             player.OnNearbyHubChanged += HandleNearbyHubChanged;
+            if (player.HasNearbyHub)
+            {
+                HandleNearbyHubChanged(true, player.NearbyStationType, player.NearbyIsKopdes, player.NearbyHubName);
+            }
         }
 
-        private void HandleNearbyHubChanged(bool near, DiscardStationType station, bool isPosSortir, bool isTokoAlat, string hubName)
+        private void HandleNearbyHubChanged(bool near, DiscardStationType station, bool isKopdes, string hubName)
         {
-            SetOpen(near && isTokoAlat);
+            SetOpen(near && isKopdes);
         }
 
         private void HandleToolEvent(ToolDefinition tool)
@@ -199,7 +203,8 @@ namespace KaliRiverSweeper.UI
         public void OnSelectTool(int toolIndex)
         {
             if (manager == null) return;
-            manager.SelectTool(toolIndex);
+            if (manager.IsToolOwned(toolIndex)) manager.SelectTool(toolIndex);
+            else manager.BuyTool(toolIndex);
             Refresh();
         }
 
@@ -209,7 +214,12 @@ namespace KaliRiverSweeper.UI
             group.alpha = open ? 1f : 0f;
             group.blocksRaycasts = open;
             group.interactable = open;
-            if (open) Refresh();
+            if (open)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+                Refresh();
+            }
         }
 
         private void Refresh()
@@ -236,20 +246,23 @@ namespace KaliRiverSweeper.UI
                 SetText(tierStatus[i], owned ? "DIMILIKI" : (affordable ? "BELI  Rp " + FormatRupiah(cost) : "Rp " + FormatRupiah(cost)));
             }
 
-            // Tools: unlocked tools are selectable; the equipped tool is marked.
+            // Tools: owned tools are selectable; unlocked unowned tools can be bought with Rupiah.
             for (int i = 0; i < ToolCount; i++)
             {
                 int index = i + 1;
-                bool unlocked = index <= manager.highestUnlockedToolIndex;
+                bool unlocked = manager.IsToolUnlocked(index);
+                bool owned = manager.IsToolOwned(index);
                 bool equipped = index == manager.equippedToolIndex;
-                SetButton(toolButtons[i], unlocked && !equipped);
-                if (toolBg[i] != null) toolBg[i].color = equipped ? Zone0 : (unlocked ? Vellum : Track);
-                string status = equipped ? "DIPAKAI" : (unlocked ? "PILIH" : "TERKUNCI");
+                int price = manager.GetToolPrice(index);
+                bool canBuy = unlocked && !owned && manager.rupiah >= price;
+                SetButton(toolButtons[i], (owned && !equipped) || canBuy);
+                if (toolBg[i] != null) toolBg[i].color = equipped ? Zone0 : (owned ? Vellum : Track);
+                string status = equipped ? "DIPAKAI" : (owned ? "PILIH" : (unlocked ? "BELI" : "TERKUNCI"));
                 SetText(toolStatus[i], status);
-                if (toolStatus[i] != null) toolStatus[i].color = equipped ? Vellum : (unlocked ? Ink : InkSecondary);
+                if (toolStatus[i] != null) toolStatus[i].color = equipped ? Vellum : (owned ? Ink : InkSecondary);
             }
 
-            SetText(footer, "Klik kartu untuk membeli. Tutup dengan keluar dari Toko Alat.");
+            SetText(footer, "Klik kartu untuk membeli. Tutup dengan keluar dari Koperasi Desa.");
         }
 
         private bool TierOwned(UpgradeTier tier)
@@ -258,7 +271,7 @@ namespace KaliRiverSweeper.UI
             {
                 case UpgradeTier.Galah4m: return manager.galahUnlocked;
                 case UpgradeTier.WoodenSampan: return manager.sampanUnlocked;
-                case UpgradeTier.TrashBoomAndPosSortir: return manager.trashBoomActive;
+                case UpgradeTier.TrashBoom: return manager.trashBoomActive;
                 case UpgradeTier.AmphibiousExcavator: return manager.excavatorUnlocked;
                 default: return false;
             }
@@ -271,7 +284,7 @@ namespace KaliRiverSweeper.UI
             {
                 case UpgradeTier.Galah4m: return 20000;
                 case UpgradeTier.WoodenSampan: return 40000;
-                case UpgradeTier.TrashBoomAndPosSortir: return 75000;
+                case UpgradeTier.TrashBoom: return 75000;
                 case UpgradeTier.AmphibiousExcavator: return 120000;
                 default: return 999999;
             }
