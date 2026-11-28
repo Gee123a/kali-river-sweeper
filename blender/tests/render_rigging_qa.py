@@ -5,6 +5,7 @@
 Writes villager_front/side/34/tpose.png, villager_strip_<Take>.png (4 frames each, the thrown bag
 follows a ballistic arc after RELEASE_FRAME) and toolswing_strip_<Take>.png (real SM_Tool_* meshes on
 ToolHolder, placed like KaliPlayerController does). Nothing in the repo is written.
+Optional second dir: npc_strip_<Take>.png for the 8 ambient NPC takes (villager_clips) go there.
 """
 import math
 import os
@@ -19,9 +20,13 @@ from mathutils import Matrix, Vector  # noqa: E402
 from kali_blender import rigging_common as rc  # noqa: E402
 from kali_blender import tool_swing as T  # noqa: E402
 from kali_blender import villager as V  # noqa: E402
+from kali_blender import villager_clips as C  # noqa: E402
 
 OUT = os.path.abspath(sys.argv[sys.argv.index("--") + 1]) if "--" in sys.argv else os.path.join(REPO, "qa_out")
 os.makedirs(OUT, exist_ok=True)
+_args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+CLIPS_OUT = os.path.abspath(_args[1]) if len(_args) > 1 else OUT
+os.makedirs(CLIPS_OUT, exist_ok=True)
 
 
 def setup_render(w, h):
@@ -123,10 +128,12 @@ add_plane(0.0, 8, (0.42, 0.36, 0.28, 1))
 sc = bpy.context.scene
 rig = bpy.data.objects[V.RIG_NAME]
 bag, bin_obj = bpy.data.objects[V.PROP_BAG], bpy.data.objects[V.PROP_BIN]
+rod = bpy.data.objects[V.PROP_ROD]
+ground = bpy.data.objects["Ground"]
 
 
 def show(*objs):
-    for o in (bag, bin_obj):
+    for o in (bag, bin_obj, rod):
         o.hide_render = o not in objs
 
 
@@ -172,6 +179,52 @@ for take, fl in frames.items():
     strip(paths, os.path.join(OUT, f"villager_strip_{take}.png"))
     if take == "ThrowTrash":       # back on the hand for later takes
         V.attach_props(rig, bag, bin_obj)
+
+# ------------------------------------------------------------------ ambient NPC takes
+def box(name, x0, x1, y0, y1, z0, z1, color):
+    me = bpy.data.meshes.new(name)
+    v = [(x, y, z) for z in (z0, z1) for y in (y0, y1) for x in (x0, x1)]
+    me.from_pydata(v, [], [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)])
+    mat = bpy.data.materials.new(name + "Mat")
+    mat.use_nodes = True
+    next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Base Color"].default_value = color
+    me.materials.append(mat)
+    ob = bpy.data.objects.new(name, me)
+    sc.collection.objects.link(ob)
+    return ob
+
+
+WOOD, STONE, WATER = (0.36, 0.24, 0.14, 1), (0.45, 0.44, 0.42, 1), (0.13, 0.33, 0.33, 1)
+far = ((-2.9, -3.4, 1.5), (0, -0.55, 0.55))
+near = ((-2.2, -2.6, 1.3), (0, -0.1, 0.6))
+side = ((-3.0, -1.3, 1.1), (0, -0.1, 0.55))
+clip_shots = {  # take: frames, camera, show rod, stage (boxes), ground visible
+    "Anim_Fisher_SittingCast": ([0, 32, 38, 46], far, True, [("Jetty", -0.6, 0.6, -0.14, 0.7, 0.32, 0.42, WOOD),
+                                                          ("River", -4, 4, -6, -0.14, -0.6, -0.5, WATER)], False),
+    "Anim_Fisher_SittingIdle": ([0, 22, 45, 67], far, True, [("Jetty", -0.6, 0.6, -0.14, 0.7, 0.32, 0.42, WOOD),
+                                                          ("River", -4, 4, -6, -0.14, -0.6, -0.5, WATER)], False),
+    "Anim_Fisher_StandingIdle": ([0, 22, 45, 67], far, True, [], True),
+    "Anim_Washer_CrouchedScrub": ([0, 4, 8, 12], near, False, [("Step", -0.5, 0.5, -0.62, 0.4, 0.0, 0.215, STONE)], True),
+    "Anim_Kid_WadeShallow": ([0, 15, 30, 45], side, False, [("Water", -4, 4, -4, 4, 0.0, 0.22, WATER)], True),
+    "Anim_Kid_Splash": ([0, 7, 11, 31], near, False, [("Water", -4, 4, -4, 4, 0.0, 0.30, WATER)], True),
+    "Anim_Kid_JettyJump": ([8, 21, 33, 50], side, False, [], True),
+    "Anim_Chatter_TalkingIdle": ([0, 20, 40, 75], near, False, [], True),
+}
+for take, (fl, cam, with_rod, stage, ground_on) in clip_shots.items():
+    rest(rig)
+    show(rod) if with_rod else show()
+    ground.hide_render = not ground_on
+    made = [box(*b) for b in stage]
+    rc.set_take(rig, take)
+    camera(*cam, lens=50)
+    paths = []
+    for f in fl:
+        sc.frame_set(f)
+        paths.append(render(os.path.join(CLIPS_OUT, f"_tmp_{take}_{f}.png")))
+    strip(paths, os.path.join(CLIPS_OUT, f"npc_strip_{take}.png"))
+    for o in made:
+        bpy.data.objects.remove(o)
+ground.hide_render = False
 
 # ------------------------------------------------------------------ tool swing
 bpy.ops.wm.open_mainfile(filepath=os.path.join(REPO, T.BLEND_PATH))

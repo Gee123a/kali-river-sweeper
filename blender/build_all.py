@@ -10,7 +10,7 @@ Outputs (paths relative to the repo root):
     trash:     trash_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, trash_common.BLEND_PATH
     products:  products_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, products_common.BLEND_PATH
     equipment: equipment_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures (+ Emission), equipment_common.BLEND_PATH
-    rigging:   unity/Assets/_Project/Rigging/{SK_VillagerNPC,SM_Villager_TrashBag,SM_Villager_Bin,
+    rigging:   unity/Assets/_Project/Rigging/{SK_VillagerNPC,SM_Villager_TrashBag,SM_Villager_Bin,SM_Villager_FishingRod,
                Anim_PlayerToolSwing}.fbx, Rigging/Textures/T_Villager_Palette.png,
                blender/SK_VillagerNPC.blend, blender/Anim_PlayerToolSwing.blend
     report:    blender/build_report.json (repo-relative paths only)
@@ -99,6 +99,7 @@ def build_rigging(root, report):
     from kali_blender import rigging_common as rc
     from kali_blender import tool_swing as T
     from kali_blender import villager as V
+    from kali_blender import villager_clips as C
 
     entry = _rig_entry(report, root, V.NAME, V.FBX_PATH, V.BLEND_PATH)
     try:
@@ -107,7 +108,8 @@ def build_rigging(root, report):
         img = V.PALETTE.write_png(os.path.join(root, V.PALETTE_PNG))
         mat = V.PALETTE.material(V.MATERIAL, img)
         bag, bin_obj = V.build_props(mat)
-        for prop in (bag, bin_obj):
+        rod = C.build_rod(mat)
+        for prop in (bag, bin_obj, rod):
             path = os.path.join(root, rc.FBX_DIR, prop.name + ".fbx")
             export_tool(prop, path)
             verify_fbx(path, expected_meshes=[prop.name])
@@ -115,6 +117,7 @@ def build_rigging(root, report):
         mesh = V.build_mesh(mat)
         V.skin(mesh, rig)
         V.build_actions(rig)
+        C.build_actions(rig)
         fbx_abs = os.path.join(root, V.FBX_PATH)
         rc.export_animated(rig, [mesh], fbx_abs)
         info = verify_fbx(fbx_abs, expected_bones=[b[0] for b in V.BONES], expected_meshes=[V.NAME])
@@ -123,9 +126,9 @@ def build_rigging(root, report):
         lo, hi = V.TRI_BUDGET
         if not lo <= entry["tris"] <= hi:
             entry["issues"].append(f"tris {entry['tris']} outside budget {lo}-{hi}")
-        if entry["takes"] != sorted(V.TAKES):
-            entry["issues"].append(f"takes {entry['takes']} != {sorted(V.TAKES)}")
-        V.attach_props(rig, bag, bin_obj)
+        if entry["takes"] != sorted(C.ALL_TAKES):
+            entry["issues"].append(f"takes {entry['takes']} != {sorted(C.ALL_TAKES)}")
+        V.attach_props(rig, bag, bin_obj, rod)
         rc.set_take(rig, "Idle")
         _save_blend(os.path.join(root, V.BLEND_PATH))
         entry["status"] = "FAIL" if entry["issues"] else "PASS"

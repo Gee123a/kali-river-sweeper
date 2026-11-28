@@ -221,12 +221,17 @@ def key_action(arm_obj, action_name, frames, pose_fn):
     """Create `action_name`, sample pose_fn(frame) -> {bone: (quat or None, loc or None)} on every
     frame (quaternion signs kept continuous) and leave it as a muted-free NLA strip of its own."""
     ad = arm_obj.animation_data or arm_obj.animation_data_create()
+    # Sample every pose first with animation evaluation off: pose_fn may run the depsgraph (IK helpers),
+    # which would otherwise overwrite the pose with already-keyed NLA takes.
+    ad.action, ad.use_nla = None, False
+    poses = [pose_fn(f) for f in range(frames + 1)]
+    ad.use_nla = True
     act = bpy.data.actions.new(action_name)
     act.use_fake_user = True
     ad.action = act
     prev = {}
-    for f in range(frames + 1):
-        for bname, (q, loc) in pose_fn(f).items():
+    for f, pose in enumerate(poses):
+        for bname, (q, loc) in pose.items():
             pb = arm_obj.pose.bones[bname]
             if q is not None:
                 q = Quaternion(q)

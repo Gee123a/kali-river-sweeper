@@ -13,6 +13,7 @@ from mathutils import Matrix  # noqa: E402
 from kali_blender import rigging_common as rc  # noqa: E402
 from kali_blender import tool_swing as T  # noqa: E402
 from kali_blender import villager as V  # noqa: E402
+from kali_blender import villager_clips as C  # noqa: E402
 
 fails = []
 
@@ -73,14 +74,14 @@ for socket in V.SOCKETS.values():
     dev = max(abs(a - b) for ra, rb in zip(m, Matrix.Rotation(math.radians(90), 3, "X")) for a, b in zip(ra, rb))
     check(dev < 1e-5, f"{socket} points +Z, roll 0 (identity frame in Unity)")
 tracks = {t.name for t in rig.animation_data.nla_tracks}
-check(tracks == set(V.TAKES), f"NLA takes {sorted(tracks)}")
-for name, frames in V.TAKES.items():
+check(tracks == set(C.ALL_TAKES), f"NLA takes ({len(tracks)}) {sorted(tracks)}")
+for name, frames in C.ALL_TAKES.items():
     act = bpy.data.actions.get(name)
     check(act is not None and tuple(act.frame_range) == (0, frames), f"action {name} 0..{frames}")
 
 # ------------------------------------------------ villager FBX re-import
 fbx = os.path.join(REPO, V.FBX_PATH)
-check(rc.take_names_in_fbx(fbx) == sorted(V.TAKES), f"FBX takes {rc.take_names_in_fbx(fbx)}")
+check(rc.take_names_in_fbx(fbx) == sorted(C.ALL_TAKES), f"FBX takes {rc.take_names_in_fbx(fbx)}")
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=fbx)
 arms = [o for o in bpy.data.objects if o.type == "ARMATURE"]
@@ -95,7 +96,7 @@ if meshes:
     un, o4, bs, stray = skin_stats(m, V.DEFORM_BONES)
     check(un == 0 and not stray, f"FBX unweighted vertices = {un}")
 acts = {a.name: a for a in bpy.data.actions}
-for name, frames in V.TAKES.items():
+for name, frames in C.ALL_TAKES.items():
     hit = [a for k, a in acts.items() if name in k.split("|")]
     ok = bool(hit) and round(hit[0].frame_range[1] - hit[0].frame_range[0]) == frames
     check(ok, f"re-imported action for take {name} ({[a.name for a in hit]}, {frames} frames)")

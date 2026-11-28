@@ -19,14 +19,37 @@ Animation tab, clips (30 fps):
 | `ThrowTrash` | 1.5 s | off | right-hand toss forward; **release at 0.53 s (frame 16)** |
 | `CarryBin` | 1.0 s | on (Loop Pose on) | walk in place holding a bin in front; paced for ~0.75 m/s, Root Motion off |
 
+Ambient NPC clips (same FBX, so `KaliNpcBuilder.LoadAllAssetsAtPath` finds them by name; source
+`blender/kali_blender/villager_clips.py`). All in place, Root Motion off; looping clips have first frame = last frame.
+Set Loop Time + Loop Pose on for every row marked loop.
+
+| Clip | Frames (s) | Loop | Role / sub-behaviour | Placement it is built for | Props |
+|---|---|---|---|---|---|
+| `Anim_Fisher_SittingCast` | 90 (3.0) | yes | `SeatedFisher` | jetty edge; root 0.42 m below jetty top (`pos.y -= 0.42`): thighs flat at ~0.42 m, shins hang past the edge (edge 0.14 m in front of the root). Wait 0-0.7 s, wind-up to 1.13 s, cast at 1.33 s, settle by 2.1 s | `SM_Villager_FishingRod` on `Socket_RightHand` |
+| `Anim_Fisher_SittingIdle` | 90 (3.0) | yes | `SeatedFisher` | same seat; legs swing, head looks around, rod tip twitches | rod |
+| `Anim_Fisher_StandingIdle` | 90 (3.0) | yes | `StandingFisher` | standing, soles at 0; weight shift, left hand on hip, rod forward-up | rod |
+| `Anim_Washer_CrouchedScrub` | 60 (2.0) | yes | `CrouchedWasher` | deep squat with **soles at +0.215 m** (= the `pos.y -= 0.215` step offset, feet planted on the step); both hands scrub ~0.4 m in front, 4 strokes per loop | (cloth optional, none shipped) |
+| `Anim_Kid_WadeShallow` | 60 (2.0) | yes | `KidWader` | soles at 0 on the shallow bed; slow high steps in place, arms out for balance | - |
+| `Anim_Kid_Splash` | 40 (1.33) | yes | `KidWader` (variant) / `KidChaser` pauses | soles at 0, slight crouch; both hands slap then fling water, 2 splashes | - |
+| `Anim_Kid_JettyJump` | 60 (2.0) | **no** | `KidJettyJumper` | run-in-place 0-0.6 s, crouch 0.7 s, take-off 0.87 s, tuck 1.1 s, feet-first entry 1.4 s, surface (treading, arms on the water) 1.6-2.0 s; hold the last frame or loop 48-60 | - |
+| `Anim_Chatter_TalkingIdle` | 120 (4.0) | yes | `Standard` chatter | standing, soles at 0; left hand on hip, right hand gestures, head nods / turns | - |
+
+Notes for `KaliAmbientNpc`: these clips already contain the seated / crouched leg poses and the arm motion,
+so the procedural bone offsets (`Seated*Offset`, `Crouch*Offset`, washer / chaser arm overrides) and rod
+`castPitch` should be skipped when a clip is assigned, or the poses double up. Keep the root offsets
+(-0.42 seated, -0.215 washer) and the jumper's root arc (the clip only adds a small hop, max +0.12 m).
+
 Props (separate FBX, same palette):
+- `SM_Villager_FishingRod.fbx` (68 tris, bamboo, 2.05 m): parent under `Socket_RightHand` with zero local
+  transform; the grip is at the origin and the tip at local **(0, 0, 1.75)**, so `Rod_Tip` / line / bobber
+  can hang from there.
 - `SM_Villager_TrashBag.fbx`: parent under bone `Socket_RightHand` with **localPosition 0, localRotation 0**
   at the start of `ThrowTrash`; at 0.53 s unparent it (or hide it and spawn a `PF_Trash_*` prefab at its
   position) and give it a forward / up velocity. Any trash prefab can use the same socket instead.
 - `SM_Villager_Bin.fbx`: parent under `Socket_Carry` (child of `Chest`) with zero local transform for
   `CarryBin`; both hands sit on its rim.
 
-Both sockets have an identity rest frame in Unity, so props need no rotation offset.
+All sockets have an identity rest frame in Unity, so props need no rotation offset.
 
 ## Anim_PlayerToolSwing.fbx
 First-person swing clips. Hierarchy: `ToolSwingRig` (root) > `ToolHolder`, both identity at rest

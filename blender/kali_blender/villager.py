@@ -67,7 +67,8 @@ def _bones():
 
 BONES = _bones()
 DEFORM_BONES = [b[0] for b in BONES if b[4]]
-SOCKETS = {PROP_BAG: "Socket_RightHand", PROP_BIN: "Socket_Carry"}
+PROP_ROD = "SM_Villager_FishingRod"
+SOCKETS = {PROP_BAG: "Socket_RightHand", PROP_BIN: "Socket_Carry", PROP_ROD: "Socket_RightHand"}
 
 
 # ================================================================== mesh
@@ -469,10 +470,10 @@ def build_actions(arm):
     rc.key_action(arm, "CarryBin", TAKES["CarryBin"], lambda f: carry_pose(arm, f))
 
 
-def attach_props(arm, bag, bin_obj):
+def attach_props(arm, *objs):
     """Preview only (.blend): parent each prop to its socket bone. The offset comes from the REST pose
     (a BONE parent hangs off the bone tail), so it is right whatever pose is evaluated now."""
-    for obj in (bag, bin_obj):
+    for obj in objs:
         bone = arm.data.bones[SOCKETS[obj.name]]
         obj.parent = arm
         obj.parent_type = "BONE"
