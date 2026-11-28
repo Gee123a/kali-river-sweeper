@@ -947,10 +947,11 @@ namespace KaliRiverSweeper.Player
                 for (int i = 0; i < trashCandidates.Count && scooped < batchLimit; i++)
                 {
                     RiverTrashItem item = trashCandidates[i].item;
-                    if (gm.TryPickupWaste(item.wasteClass, item.trashUnits))
+                    int take = Mathf.Min(item.trashUnits, gm.cargoCapacity - gm.cargoCount);
+                    if (take > 0 && gm.TryPickupWaste(item.wasteClass, take))
                     {
                         lastScoopPos = item.transform.position;
-                        item.ConsumeOnScoop();
+                        item.ConsumeUnits(take);
                         scooped++;
                     }
                     else

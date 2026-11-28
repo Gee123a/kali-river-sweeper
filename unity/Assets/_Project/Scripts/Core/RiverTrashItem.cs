@@ -89,6 +89,20 @@ namespace KaliRiverSweeper.Core
             Destroy(gameObject);
         }
 
+        /// <summary>Scoop part of a bundle: the rest stays in the river and keeps counting toward water.</summary>
+        public void ConsumeUnits(int units)
+        {
+            if (isCollected || units <= 0) return;
+            if (units >= trashUnits) { ConsumeOnScoop(); return; }
+            RiverGameManager gm = RiverGameManager.Instance;
+            if (isRegistered && gm != null)
+            {
+                if (isPiledAtBarrier) gm.RemovePiledTrash(units);
+                else gm.UnregisterActiveTrash(units);
+            }
+            trashUnits -= units;
+        }
+
         public void ConsumeOnScoop()
         {
             if (isCollected) return;
