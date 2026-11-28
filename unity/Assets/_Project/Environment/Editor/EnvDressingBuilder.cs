@@ -13,7 +13,10 @@ namespace KaliRiverSweeper.EnvEditor
     /// 1. materials for SM_Env_Lampu.fbx + SM_Env_Vegetasi.fbx (SG_EnvWeathered / URP Lit cutout)
     /// 2. prefabs PF_Env_LampuJalan, PF_Env_LampuBohlam and one PF_Env_&lt;plant&gt; per plant mesh
     /// 3. bohlam wall lamps inside every station / building prefab (spots from env_dressing.json)
-    /// 4. PF_Env_KampungDressing: every street lamp and plant laid out by blender/wesley_env/dressing.py
+    /// 4. PF_Env_QuestLandmarks: Priority 0 quest landmarks (Tangga Cuci, Tiang Nyangkut, warung stalls,
+    ///    Pos Ronda) + wayfinding signposts, positions from env_dressing.json
+    /// 5. PF_Env_KampungDressing: every street lamp and plant laid out by blender/wesley_env/dressing.py;
+    ///    run it with Main.unity open so spots inside houses / near NPCs are skipped
     /// Re-running is safe: assets are updated in place (GUIDs kept), old lamps are replaced.
     /// </summary>
     public static class EnvDressingBuilder
@@ -24,6 +27,7 @@ namespace KaliRiverSweeper.EnvEditor
         private const string Prefabs = Env + "Prefabs/";
         private const string LampuFbx = Env + "Meshes/SM_Env_Lampu.fbx";
         private const string VegFbx = Env + "Meshes/SM_Env_Vegetasi.fbx";
+        private const string LandmarkFbx = Env + "Meshes/SM_Env_Landmark.fbx";
         private const string LayoutJson = Env + "Data/env_dressing.json";
         private const string WeatheredShader = "Shader Graphs/SG_EnvWeathered";
 
@@ -42,15 +46,18 @@ namespace KaliRiverSweeper.EnvEditor
             BuildMaterials();
             RemapFbx(LampuFbx);
             RemapFbx(VegFbx);
+            RemapFbx(LandmarkFbx);
             var lampuJalan = BuildLampuJalan();
             var bohlam = BuildBohlam();
             var plants = new Dictionary<string, GameObject>();
             foreach (var p in Plants) plants[p] = BuildPlant(p);
             var layout = JsonUtility.FromJson<Layout>(File.ReadAllText(LayoutJson));
             int walls = BuildWallLamps(layout, bohlam);
-            BuildDressing(layout, lampuJalan, plants);
+            var landmarks = BuildLandmarkPrefabs(bohlam);
+            BuildQuestLandmarks(layout, landmarks);
+            int skipped = BuildDressing(layout, lampuJalan, plants);
             AssetDatabase.SaveAssets();
-            Debug.Log($"[EnvDressingBuilder] {layout.lamps.Length} street lamps, {layout.plants.Length} plants, {walls} wall lamps.");
+            Debug.Log($"[EnvDressingBuilder] {layout.lamps.Length} street lamps, {layout.plants.Length} plants ({skipped} skipped: inside a scene collider / near an NPC), {walls} wall lamps, {layout.landmarks.Length} quest landmarks, {layout.signposts.Length} signposts.");
         }
 
         // ---------------- materials ----------------
@@ -64,6 +71,7 @@ namespace KaliRiverSweeper.EnvEditor
             Weathered("M_Env_DaunRimbunPadat", "T_Env_DaunRimbun", new Color(0.82f, 0.86f, 0.8f), 0.18f, 0f);
             Weathered("M_Env_Bambu", "T_Env_Bambu", Color.white, 0.35f, 0.1f);
             Weathered("M_Env_BatuSungai", "T_Env_BetonKotor", new Color(0.52f, 0.50f, 0.46f), 0.2f, 0.55f);
+            Weathered("M_Env_PapanLandmark", "T_Env_PapanLandmark", new Color(0.93f, 0.93f, 0.93f), 0.2f, 0f);
             Cutout("M_Env_DaunPisang", "T_Env_DaunPisang", Color.white);
             Cutout("M_Env_DaunPisangKering", "T_Env_DaunPisang", new Color(0.92f, 0.62f, 0.34f));
             Cutout("M_Env_DaunKelapa", "T_Env_DaunKelapa", Color.white);
@@ -318,16 +326,157 @@ namespace KaliRiverSweeper.EnvEditor
             return count;
         }
 
+        // ---------------- Priority 0 quest landmarks ----------------
+
+        private static GameObject Child(GameObject root, string fbx, string mesh)
+        {
+            var go = MeshObject(fbx, mesh, mesh);
+            go.transform.SetParent(root.transform, false);
+            return go;
+        }
+
+        private static void Box(GameObject root, string name, Vector3 centre, Vector3 size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(root.transform, false);
+            go.transform.localPosition = centre;
+            go.AddComponent<BoxCollider>().size = size;
+        }
+
+        private static void AddBohlam(GameObject root, GameObject bohlam, Vector3 pos, float yaw, float groundY)
+        {
+            var inst = (GameObject)PrefabUtility.InstantiatePrefab(bohlam, root.transform);
+            inst.name = "LampuBohlam";
+            inst.transform.localPosition = pos;
+            inst.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            Vector3 under = pos + Quaternion.Euler(0f, yaw, 0f) * new Vector3(BulbCentre.x + 0.4f, 0f, 0f);
+            var pool = AddPool(root.transform, new Vector3(under.x, groundY, under.z), 5f);
+            var lamp = inst.GetComponent<EnvNightLamp>();
+            lamp.glowRenderers = new List<Renderer>(lamp.glowRenderers) { pool }.ToArray();
+        }
+
+        private static Dictionary<string, GameObject> BuildLandmarkPrefabs(GameObject bohlam)
+        {
+            var map = new Dictionary<string, GameObject>();
+
+            // Q2 Tangga Cuci: walkable stairs (mesh collider) + litter that disappears as the river clears
+            var root = new GameObject("PF_Env_TanggaCuci");
+            var steps = Child(root, LandmarkFbx, "SM_Env_TanggaCuci");
+            steps.AddComponent<MeshCollider>().sharedMesh = steps.GetComponent<MeshFilter>().sharedMesh;
+            var litter = Child(root, LandmarkFbx, "SM_Env_TanggaCuci_Sampah");
+            litter.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
+            var stain = root.AddComponent<EnvClarityStain>();
+            stain.dirtyOnly = new[] { litter };
+            stain.stainRenderers = new Renderer[] { steps.GetComponent<MeshRenderer>() };
+            map["PF_Env_TanggaCuci"] = Save(root, "PF_Env_TanggaCuci");
+
+            // Q3 Kail Nyangkut: pilings block boats (capsules), plastic snag shows while dirty
+            root = new GameObject("PF_Env_TiangNyangkut");
+            var posts = Child(root, LandmarkFbx, "SM_Env_TiangNyangkut");
+            var snag = Child(root, LandmarkFbx, "SM_Env_TiangNyangkut_Sampah");
+            foreach (var p in new[] { new Vector3(0f, 0f, 0f), new Vector3(0.95f, 0f, 0.55f), new Vector3(0.35f, 0f, -0.85f), new Vector3(1.55f, 0f, -0.2f), new Vector3(-0.45f, 0f, 0.95f) })
+            {
+                var c = new GameObject("Tiang_Collider");
+                c.transform.SetParent(root.transform, false);
+                c.transform.localPosition = p + Vector3.down * 0.5f;
+                var cap = c.AddComponent<CapsuleCollider>();
+                cap.radius = 0.12f;
+                cap.height = 3.0f;
+            }
+            stain = root.AddComponent<EnvClarityStain>();
+            stain.dirtyOnly = new[] { snag };
+            stain.stainRenderers = new Renderer[] { posts.GetComponent<MeshRenderer>() };
+            map["PF_Env_TiangNyangkut"] = Save(root, "PF_Env_TiangNyangkut");
+
+            // warung stalls: counter + bench colliders, a bohlam under the tarp
+            foreach (var side in new[] { "Barat", "Timur" })
+            {
+                root = new GameObject("PF_Env_WarungStall_" + side);
+                Child(root, LandmarkFbx, "SM_Env_WarungStall_" + side);
+                Box(root, "Warung_Counter", new Vector3(0.48f, 0.47f, 0f), new Vector3(0.67f, 0.94f, 2.52f));
+                Box(root, "Warung_Bench", new Vector3(1.42f, 0.24f, 0f), new Vector3(0.4f, 0.48f, 2.2f));
+                Box(root, "Warung_Shelf", new Vector3(-0.8f, 0.85f, 0f), new Vector3(0.3f, 1.7f, 2.4f));
+                AddBohlam(root, bohlam, new Vector3(-0.8f, 2.05f, 0.55f), 0f, 0.03f);
+                map["PF_Env_WarungStall_" + side] = Save(root, "PF_Env_WarungStall_" + side);
+            }
+
+            // Pak RT's pos ronda + notice board
+            root = new GameObject("PF_Env_PosRonda");
+            Child(root, LandmarkFbx, "SM_Env_PosRonda");
+            Box(root, "PosRonda_BaleBale", new Vector3(0f, 0.3f, 0f), new Vector3(2.0f, 0.6f, 2.4f));
+            Box(root, "PosRonda_PapanPengumuman", new Vector3(0.3f, 1.0f, 2.85f), new Vector3(0.2f, 2.0f, 1.7f));
+            AddBohlam(root, bohlam, new Vector3(1.06f, 1.95f, -1.14f), 0f, 0.03f);
+            map["PF_Env_PosRonda"] = Save(root, "PF_Env_PosRonda");
+
+            // wayfinding post + arrow boards
+            root = MeshObject(LandmarkFbx, "SM_Env_TiangPapanArah", "PF_Env_TiangPapanArah");
+            var pc = root.AddComponent<BoxCollider>();
+            pc.center = new Vector3(0f, 1.1f, 0f);
+            pc.size = new Vector3(0.14f, 2.6f, 0.14f);
+            map["PF_Env_TiangPapanArah"] = Save(root, "PF_Env_TiangPapanArah");
+            foreach (var a in new[] { "Medis", "Karantina", "BankSampah" })
+            {
+                root = MeshObject(LandmarkFbx, "SM_Env_Panah" + a, "PF_Env_Panah" + a);
+                map["PF_Env_Panah" + a] = Save(root, "PF_Env_Panah" + a);
+            }
+            return map;
+        }
+
+        private static void BuildQuestLandmarks(Layout layout, Dictionary<string, GameObject> map)
+        {
+            var root = new GameObject("PF_Env_QuestLandmarks");
+            foreach (var l in layout.landmarks)
+            {
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(map[l.prefab], root.transform);
+                inst.transform.SetPositionAndRotation(new Vector3(l.p[0], l.p[1], l.p[2]), Quaternion.Euler(0f, l.yaw, 0f));
+            }
+            for (int i = 0; i < layout.signposts.Length; i++)
+            {
+                var sp = layout.signposts[i];
+                var post = (GameObject)PrefabUtility.InstantiatePrefab(map["PF_Env_TiangPapanArah"], root.transform);
+                post.name = $"PapanArah_{i + 1}";
+                post.transform.position = new Vector3(sp.p[0], sp.p[1], sp.p[2]);
+                foreach (var a in sp.arrows)
+                {
+                    var arrow = (GameObject)PrefabUtility.InstantiatePrefab(map[a.prefab], post.transform);
+                    arrow.transform.localPosition = new Vector3(0f, a.y, 0f);
+                    arrow.transform.localRotation = Quaternion.Euler(0f, a.yaw, 0f);
+                }
+            }
+            Save(root, "PF_Env_QuestLandmarks");
+        }
+
         // ---------------- PF_Env_KampungDressing ----------------
 
-        private static void BuildDressing(Layout layout, GameObject lampuJalan, Dictionary<string, GameObject> plants)
+        /// <summary>True when a spot is free in the open scene: no building / house / prop collider
+        /// at body height and no ambient NPC within 2.5 m. Lets the Python layout stay approximate
+        /// while Ivan's 61 procedural houses decide the exact free ground.</summary>
+        private static bool SceneFree(Vector3 p, float radius, List<Vector3> npcs)
         {
+            foreach (var n in npcs)
+                if ((new Vector2(n.x - p.x, n.z - p.z)).sqrMagnitude < 6.25f) return false;
+            foreach (var c in Physics.OverlapSphere(p + Vector3.up * (radius + 0.25f), radius, ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (c is TerrainCollider || c.name.Contains("Terrain") || c.name.Contains("Ground") || c.name.Contains("Water")) continue;
+                return false;
+            }
+            return true;
+        }
+
+        private static int BuildDressing(Layout layout, GameObject lampuJalan, Dictionary<string, GameObject> plants)
+        {
+            Physics.SyncTransforms();
+            var npcs = new List<Vector3>();
+            foreach (var t in UnityEngine.Object.FindObjectsOfType<Transform>())
+                if (t.name.StartsWith("NPC_")) npcs.Add(t.position);
+            int skipped = 0;
             var root = new GameObject("PF_Env_KampungDressing");
             var lampParent = new GameObject("LampuJalan").transform;
             lampParent.SetParent(root.transform, false);
             for (int i = 0; i < layout.lamps.Length; i++)
             {
                 var l = layout.lamps[i];
+                if (!SceneFree(new Vector3(l.p[0], l.p[1], l.p[2]), 0.45f, npcs)) { skipped++; continue; }
                 var inst = (GameObject)PrefabUtility.InstantiatePrefab(lampuJalan, lampParent);
                 inst.name = $"LampuJalan_{i + 1:00}";
                 inst.transform.SetPositionAndRotation(new Vector3(l.p[0], l.p[1], l.p[2]), Quaternion.Euler(0f, l.yaw, 0f));
@@ -335,6 +484,8 @@ namespace KaliRiverSweeper.EnvEditor
             var groups = new Dictionary<string, Transform>();
             foreach (var p in layout.plants)
             {
+                float r = p.m is "PohonKetapang" or "Bambu" ? 1.2f : p.m is "PohonKelapa" or "PohonPisang" ? 0.6f : 0.35f;
+                if (!SceneFree(new Vector3(p.p[0], p.p[1], p.p[2]), r, npcs)) { skipped++; continue; }
                 if (!groups.TryGetValue(p.m, out var g))
                 {
                     g = new GameObject(p.m).transform;
@@ -347,6 +498,7 @@ namespace KaliRiverSweeper.EnvEditor
                 GameObjectUtility.SetStaticEditorFlags(inst, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccludeeStatic);
             }
             Save(root, "PF_Env_KampungDressing");
+            return skipped;
         }
 
         // ---------------- env_dressing.json ----------------
@@ -355,6 +507,9 @@ namespace KaliRiverSweeper.EnvEditor
         [Serializable] private class PlantItem { public string m; public float[] p; public float yaw; public float s; }
         [Serializable] private class Spot { public float[] p; public float yaw; }
         [Serializable] private class Wall { public string prefab; public Spot[] spots; }
-        [Serializable] private class Layout { public Lamp[] lamps; public PlantItem[] plants; public Wall[] wall_lamps; }
+        [Serializable] private class Landmark { public string prefab; public float[] p; public float yaw; }
+        [Serializable] private class Arrow { public string prefab; public float yaw; public float y; }
+        [Serializable] private class SignPost { public float[] p; public Arrow[] arrows; }
+        [Serializable] private class Layout { public Lamp[] lamps; public PlantItem[] plants; public Wall[] wall_lamps; public Landmark[] landmarks; public SignPost[] signposts; }
     }
 }
