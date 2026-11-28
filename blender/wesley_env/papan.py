@@ -650,7 +650,157 @@ def pengepul():
     return path
 
 
-ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul}
+# ---------------------------------------------------------------- quest landmarks + wayfinding (Priority 0)
+WOOD_DARK, WOOD_MID, WOOD_LIGHT = (66, 44, 26), (124, 86, 52), (196, 160, 112)
+TEAL = (27, 107, 99)
+MEDIS_BLUE = (30, 84, 170)
+BIO_PURPLE = (88, 28, 135)
+LANDMARK_RECTS = {   # must match landmark.py (px boxes, top-left origin)
+    "tangga": (0, 0, 1024, 160), "ronda": (0, 176, 1024, 336),
+    "warung_barat": (0, 352, 512, 480), "warung_timur": (512, 352, 1024, 480),
+    "arah_medis": (0, 496, 512, 624), "arah_karantina": (512, 496, 1024, 624),
+    "arah_bank": (0, 640, 512, 768), "awas_tiang": (512, 640, 1024, 768),
+    "pengumuman": (0, 784, 640, 1024),
+    "edge_wood": (672, 784, 848, 904), "edge_dark": (848, 784, 1024, 904),
+    "edge_cream": (672, 904, 848, 1024), "edge_white": (848, 904, 1024, 1024),
+}
+
+
+def plank_board(d, box, base=WOOD_MID, planks=3):
+    x0, y0, x1, y1 = box
+    d.rectangle(box, fill=WOOD_DARK)
+    h = (y1 - y0 - 12) / planks
+    for i in range(planks):
+        c = tuple(max(0, v - i * 6) for v in base)
+        d.rectangle((x0 + 6, y0 + 6 + i * h, x1 - 6, y0 + 4 + (i + 1) * h), fill=c)
+
+
+def arrow_board(img, box, title, colour, icon):
+    """Wayfinding arrow: coloured station band with the icon on the left; the mesh cuts the
+    pointed tip on the right, so the right 18 % stays plain colour."""
+    d = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = box
+    h = y1 - y0
+    d.rectangle(box, fill=(250, 250, 244))
+    d.rectangle((x0 + 6, y0 + 6, x1 - 6, y1 - 6), fill=colour)
+    s = h - 32
+    icon(img, (x0 + 18, y0 + 16, x0 + 18 + s, y0 + 16 + s))
+    d = ImageDraw.Draw(img)
+    f = fit_font(d, title, "BarlowCondensed-Bold.ttf", (x1 - x0) * 0.82 - s - 40, h * 0.62)
+    text_center(d, (x0 + 30 + s, y0, x1 - (x1 - x0) * 0.18, y1), title, f, (250, 250, 246), shadow=tuple(v // 2 for v in colour))
+
+
+def _icon_cross(img, b):
+    red_cross(ImageDraw.Draw(img), b)
+
+
+def _icon_bio(img, b):
+    d = ImageDraw.Draw(img)
+    d.ellipse(b, fill=HAZ_YELLOW)
+    s = b[2] - b[0]
+    stamp(img, biohazard_mask(int(s * 0.8)), (b[0] + s * 0.1, b[1] + s * 0.1), BLACK)
+
+
+def _icon_leaf(img, b):
+    """Leaf on a stem, tilted 40 deg so it reads as a leaf (Bank Sampah = organic / recycle)."""
+    d = ImageDraw.Draw(img)
+    d.ellipse(b, fill=(250, 250, 244))
+    s = int(b[2] - b[0])
+    lay = Image.new("RGBA", (s * 2, s * 2), (0, 0, 0, 0))
+    ld = ImageDraw.Draw(lay)
+    leaf(ld, s, s, s * 0.6, GREEN + (255,))
+    ld.line([(s - s * 0.42, s), (s - s * 0.68, s)], fill=GREEN_DEEP + (255,), width=max(3, s // 16))
+    ld.line([(s - s * 0.42, s), (s + s * 0.36, s - s * 0.01)], fill=(250, 250, 244, 200), width=max(2, s // 26))
+    lay = lay.rotate(40, resample=Image.BICUBIC).resize((s, s), Image.LANCZOS)
+    base = img.convert("RGBA"); base.alpha_composite(lay, (int(b[0]), int(b[1])))
+    img.paste(base.convert("RGB"))
+
+
+def notice_board(img, box):
+    """Pak RT's cork notice board: kerja bakti flyer, ronda roster and a sorting poster that
+    repeats the tutorial (3 stations)."""
+    d = ImageDraw.Draw(img)
+    x0, y0, x1, y1 = box
+    d.rectangle(box, fill=WOOD_DARK)
+    d.rectangle((x0 + 10, y0 + 10, x1 - 10, y1 - 10), fill=(176, 132, 84))          # cork
+    rng = random.Random(9)
+    for _ in range(900):
+        px, py = rng.randint(x0 + 10, x1 - 10), rng.randint(y0 + 10, y1 - 10)
+        d.point((px, py), fill=(150, 108, 66))
+    # sorting poster (left, biggest): PILAH SAMPAHMU
+    px0, py0, px1, py1 = x0 + 22, y0 + 20, x0 + 330, y1 - 18
+    d.rectangle((px0, py0, px1, py1), fill=(250, 250, 244))
+    text_center(d, (px0, py0 + 2, px1, py0 + 44), "PILAH SAMPAHMU!", font("BarlowCondensed-Bold.ttf", 40), INK)
+    rows = [("BIASA", "BANK SAMPAH", GREEN, _icon_leaf), ("MEDIS B3", "POS MEDIS", MEDIS_BLUE, _icon_cross),
+            ("BIOHAZARD", "KARANTINA", BIO_PURPLE, _icon_bio)]
+    rh = (py1 - py0 - 56) / 3
+    for i, (a, b, c, ic) in enumerate(rows):
+        ry = py0 + 50 + i * rh
+        d.rectangle((px0 + 8, ry, px1 - 8, ry + rh - 8), fill=c)
+        sz = int(rh - 22)
+        ic(img, (px0 + 16, ry + 7, px0 + 16 + sz, ry + 7 + sz))
+        d = ImageDraw.Draw(img)
+        line = a + "  \u00bb  " + b
+        f = fit_font(d, line, "BarlowCondensed-Bold.ttf", px1 - px0 - sz - 44, rh - 20, start=40)
+        text_center(d, (px0 + 26 + sz, ry, px1 - 12, ry + rh - 8), line, f, (250, 250, 246))
+    # kerja bakti flyer (top right, yellow) + ronda roster (bottom right, white, slightly rotated)
+    fl = Image.new("RGB", (270, 110), HAZ_YELLOW)
+    fd = ImageDraw.Draw(fl)
+    text_center(fd, (0, 4, 270, 56), "KERJA BAKTI", font("BarlowCondensed-Bold.ttf", 46), INK)
+    text_center(fd, (0, 54, 270, 106), "MINGGU 07.00  •  KALI RT 05", font("BarlowCondensed-SemiBold.ttf", 26), INK)
+    img.paste(fl.rotate(3, expand=True, fillcolor=(176, 132, 84)), (x0 + 345, y0 + 18))
+    ro = Image.new("RGB", (250, 96), (246, 244, 236))
+    rd = ImageDraw.Draw(ro)
+    text_center(rd, (0, 2, 250, 40), "JADWAL RONDA", font("BarlowCondensed-Bold.ttf", 32), INK)
+    for i, n in enumerate(("SEN  Pak Darto", "RAB  Pak RT")):
+        rd.text((14, 42 + i * 26), n, font=font("BarlowCondensed-SemiBold.ttf", 24), fill=(60, 60, 64))
+    img.paste(ro.rotate(-2, expand=True, fillcolor=(176, 132, 84)), (x0 + 355, y0 + 128))
+    d = ImageDraw.Draw(img)
+    for (cx, cy) in ((x0 + 300, y0 + 26), (x0 + 480, y0 + 24), (x0 + 480, y0 + 134)):
+        d.ellipse((cx - 7, cy - 7, cx + 7, cy + 7), fill=CROSS_RED)                  # push pins
+
+
+def landmark():
+    """T_Env_PapanLandmark - quest landmarks (Tangga Cuci, Pos Ronda, warung stalls, snag
+    warning) and the wayfinding arrows that point new players to the 3 stations."""
+    img = Image.new("RGB", (W, W), (40, 42, 46))
+    d = ImageDraw.Draw(img)
+    R = LANDMARK_RECTS
+    plank_board(d, R["tangga"])
+    text_center(d, (8, 4, 1016, 112), "TANGGA CUCI", font("BarlowCondensed-Bold.ttf", 108), (246, 240, 224), shadow=WOOD_DARK)
+    text_center(d, (8, 104, 1016, 156), "JAGA KALI TETAP BERSIH  •  AWAS JARUM BEKAS!", font("BarlowCondensed-SemiBold.ttf", 38), HAZ_YELLOW)
+    x0, y0, x1, y1 = R["ronda"]
+    d.rectangle(R["ronda"], fill=(14, 60, 56))
+    d.rectangle((x0 + 8, y0 + 8, x1 - 8, y1 - 8), fill=TEAL)
+    text_center(d, (x0, y0 + 2, x1, y0 + 112), "POS RONDA", font("BarlowCondensed-Bold.ttf", 108), (250, 250, 246), shadow=(14, 60, 56))
+    text_center(d, (x0, y0 + 104, x1, y1 - 6), "RT 05 / RW 02  •  KAMPUNG KALI", font("BarlowCondensed-SemiBold.ttf", 38), HAZ_YELLOW)
+    for key, title, sub, col in (("warung_barat", "WARUNG MBOK NAH", "ES TEH • KOPI • GORENGAN", (214, 40, 40)),
+                                 ("warung_timur", "WARUNG KOPI", "NGOPI DULU, NAK!", (30, 110, 200))):
+        x0, y0, x1, y1 = R[key]
+        d.rectangle(R[key], fill=(250, 250, 244))
+        d.rectangle((x0 + 6, y0 + 6, x1 - 6, y1 - 6), fill=col)
+        text_center(d, (x0, y0 + 4, x1, y0 + 84), title, fit_font(d, title, "BarlowCondensed-Bold.ttf", 470, 74), (250, 250, 246), shadow=tuple(v // 2 for v in col))
+        text_center(d, (x0, y0 + 80, x1, y1 - 8), sub, font("BarlowCondensed-SemiBold.ttf", 30), HAZ_YELLOW)
+    arrow_board(img, R["arah_medis"], "POS MEDIS B3", MEDIS_BLUE, _icon_cross)
+    arrow_board(img, R["arah_karantina"], "KARANTINA", BIO_PURPLE, _icon_bio)
+    arrow_board(img, R["arah_bank"], "BANK SAMPAH", GREEN_DEEP, _icon_leaf)
+    x0, y0, x1, y1 = R["awas_tiang"]
+    hazard_stripes(img, R["awas_tiang"], band=36)
+    d = ImageDraw.Draw(img)
+    d.rectangle((x0 + 22, y0 + 20, x1 - 22, y1 - 20), fill=(250, 250, 244))
+    msg = "AWAS! KAIL NYANGKUT"
+    text_center(d, (x0 + 22, y0 + 18, x1 - 22, y1 - 20), msg, fit_font(d, msg, "BarlowCondensed-Bold.ttf", x1 - x0 - 80, y1 - y0 - 52), CROSS_RED)
+    notice_board(img, R["pengumuman"])
+    d = ImageDraw.Draw(img)
+    for key, col in (("edge_wood", WOOD_MID), ("edge_dark", WOOD_DARK), ("edge_cream", (236, 228, 206)), ("edge_white", (250, 250, 244))):
+        d.rectangle(R[key], fill=col)
+    out = grime(img, [R[k] for k in ("tangga", "ronda", "warung_barat", "warung_timur", "arah_medis", "arah_karantina", "arah_bank", "awas_tiang", "pengumuman")], 11)
+    path = os.path.join(TEX, "T_Env_PapanLandmark.png")
+    out.save(path, optimize=True)
+    return path
+
+
+ATLASES = {"bank_sampah": bank_sampah, "kopdes": kopdes, "pos_medis": pos_medis, "karantina": karantina, "umum": umum, "warung": warung, "pengepul": pengepul, "landmark": landmark}
 
 
 def main():
