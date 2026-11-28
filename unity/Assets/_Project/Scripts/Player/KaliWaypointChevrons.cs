@@ -6,8 +6,9 @@ using UnityEngine.Rendering;
 namespace KaliRiverSweeper.Player
 {
     /// <summary>
-    /// Floating down-pointing chevrons over the current objective's target (service points, docks, Pintu Air pile)
-    /// plus one on the nearest trash while the objective is "Trash". Built at Start; the importer assigns the materials.
+    /// Floating down-pointing chevrons: every station, dock and the Pintu Air pile gets a small one, the current
+    /// objective's target a big one. One more chevron tracks the nearest trash during the Trash step (any class) and
+    /// the medical/biohazard step (non-Normal only). Built at Start; the importer assigns the materials.
     /// </summary>
     public sealed class KaliWaypointChevrons : MonoBehaviour
     {
@@ -22,8 +23,8 @@ namespace KaliRiverSweeper.Player
 
         private static Mesh chevronMesh;
         private readonly List<Transform> targets = new List<Transform>();
-        private readonly List<Transform> chevrons = new List<Transform>();
-        private Transform trashChevron;
+        private readonly List<MeshRenderer> chevrons = new List<MeshRenderer>();
+        private MeshRenderer trashChevron;
         private RiverTrashItem nearestTrash;
         private float nextTrashSearch;
         private KaliPlayerController player;
@@ -63,7 +64,7 @@ namespace KaliRiverSweeper.Player
             chevrons.Add(CreateChevron("Chevron_" + target.name));
         }
 
-        private Transform CreateChevron(string label)
+        private MeshRenderer CreateChevron(string label)
         {
             GameObject go = new GameObject(label);
             go.transform.SetParent(transform, false);
@@ -72,7 +73,7 @@ namespace KaliRiverSweeper.Player
             mr.shadowCastingMode = ShadowCastingMode.Off;
             mr.receiveShadows = false;
             mr.sharedMaterial = idleMaterial;
-            return go.transform;
+            return mr;
         }
 
         private void LateUpdate()
@@ -88,29 +89,31 @@ namespace KaliRiverSweeper.Player
                 Transform target = targets[i];
                 bool exists = target != null;
                 bool active = exists && token != null && target.name.Contains(token);
-                Vector3 pos = exists ? target.position + Vector3.up * (HoverHeight + bob) : chevrons[i].position;
+                Vector3 pos = exists ? target.position + Vector3.up * (HoverHeight + bob) : chevrons[i].transform.position;
                 Place(chevrons[i], pos, active, show && exists, cam);
             }
 
-            bool trashActive = show && token == "Trash";
-            if (trashActive && Time.time >= nextTrashSearch)
+            bool trashStep = show && token == "Trash";
+            bool hazardStep = show && token == null && gm.CurrentObjective == RiverGameManager.ObjectiveSteps[2];
+            if ((trashStep || hazardStep) && Time.time >= nextTrashSearch)
             {
                 nextTrashSearch = Time.time + TrashSearchInterval;
-                nearestTrash = FindNearestTrash();
+                nearestTrash = FindNearestTrash(hazardStep);
             }
-            bool trashShown = trashActive && nearestTrash != null && !nearestTrash.isCollected;
+            bool trashShown = (trashStep || hazardStep) && nearestTrash != null && !nearestTrash.isCollected;
             if (trashShown)
             {
                 Place(trashChevron, nearestTrash.transform.position + Vector3.up * TrashHoverHeight, true, true, cam);
             }
             else
             {
-                trashChevron.GetComponent<MeshRenderer>().enabled = false;
+                trashChevron.enabled = false;
             }
         }
 
-        private void Place(Transform chevron, Vector3 pos, bool active, bool visible, Camera cam)
+        private void Place(MeshRenderer mr, Vector3 pos, bool active, bool visible, Camera cam)
         {
+            Transform chevron = mr.transform;
             chevron.position = pos;
             chevron.localScale = Vector3.one * (active ? ActiveScale : IdleScale);
             if (cam != null)
@@ -119,12 +122,11 @@ namespace KaliRiverSweeper.Player
                 toCam.y = 0f;
                 if (toCam.sqrMagnitude > 0.0001f) chevron.rotation = Quaternion.LookRotation(toCam);
             }
-            MeshRenderer mr = chevron.GetComponent<MeshRenderer>();
             mr.enabled = visible;
             mr.sharedMaterial = active ? activeMaterial : idleMaterial;
         }
 
-        private RiverTrashItem FindNearestTrash()
+        private RiverTrashItem FindNearestTrash(bool nonNormalOnly)
         {
             if (player == null) player = FindObjectOfType<KaliPlayerController>();
             if (player == null) return null;
@@ -133,7 +135,7 @@ namespace KaliRiverSweeper.Player
             float bestSqr = float.MaxValue;
             foreach (RiverTrashItem item in FindObjectsOfType<RiverTrashItem>())
             {
-                if (item.isCollected) continue;
+                if (item.isCollected || (nonNormalOnly && item.wasteClass == WasteClass.Normal)) continue;
                 float sqr = (item.transform.position - player.transform.position).sqrMagnitude;
                 if (sqr < bestSqr)
                 {

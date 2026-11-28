@@ -29,7 +29,7 @@ namespace KaliRiverSweeper.Core
         public float upstreamSpawnMaxZ = -46f;
 
         [Header("Run Start Seeding")]
-        public int startSeedBundles = 10; // 1-unit drifting bundles; the same units are skipped from the upstream spawns
+        public int startSeedBundles = 3; // 1-unit drifting bundles; the same units are skipped from the upstream spawns
         public float seedMinZ = -35f;
         public float seedMaxZ = 55f;
 

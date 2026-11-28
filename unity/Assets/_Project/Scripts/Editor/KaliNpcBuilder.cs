@@ -302,7 +302,7 @@ namespace KaliRiverSweeper.Editor
             return result;
         }
 
-        // Pak RT: one extra standing villager 4.5 m from the player spawn. First of 8 compass candidates that is
+        // Pak RT: one extra standing villager 4.5-9 m from the player spawn. First compass candidate that is
         // on land, off footpaths/avoid zones, and away from the spawn->Dermaga and spawn->Bank Sampah lines.
         private static void AddPakRtSpawnNpc(
             List<ExpandedNpc> result,
@@ -311,10 +311,12 @@ namespace KaliRiverSweeper.Editor
         {
             Vector3 spawn = RiverMath.ToWorld3D(PlayerSpawnMap.x, PlayerSpawnMap.y, 0f);
             Vector2 spawnXZ = new Vector2(spawn.x, spawn.z);
-            for (int k = 0; k < 8; k++)
+            // ponytail: rings 4.5-9 m, 12 bearings: the spawn dock/footpaths reject every 4.5 m candidate.
+            for (float radius = 4.5f; radius <= 9f; radius += 1.5f)
+            for (int k = 0; k < 12; k++)
             {
-                float ang = k * Mathf.PI * 0.25f;
-                Vector3 p = spawn + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * 4.5f;
+                float ang = k * Mathf.PI / 6f;
+                Vector3 p = spawn + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * radius;
                 Vector2 xz = new Vector2(p.x, p.z);
                 if (RiverMath.IsInRiver(p) || !IsClearOfAvoidZones(xz, avoidZones, 2.0f) || !IsClearOfFootpaths(xz, footpaths, 2.0f))
                 {

@@ -20,7 +20,7 @@ UNITS = (2, 4)                            # trashUnits per spawned bundle
 NORMAL_SHARE, MEDICAL_SHARE = 0.80, 0.14  # spec E mix (river spawns and barrier piles)
 PRICK_DMG, PRICK_SCALE = 10, 0.5          # medicalPrickDamage, ToolCatalog.PrickChanceScale
 BIO_GRACE = 30.0
-SEED_BUNDLES, SEED_Z = 10, (-35.0, 55.0)  # RiverTrashSpawner.SeedDriftingTrash: 1-unit drifting bundles at run start
+SEED_BUNDLES, SEED_Z = 3, (-35.0, 55.0)  # RiverTrashSpawner.SeedDriftingTrash: 1-unit drifting bundles at run start
 def bio_dot(n): return min(4.0, 1.5 + 0.5 * max(0, n - 1))
 # map trash_pile clusters baked as snagged live items (1 unit each): (map y, tutorial?)
 PILES = [(325, False), (345, False), (395, False), (515, False), (632, False), (820, False), (1190, True), (1295, True)]

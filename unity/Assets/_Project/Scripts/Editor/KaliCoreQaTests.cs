@@ -106,7 +106,10 @@ namespace KaliRiverSweeper.Editor
                 VerifyObjectiveChainAndSeededTrash,
                 VerifyToolRolesAndPickupRules,
                 VerifyGameStatesAndRestartReseed,
-                VerifyWaypointChevronTokensAndMaterials
+                VerifyWaypointChevronTokensAndMaterials,
+                VerifyNpcPickLineAndEsTehPurchase,
+                VerifyTrashVisualScale,
+                VerifyBakedSceneVillagersAndDirector
             };
 
             assertCount = 0;
@@ -1747,6 +1750,64 @@ namespace KaliRiverSweeper.Editor
             KaliWaypointChevrons[] chevrons = UnityEngine.Object.FindObjectsOfType<KaliWaypointChevrons>(true);
             Assert(chevrons.Length == 1, $"Main scene has one KaliWaypointChevrons (got {chevrons.Length})");
             Assert(chevrons[0].idleMaterial != null && chevrons[0].activeMaterial != null, "Chevrons have idle and active materials assigned");
+        }
+
+        private static void VerifyNpcPickLineAndEsTehPurchase()
+        {
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                // PickLine priority: storm > trust < 30 > clarity < 0.4 > trust >= 70 > default.
+                gm.waterClarity = 0.9f; gm.communityTrust = 50; gm.isMonsoonStorm = false;
+                Assert(KaliNpcInteractable.PickLine(gm) == "Airnya mulai jernih, Nak!", "PickLine default line");
+                gm.communityTrust = 80;
+                Assert(KaliNpcInteractable.PickLine(gm) == "Ini dia pahlawan kali kita.", "PickLine high trust line");
+                gm.waterClarity = 0.2f;
+                Assert(KaliNpcInteractable.PickLine(gm) == "Bau sekali sungainya...", "PickLine clarity beats high trust");
+                gm.communityTrust = 10;
+                Assert(KaliNpcInteractable.PickLine(gm) == "Jangan buang limbah ke Pengepul lagi ya.", "PickLine low trust beats clarity");
+                gm.isMonsoonStorm = true;
+                Assert(KaliNpcInteractable.PickLine(gm) == "Cepat naik! Banjir!", "PickLine storm beats everything");
+
+                gm.rupiah = 6000; gm.playerHealth = 50f;
+                Assert(gm.TryBuyEsTeh() && gm.rupiah == 1000 && gm.playerHealth == 50f + RiverGameManager.EsTehHeal, "Es Teh pays Rp 5000 and heals");
+                gm.rupiah = 6000; gm.playerHealth = gm.maxPlayerHealth;
+                Assert(!gm.TryBuyEsTeh() && gm.rupiah == 6000, "Es Teh refused at full HP without charge");
+                gm.rupiah = 4999; gm.playerHealth = 50f;
+                Assert(!gm.TryBuyEsTeh() && gm.rupiah == 4999 && gm.playerHealth == 50f, "Es Teh refused when poor without charge or heal");
+            }
+        }
+
+        private static void VerifyTrashVisualScale()
+        {
+            Assert(Mathf.Approximately(RiverTrashSpawner.VisualScaleFor("PF_Trash_BundleKresek", 2.2f), 1f), "Full-size authored prop keeps scale 1.0");
+            Assert(Mathf.Approximately(RiverTrashSpawner.VisualScaleFor("PF_Trash_BungkusIndomy", 2.2f), 2.2f), "Other bundles use the default bundle scale");
+        }
+
+        private static void VerifyBakedSceneVillagersAndDirector()
+        {
+            string[] expected = { "Pak RT", "Bu Siti", "Pak Darto", "Raka", "Mbok Nah" };
+            KaliNpcInteractable[] npcs = UnityEngine.Object.FindObjectsOfType<KaliNpcInteractable>(true);
+            foreach (string name in expected)
+            {
+                int count = 0;
+                foreach (KaliNpcInteractable npc in npcs) if (npc.npcName == name) count++;
+                Assert(count == 1, $"Baked scene has exactly one villager named {name} (got {count})");
+            }
+
+            int esTeh = 0;
+            string esTehName = string.Empty;
+            foreach (KaliNpcInteractable npc in npcs)
+            {
+                if (!npc.isEsTehSeller) continue;
+                esTeh++;
+                esTehName = npc.npcName;
+            }
+            Assert(esTeh == 1 && esTehName == "Mbok Nah", $"Only Mbok Nah sells Es Teh (got {esTeh}: {esTehName})");
+
+            KaliPlayerController player = UnityEngine.Object.FindObjectOfType<KaliPlayerController>(true);
+            Assert(player != null && player.boatVisualPrefab != null, "Baked player has boatVisualPrefab");
+            Assert(UnityEngine.Object.FindObjectsOfType<KaliRiverSweeper.Audio.KaliAudioDirector>(true).Length == 1, "Baked scene has exactly one audio director");
         }
 
         private static int CountSnaggedPiles(out int medical)

@@ -86,19 +86,24 @@ namespace KaliRiverSweeper.Editor
             "PF_Trash_KasurKapuk",
             "PF_Trash_BanBekas",
             "PF_Trash_EcengGondok",
-            "PF_Trash_BatangPisang"
+            "PF_Trash_BatangPisang",
+            "PF_Trash_BundleKresek",
+            "PF_Trash_RaftBotol",
+            "PF_Trash_SlabStyrofoam"
         };
 
         private static readonly string[] MedicalTrashNames = new[]
         {
             "PF_Trash_MedicalBag",
-            "PF_Trash_SyringeBox"
+            "PF_Trash_SyringeBox",
+            "PF_Trash_BundleMedis"
         };
 
         private static readonly string[] BiohazardTrashNames = new[]
         {
             "PF_Trash_BiohazardDrum",
-            "PF_Trash_RadioactiveBarrel"
+            "PF_Trash_RadioactiveBarrel",
+            "PF_Trash_DrumBiohazard"
         };
 
         private static readonly string[] NikiRootPrefabs = new[]
@@ -108,7 +113,8 @@ namespace KaliRiverSweeper.Editor
             "Assets/_Project/UI/Prefabs/Canvas_SDGImpactReport.prefab",
             "Assets/_Project/VFX/VFX_MonsoonRain.prefab",
             "Assets/_Project/VFX/VFX_WaterSplashMuddy.prefab",
-            "Assets/_Project/VFX/VFX_TrashAvalanche.prefab"
+            "Assets/_Project/VFX/VFX_TrashAvalanche.prefab",
+            "Assets/_Project/Audio/Prefabs/Audio_Director.prefab"
         };
 
         private static string[] EnvPaths(string baseName) => new[]
@@ -957,6 +963,9 @@ namespace KaliRiverSweeper.Editor
             socket.transform.localPosition = new Vector3(0.38f, -0.32f, 0.65f);
             socket.transform.localRotation = Quaternion.identity;
             ctrl.toolSocket = socket.transform;
+            ctrl.boatVisualPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Project/Props/Equipment/Prefabs/PF_Prop_PerahuSampan.prefab");
+            ctrl.boatVisualEuler = new Vector3(0f, -90f, 0f); // prefab long axis -> rig forward (-Z), pointed bow forward
+            ctrl.boatVisualYOffset = 0.13f; // keel (bounds min -0.13) lands on the water surface at rideHeight 0.8
 
             IReadOnlyList<ToolDefinition> allTools = ToolCatalog.AllTools;
             ctrl.toolPrefabs = new GameObject[allTools.Count];
@@ -1079,7 +1088,7 @@ namespace KaliRiverSweeper.Editor
                 {
                     trashObj = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
                     trashObj.transform.SetPositionAndRotation(center + offset, Quaternion.Euler(0f, (float)(rng.NextDouble() * 360.0), 0f));
-                    trashObj.transform.localScale *= 2.2f; // same readable bundle scale as RiverTrashSpawner.bundleVisualScale
+                    trashObj.transform.localScale *= KaliRiverSweeper.Core.RiverTrashSpawner.VisualScaleFor(prefab.name, 2.2f); // same rule as runtime spawner
                 }
                 else
                 {
