@@ -22,6 +22,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: M_Env_PapanUmum
+    second: {fileID: 2100000, guid: d9da3fdd7d7b040f1a711c67bdc7580c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: M_Env_Tali
     second: {fileID: 2100000, guid: 54f75d572b4f641958a83227a38f5bc1, type: 2}
   materials:

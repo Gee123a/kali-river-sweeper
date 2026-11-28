@@ -3,7 +3,22 @@ guid: ef498d4ae75684dfa83bade84acd9234
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Env_LumpurDasar
+    second: {fileID: 2100000, guid: a959793df61d442d8dde7c16e923bde5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Env_TaludBeton
+    second: {fileID: 2100000, guid: 19f8401f623a45e5922e557ba69c8541, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Env_TanahBantaran
+    second: {fileID: 2100000, guid: 7af706321473482f9d688d6fa05d3d67, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

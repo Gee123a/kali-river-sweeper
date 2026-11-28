@@ -1,0 +1,427 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &4835151640370215830
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4215034427429418826}
+  - component: {fileID: 5632657682021666633}
+  m_Layer: 0
+  m_Name: Sun
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4215034427429418826
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4835151640370215830}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.04852471, y: -0.12980394, z: 0.006360195, w: 0.9903312}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4017828540028850054}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!108 &5632657682021666633
+Light:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4835151640370215830}
+  m_Enabled: 1
+  serializedVersion: 10
+  m_Type: 1
+  m_Shape: 0
+  m_Color: {r: 1, g: 0.8156863, b: 0.54901963, a: 1}
+  m_Intensity: 1.95
+  m_Range: 10
+  m_SpotAngle: 30
+  m_InnerSpotAngle: 21.80208
+  m_CookieSize: 10
+  m_Shadows:
+    m_Type: 2
+    m_Resolution: -1
+    m_CustomResolution: -1
+    m_Strength: 0.85
+    m_Bias: 0.05
+    m_NormalBias: 0.4
+    m_NearPlane: 0.2
+    m_CullingMatrixOverride:
+      e00: 1
+      e01: 0
+      e02: 0
+      e03: 0
+      e10: 0
+      e11: 1
+      e12: 0
+      e13: 0
+      e20: 0
+      e21: 0
+      e22: 1
+      e23: 0
+      e30: 0
+      e31: 0
+      e32: 0
+      e33: 1
+    m_UseCullingMatrixOverride: 0
+  m_Cookie: {fileID: 0}
+  m_DrawHalo: 0
+  m_Flare: {fileID: 0}
+  m_RenderMode: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingLayerMask: 1
+  m_Lightmapping: 4
+  m_LightShadowCasterMode: 0
+  m_AreaSize: {x: 1, y: 1}
+  m_BounceIntensity: 1
+  m_ColorTemperature: 6570
+  m_UseColorTemperature: 0
+  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_UseBoundingSphereOverride: 0
+  m_UseViewFrustumForShadowCasterCull: 1
+  m_ShadowRadius: 0
+  m_ShadowAngle: 0
+--- !u!1 &6489625373876697416
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5239510733047912856}
+  - component: {fileID: 5529861370983670072}
+  m_Layer: 0
+  m_Name: Global Volume
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5239510733047912856
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6489625373876697416}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4017828540028850054}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5529861370983670072
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6489625373876697416}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_IsGlobal: 1
+  priority: 1
+  blendDistance: 0
+  weight: 1
+  sharedProfile: {fileID: 11400000, guid: 2f64f6429eef94c29aa8b81d001dd92e, type: 2}
+--- !u!1 &8674594039272627420
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4017828540028850054}
+  - component: {fileID: 8834642028289827246}
+  m_Layer: 0
+  m_Name: PF_LightingRig
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4017828540028850054
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8674594039272627420}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4215034427429418826}
+  - {fileID: 5239510733047912856}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8834642028289827246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8674594039272627420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9221761ae00bc45bdaa68bec5c4d9300, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dayLengthSeconds: 720
+  startHour: 17.4
+  currentHour: 17.4
+  sunLight: {fileID: 5632657682021666633}
+  globalVolume: {fileID: 5529861370983670072}
+  keyframes:
+  - hour: 3
+    skyZenith: {r: 0.03529412, g: 0.07058824, b: 0.14117648, a: 1}
+    skyHorizon: {r: 0.12941177, g: 0.22745098, b: 0.3882353, a: 1}
+    skyHaze: {r: 0.105882354, g: 0.1764706, b: 0.27058825, a: 1}
+    hillColor: {r: 0.05882353, g: 0.101960786, b: 0.16862746, a: 1}
+    sunColor: {r: 0, g: 0, b: 0, a: 1}
+    sunHdrIntensity: 0
+    sunSize: 0.036
+    sunGlow: 0
+    moonColor: {r: 0.8627451, g: 0.92156863, b: 1, a: 1}
+    moonHdrIntensity: 2.2
+    stars: 1
+    lightColor: {r: 0.53333336, g: 0.69803923, b: 0.93333334, a: 1}
+    lightIntensity: 0.82
+    ambientSky: {r: 0.19215687, g: 0.32156864, b: 0.50980395, a: 1}
+    ambientEquator: {r: 0.14901961, g: 0.2627451, b: 0.41960785, a: 1}
+    ambientGround: {r: 0.09411765, g: 0.15686275, b: 0.24705882, a: 1}
+    fogColor: {r: 0.09803922, g: 0.16078432, b: 0.24705882, a: 1}
+    fogDensity: 0.0062
+    bloomIntensity: 0.35
+    postExposure: 0.15
+    saturation: -8
+    colorFilter: {r: 0.9098039, g: 0.94509804, b: 1, a: 1}
+  - hour: 5.8333335
+    skyZenith: {r: 0.32156864, g: 0.40392157, b: 0.5411765, a: 1}
+    skyHorizon: {r: 0.9411765, g: 0.6509804, b: 0.49411765, a: 1}
+    skyHaze: {r: 0.8509804, g: 0.6627451, b: 0.5529412, a: 1}
+    hillColor: {r: 0.35686275, g: 0.2901961, b: 0.2901961, a: 1}
+    sunColor: {r: 1, g: 0.8784314, b: 0.69803923, a: 1}
+    sunHdrIntensity: 2.2
+    sunSize: 0.045
+    sunGlow: 0.85
+    moonColor: {r: 0.7882353, g: 0.8666667, b: 0.972549, a: 1}
+    moonHdrIntensity: 0.35
+    stars: 0.15
+    lightColor: {r: 1, g: 0.72156864, b: 0.5176471, a: 1}
+    lightIntensity: 1.15
+    ambientSky: {r: 0.50980395, g: 0.53333336, b: 0.61960787, a: 1}
+    ambientEquator: {r: 0.8117647, g: 0.61960787, b: 0.50980395, a: 1}
+    ambientGround: {r: 0.31764707, g: 0.2627451, b: 0.21960784, a: 1}
+    fogColor: {r: 0.8117647, g: 0.6392157, b: 0.54509807, a: 1}
+    fogDensity: 0.0068
+    bloomIntensity: 0.45
+    postExposure: 0.05
+    saturation: 4
+    colorFilter: {r: 1, g: 0.9529412, b: 0.9019608, a: 1}
+  - hour: 7
+    skyZenith: {r: 0.30588236, g: 0.54901963, b: 0.76862746, a: 1}
+    skyHorizon: {r: 0.79607844, g: 0.8862745, b: 0.9411765, a: 1}
+    skyHaze: {r: 0.84705883, g: 0.8901961, b: 0.8901961, a: 1}
+    hillColor: {r: 0.3647059, g: 0.43529412, b: 0.4, a: 1}
+    sunColor: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
+    sunHdrIntensity: 2.6
+    sunSize: 0.038
+    sunGlow: 0.45
+    moonColor: {r: 0, g: 0, b: 0, a: 1}
+    moonHdrIntensity: 0
+    stars: 0
+    lightColor: {r: 1, g: 0.9137255, b: 0.78039217, a: 1}
+    lightIntensity: 1.75
+    ambientSky: {r: 0.54509807, g: 0.7137255, b: 0.85490197, a: 1}
+    ambientEquator: {r: 0.76862746, g: 0.8509804, b: 0.8862745, a: 1}
+    ambientGround: {r: 0.36078432, g: 0.3529412, b: 0.29803923, a: 1}
+    fogColor: {r: 0.80784315, g: 0.8627451, b: 0.8784314, a: 1}
+    fogDensity: 0.0038
+    bloomIntensity: 0.35
+    postExposure: 0.05
+    saturation: 5
+    colorFilter: {r: 1, g: 1, b: 1, a: 1}
+  - hour: 12
+    skyZenith: {r: 0.21176471, g: 0.49411765, b: 0.76862746, a: 1}
+    skyHorizon: {r: 0.65882355, g: 0.83137256, b: 0.9254902, a: 1}
+    skyHaze: {r: 0.78431374, g: 0.8627451, b: 0.8980392, a: 1}
+    hillColor: {r: 0.34509805, g: 0.44313726, b: 0.41960785, a: 1}
+    sunColor: {r: 1, g: 0.9882353, b: 0.92156863, a: 1}
+    sunHdrIntensity: 3
+    sunSize: 0.034
+    sunGlow: 0.22
+    moonColor: {r: 0, g: 0, b: 0, a: 1}
+    moonHdrIntensity: 0
+    stars: 0
+    lightColor: {r: 1, g: 0.96862745, b: 0.9019608, a: 1}
+    lightIntensity: 2.15
+    ambientSky: {r: 0.5529412, g: 0.7529412, b: 0.9019608, a: 1}
+    ambientEquator: {r: 0.7372549, g: 0.84705883, b: 0.89411765, a: 1}
+    ambientGround: {r: 0.3882353, g: 0.36862746, b: 0.30588236, a: 1}
+    fogColor: {r: 0.77254903, g: 0.84705883, b: 0.8862745, a: 1}
+    fogDensity: 0.0028
+    bloomIntensity: 0.3
+    postExposure: 0
+    saturation: 4
+    colorFilter: {r: 1, g: 1, b: 1, a: 1}
+  - hour: 15.5
+    skyZenith: {r: 0.39607844, g: 0.5647059, b: 0.7294118, a: 1}
+    skyHorizon: {r: 0.8901961, g: 0.8352941, b: 0.7372549, a: 1}
+    skyHaze: {r: 0.8745098, g: 0.80784315, b: 0.7137255, a: 1}
+    hillColor: {r: 0.43529412, g: 0.4117647, b: 0.35686275, a: 1}
+    sunColor: {r: 1, g: 0.95686275, b: 0.8235294, a: 1}
+    sunHdrIntensity: 2.8
+    sunSize: 0.04
+    sunGlow: 0.52
+    moonColor: {r: 0, g: 0, b: 0, a: 1}
+    moonHdrIntensity: 0
+    stars: 0
+    lightColor: {r: 1, g: 0.8980392, b: 0.7058824, a: 1}
+    lightIntensity: 1.95
+    ambientSky: {r: 0.60784316, g: 0.7176471, b: 0.8, a: 1}
+    ambientEquator: {r: 0.87058824, g: 0.8039216, b: 0.69803923, a: 1}
+    ambientGround: {r: 0.41960785, g: 0.3647059, b: 0.2901961, a: 1}
+    fogColor: {r: 0.8627451, g: 0.7882353, b: 0.6862745, a: 1}
+    fogDensity: 0.0038
+    bloomIntensity: 0.4
+    postExposure: 0.05
+    saturation: 5
+    colorFilter: {r: 1, g: 0.9843137, b: 0.9490196, a: 1}
+  - hour: 17.4
+    skyZenith: {r: 1.34, g: 0.72, b: 0.42, a: 1}
+    skyHorizon: {r: 1.44, g: 0.96, b: 0.62, a: 1}
+    skyHaze: {r: 1.16, g: 0.8, b: 0.56, a: 1}
+    hillColor: {r: 0.5529412, g: 0.4392157, b: 0.34901962, a: 1}
+    sunColor: {r: 1, g: 0.9843137, b: 0.80784315, a: 1}
+    sunHdrIntensity: 5.4
+    sunSize: 0.068
+    sunGlow: 1.38
+    moonColor: {r: 0, g: 0, b: 0, a: 1}
+    moonHdrIntensity: 0
+    stars: 0
+    lightColor: {r: 1, g: 0.8156863, b: 0.54901963, a: 1}
+    lightIntensity: 1.95
+    ambientSky: {r: 0.9764706, g: 0.80784315, b: 0.6431373, a: 1}
+    ambientEquator: {r: 0.99607843, g: 0.8980392, b: 0.77254903, a: 1}
+    ambientGround: {r: 0.4862745, g: 0.3764706, b: 0.2784314, a: 1}
+    fogColor: {r: 0.9098039, g: 0.78039217, b: 0.65882355, a: 1}
+    fogDensity: 0.004
+    bloomIntensity: 0.65
+    postExposure: 0.08
+    saturation: 8
+    colorFilter: {r: 1, g: 0.9647059, b: 0.9254902, a: 1}
+  - hour: 17.6
+    skyZenith: {r: 1.3, g: 0.68, b: 0.38, a: 1}
+    skyHorizon: {r: 1.4, g: 0.92, b: 0.58, a: 1}
+    skyHaze: {r: 1.12, g: 0.76, b: 0.52, a: 1}
+    hillColor: {r: 0.5529412, g: 0.4392157, b: 0.34901962, a: 1}
+    sunColor: {r: 1, g: 0.9843137, b: 0.80784315, a: 1}
+    sunHdrIntensity: 5.2
+    sunSize: 0.068
+    sunGlow: 1.38
+    moonColor: {r: 0, g: 0, b: 0, a: 1}
+    moonHdrIntensity: 0
+    stars: 0
+    lightColor: {r: 1, g: 0.8, b: 0.52156866, a: 1}
+    lightIntensity: 1.85
+    ambientSky: {r: 0.9764706, g: 0.80784315, b: 0.6431373, a: 1}
+    ambientEquator: {r: 0.99607843, g: 0.8980392, b: 0.77254903, a: 1}
+    ambientGround: {r: 0.47058824, g: 0.3647059, b: 0.27058825, a: 1}
+    fogColor: {r: 0.89411765, g: 0.7647059, b: 0.6431373, a: 1}
+    fogDensity: 0.0042
+    bloomIntensity: 0.65
+    postExposure: 0.08
+    saturation: 8
+    colorFilter: {r: 1, g: 0.9647059, b: 0.9254902, a: 1}
+  - hour: 18.666666
+    skyZenith: {r: 0.18431373, g: 0.20784314, b: 0.34901962, a: 1}
+    skyHorizon: {r: 0.84705883, g: 0.4627451, b: 0.34901962, a: 1}
+    skyHaze: {r: 0.6509804, g: 0.40392157, b: 0.34509805, a: 1}
+    hillColor: {r: 0.27058825, g: 0.20784314, b: 0.23137255, a: 1}
+    sunColor: {r: 1, g: 0.54509807, b: 0.32156864, a: 1}
+    sunHdrIntensity: 1
+    sunSize: 0.048
+    sunGlow: 0.65
+    moonColor: {r: 0.8627451, g: 0.92156863, b: 1, a: 1}
+    moonHdrIntensity: 0.7
+    stars: 0.35
+    lightColor: {r: 0.9411765, g: 0.54509807, b: 0.39215687, a: 1}
+    lightIntensity: 0.65
+    ambientSky: {r: 0.32156864, g: 0.30980393, b: 0.4392157, a: 1}
+    ambientEquator: {r: 0.72156864, g: 0.43137255, b: 0.36078432, a: 1}
+    ambientGround: {r: 0.21176471, g: 0.17254902, b: 0.1882353, a: 1}
+    fogColor: {r: 0.6117647, g: 0.39607844, b: 0.35686275, a: 1}
+    fogDensity: 0.0068
+    bloomIntensity: 0.45
+    postExposure: 0.08
+    saturation: 4
+    colorFilter: {r: 1, g: 0.92156863, b: 0.8901961, a: 1}
+  - hour: 19.5
+    skyZenith: {r: 0.08627451, g: 0.13333334, b: 0.23921569, a: 1}
+    skyHorizon: {r: 0.21176471, g: 0.30588236, b: 0.45882353, a: 1}
+    skyHaze: {r: 0.1764706, g: 0.25490198, b: 0.3764706, a: 1}
+    hillColor: {r: 0.10980392, g: 0.15686275, b: 0.23529412, a: 1}
+    sunColor: {r: 0, g: 0, b: 0, a: 1}
+    sunHdrIntensity: 0
+    sunSize: 0.036
+    sunGlow: 0
+    moonColor: {r: 0.8627451, g: 0.92156863, b: 1, a: 1}
+    moonHdrIntensity: 1.6
+    stars: 0.8
+    lightColor: {r: 0.53333336, g: 0.6745098, b: 0.8784314, a: 1}
+    lightIntensity: 0.55
+    ambientSky: {r: 0.19607843, g: 0.29411766, b: 0.44705883, a: 1}
+    ambientEquator: {r: 0.17254902, g: 0.2627451, b: 0.3882353, a: 1}
+    ambientGround: {r: 0.09411765, g: 0.13725491, b: 0.20392157, a: 1}
+    fogColor: {r: 0.16470589, g: 0.23921569, b: 0.34509805, a: 1}
+    fogDensity: 0.0062
+    bloomIntensity: 0.38
+    postExposure: 0.12
+    saturation: -4
+    colorFilter: {r: 0.9098039, g: 0.9411765, b: 1, a: 1}
+  - hour: 22
+    skyZenith: {r: 0.043137256, g: 0.08235294, b: 0.15686275, a: 1}
+    skyHorizon: {r: 0.12941177, g: 0.22745098, b: 0.3882353, a: 1}
+    skyHaze: {r: 0.11372549, g: 0.1882353, b: 0.28235295, a: 1}
+    hillColor: {r: 0.06666667, g: 0.11372549, b: 0.1882353, a: 1}
+    sunColor: {r: 0, g: 0, b: 0, a: 1}
+    sunHdrIntensity: 0
+    sunSize: 0.036
+    sunGlow: 0
+    moonColor: {r: 0.8627451, g: 0.92156863, b: 1, a: 1}
+    moonHdrIntensity: 2.2
+    stars: 1
+    lightColor: {r: 0.5411765, g: 0.7058824, b: 0.9411765, a: 1}
+    lightIntensity: 0.82
+    ambientSky: {r: 0.19215687, g: 0.32156864, b: 0.50980395, a: 1}
+    ambientEquator: {r: 0.14901961, g: 0.2627451, b: 0.41960785, a: 1}
+    ambientGround: {r: 0.09411765, g: 0.15686275, b: 0.24705882, a: 1}
+    fogColor: {r: 0.101960786, g: 0.16862746, b: 0.25882354, a: 1}
+    fogDensity: 0.006
+    bloomIntensity: 0.35
+    postExposure: 0.15
+    saturation: -6
+    colorFilter: {r: 0.9019608, g: 0.9411765, b: 1, a: 1}

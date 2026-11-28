@@ -337,6 +337,8 @@ WEAR = {  # crease cells, crease tint, mud, fade, grime, normal tilt, base smoot
     "bottle": dict(cells=10, crease=0.35, crease_col="#ffffff", mud=0.32, fade=0.15, grime=0.35, tilt=0.10, smooth=0.60),
     "carton": dict(cells=8, crease=0.70, crease_col="#efe3d3", mud=0.45, fade=0.12, grime=0.55, tilt=0.15, smooth=0.35),
     "foam":   dict(cells=0, crease=0.0, crease_col="#ffffff", mud=0.45, fade=0.0, grime=0.55, tilt=0.0, smooth=0.25),
+    "steel":  dict(cells=6, crease=0.25, crease_col="#d6d0c2", mud=0.55, fade=0.15, grime=0.60, tilt=0.08, smooth=0.35),
+    "paint":  dict(cells=0, crease=0.0, crease_col="#ffffff", mud=0.18, fade=0.08, grime=0.30, tilt=0.0, smooth=0.40),
 }
 MUD = hexc("#664f2c")
 GRIME = hexc("#3b3326")
@@ -743,6 +745,68 @@ def _aquo(c, units):
     _aquo_face(c, w, h, False)
 
 
+def _trefoil(c, cx, cy, s, ink, bg):
+    """Biohazard trefoil: three crescents round a ringed centre (stencil-simple)."""
+    for k in range(3):
+        a = math.radians(90 + k * 120)
+        c.paint(c.ellipse(cx + 0.55 * s * math.cos(a), cy + 0.55 * s * math.sin(a), 0.52 * s, 0.52 * s), ink)
+    for k in range(3):
+        a = math.radians(90 + k * 120)
+        c.paint(c.ellipse(cx + 0.72 * s * math.cos(a), cy + 0.72 * s * math.sin(a), 0.38 * s, 0.38 * s), bg)
+    c.paint(c.ellipse(cx, cy, 0.62 * s, 0.62 * s) & ~c.ellipse(cx, cy, 0.5 * s, 0.5 * s), ink)
+    c.paint(c.ellipse(cx, cy, 0.26 * s, 0.26 * s), ink)
+    c.paint(c.ellipse(cx, cy, 0.14 * s, 0.14 * s), bg)
+
+
+def _biohazard_drum(c):
+    """Lime hazard band round a purple drum (DESIGN.md #A855F7 / #84CC16): trefoils + BIOHAZARD stencil, ooze."""
+    for panel in ("front", "back"):
+        c.panel(panel, (89.0, 26.0))
+        c.paint(c.full(), "#84cc16")
+        c.paint(c.rect(0, 0, 89, 1.6) | c.rect(0, 24.4, 89, 26), "#6b21a8")
+        for x in (12.0, 77.0):
+            _trefoil(c, x, 13.0, 9.0, "#1a1022", "#84cc16")
+        c.paint(c.text("BIOHAZARD", 44.5, 15.5, 7.5, "impact.ttf", max_w=50, spacing=1.2), "#1a1022")
+        c.paint(c.text("LIMBAH B3  -  JANGAN DIBUKA", 44.5, 6.2, 2.4, "arialbd.ttf", max_w=46), "#1a1022")
+        for x, ln in ((30.0, 10.0), (58.0, 14.0), (66.0, 7.0)):      # lime ooze running down from the band
+            c.paint(c.stroke([(x, 1.6), (x + 0.6, 1.6 - ln * 0.1)], 1.2), "#a3e635")
+        c.protect(4, 3, 85, 23)
+
+
+def _tong_anorganik(c):
+    """Blue kampung bin band: yellow stencil SAMPAH ANORGANIK with a recycling-style arrow ring."""
+    for panel in ("front", "back"):
+        c.panel(panel, (89.0, 26.0))
+        c.paint(c.full(), "#1d4ed8")
+        c.paint(c.text("SAMPAH", 52.0, 17.5, 7.0, "impact.ttf", max_w=50, spacing=1.15), "#facc15")
+        c.paint(c.text("ANORGANIK", 52.0, 7.5, 7.0, "impact.ttf", max_w=56, spacing=1.15), "#facc15")
+        ring = c.ellipse(13.0, 13.0, 8.0, 8.0) & ~c.ellipse(13.0, 13.0, 5.6, 5.6)
+        for k in range(3):
+            a = math.radians(30 + k * 120)
+            ring &= ~c.poly([(13, 13), (13 + 10 * math.cos(a - 0.12), 13 + 10 * math.sin(a - 0.12)),
+                             (13 + 10 * math.cos(a + 0.12), 13 + 10 * math.sin(a + 0.12))])
+        c.paint(ring, "#facc15")
+        c.protect(4, 2, 85, 24)
+
+
+def _sampan_planks(c):
+    """Painted plank strakes of a kampung sampan (UV: s along the hull, t keel -> gunwale), grain and seams."""
+    rng = np.random.default_rng(6)
+    c.panel("front", (370.0, 60.0))
+    bands = [(0, 15, "#3b2a1e"), (15, 30, "#2563eb"), (30, 45, "#f1f1ea"), (45, 60, "#c0392b")]   # tar, blue, white, red
+    for y0, y1, col in bands:
+        c.paint(c.rect(0, y0, 370, y1), col)
+    for y in (15, 30, 45):                                               # plank seams
+        c.paint(c.rect(0, y - 0.6, 370, y + 0.6), "#1c140e", 0.8)
+    for _ in range(60):                                                  # wood grain showing through the paint
+        y, x = rng.uniform(1, 59), rng.uniform(0, 340)
+        c.paint(c.rect(x, y, x + rng.uniform(15, 40), y + 0.35), "#000000", 0.18)
+    for x in range(20, 370, 40):                                         # plank butt joints / nails
+        y = rng.choice([15, 30, 45]) - 7.5
+        c.paint(c.rect(x, y - 6, x + 0.8, y + 6), "#1c140e", 0.6)
+    c.paint(c.text("REZEKI", 185, 52.5, 6.0, "impact.ttf", max_w=60), "#f1f1ea")
+
+
 ARTS = {
     "indomy": (_indomy, "pack", "film"),
     "bingo": (_bingo, "pack", "film"),
@@ -755,6 +819,9 @@ ARTS = {
     "styrofoam": (_styrofoam, "pair", "foam"),
     "aquo": (lambda c: _aquo(c, (10.0, 5.0)), "wrap", "bottle"),             # 600 ml bottle band (parody brand)
     "aquo_galon": (lambda c: _aquo(c, (42.0, 10.0)), "wrap", "bottle"),      # 19 L jug sticker band
+    "biohazard_drum": (_biohazard_drum, "wrap", "steel"),
+    "tong_anorganik": (_tong_anorganik, "wrap", "paint"),
+    "sampan_planks": (_sampan_planks, "pack", "paint"),
     # clean product variants (render with dirty=False): bread in the window, unused foam
     "sari_boti_full": (lambda c: _sari_boti(c, full=True), "pack", "film"),
     "styrofoam_new": (lambda c: _styrofoam(c, used=False), "pair", "foam"),

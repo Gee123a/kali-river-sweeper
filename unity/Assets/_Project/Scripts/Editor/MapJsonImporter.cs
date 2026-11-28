@@ -5,9 +5,13 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 using KaliRiverSweeper.Core;
 using KaliRiverSweeper.Player;
 
@@ -28,6 +32,14 @@ namespace KaliRiverSweeper.Editor
         }
 
         [Serializable]
+        private class KampungMix
+        {
+            public float rumah;
+            public float warung_madura;
+            public float warung;
+        }
+
+        [Serializable]
         private class MapItem
         {
             public string id;
@@ -40,7 +52,20 @@ namespace KaliRiverSweeper.Editor
             public float elev;
             public float rot;
             public string color;
+            public float x1;
+            public float y1;
+            public float x2;
+            public float y2;
+            public float spacing;
+            public int seed;
+            public int depth;
+            public KampungMix mix;
+            public string role;
+            public int count;
+            public float radius;
         }
+
+        private static KaliMapBackdropBuilder.SceneAssetCache activeAssetCache;
 
         private static readonly string[] NormalTrashNames = new[]
         {
@@ -219,6 +244,219 @@ namespace KaliRiverSweeper.Editor
             if (!string.IsNullOrEmpty(path)) ImportFromPath(path);
         }
 
+        public static List<KaliKampungBuilder.ExpandedBuilding> ExpandDefaultMapKampungRows()
+        {
+            if (!File.Exists(DefaultMapPath))
+            {
+                Debug.LogError($"[KALI] Map JSON not found at: {DefaultMapPath}");
+                return new List<KaliKampungBuilder.ExpandedBuilding>();
+            }
+
+            string rawJson = File.ReadAllText(DefaultMapPath);
+            MapData data = JsonUtility.FromJson<MapData>(rawJson);
+            if (data == null || data.items == null)
+            {
+                Debug.LogError("[KALI] Failed to parse default Map JSON.");
+                return new List<KaliKampungBuilder.ExpandedBuilding>();
+            }
+
+            CollectRowsAndAvoidance(data, rawJson, out var rowSpecs, out var avoidZones, out var footpaths);
+            // Same real-footprint refinement as the bake, when the built world is in the scene.
+            GameObject built = GameObject.Find("_KALI_World");
+            if (built != null) RefineAvoidZonesToRealFootprints(built.transform, avoidZones);
+            return KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
+        }
+
+        public static List<KaliNpcBuilder.ExpandedNpc> ExpandDefaultMapNpcGroups()
+        {
+            if (!File.Exists(DefaultMapPath))
+            {
+                Debug.LogError($"[KALI] Map JSON not found at: {DefaultMapPath}");
+                return new List<KaliNpcBuilder.ExpandedNpc>();
+            }
+
+            string rawJson = File.ReadAllText(DefaultMapPath);
+            MapData data = JsonUtility.FromJson<MapData>(rawJson);
+            if (data == null || data.items == null)
+            {
+                Debug.LogError("[KALI] Failed to parse default Map JSON.");
+                return new List<KaliNpcBuilder.ExpandedNpc>();
+            }
+
+            CollectRowsAndAvoidance(data, rawJson, out var rowSpecs, out var avoidZones, out var footpaths);
+            GameObject built = GameObject.Find("_KALI_World");
+            if (built != null) RefineAvoidZonesToRealFootprints(built.transform, avoidZones);
+            var expandedBuildings = KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
+            var npcGroups = CollectNpcGroups(data);
+            return KaliNpcBuilder.ExpandNpcGroups(npcGroups, expandedBuildings, avoidZones, footpaths);
+        }
+
+        private static List<KaliNpcBuilder.NpcGroupSpec> CollectNpcGroups(MapData data)
+        {
+            var groups = new List<KaliNpcBuilder.NpcGroupSpec>();
+            if (data?.items == null) return groups;
+            foreach (MapItem item in data.items)
+            {
+                if (item.type != "npc_group") continue;
+                groups.Add(new KaliNpcBuilder.NpcGroupSpec
+                {
+                    id = item.id,
+                    role = item.role,
+                    x = item.x,
+                    y = item.y,
+                    count = item.count,
+                    radius = item.radius,
+                    seed = item.seed
+                });
+            }
+            return groups;
+        }
+
+        private static void CollectRowsAndAvoidance(
+            MapData data,
+            string rawJson,
+            out List<KaliKampungBuilder.KampungRowSpec> rowSpecs,
+            out List<KaliKampungBuilder.AvoidanceZone> avoidZones,
+            out List<KaliKampungBuilder.PathSegment> footpaths)
+        {
+            rowSpecs = new List<KaliKampungBuilder.KampungRowSpec>();
+            avoidZones = new List<KaliKampungBuilder.AvoidanceZone>();
+            footpaths = KaliKampungBuilder.ParseFootpathsFromJson(rawJson);
+
+            if (data?.items == null) return;
+
+            foreach (MapItem item in data.items)
+            {
+                if (item.type == "kampung_row")
+                {
+                    float rumahW = item.mix != null ? item.mix.rumah : 0f;
+                    float warungW = item.mix != null
+                        ? (item.mix.warung_madura > 0f ? item.mix.warung_madura : item.mix.warung)
+                        : 0f;
+                    if (rumahW <= 0f && warungW <= 0f)
+                    {
+                        rumahW = 0.7f;
+                        warungW = 0.3f;
+                    }
+
+                    rowSpecs.Add(new KaliKampungBuilder.KampungRowSpec
+                    {
+                        id = item.id,
+                        name = item.name,
+                        x1 = item.x1,
+                        y1 = item.y1,
+                        x2 = item.x2,
+                        y2 = item.y2,
+                        spacing = item.spacing,
+                        seed = item.seed,
+                        depth = item.depth,
+                        rumahWeight = rumahW,
+                        warungWeight = warungW
+                    });
+                }
+                else if (TryGetAvoidanceSpec(item.type, out Vector2 halfExtents, out float minClearance))
+                {
+                    avoidZones.Add(new KaliKampungBuilder.AvoidanceZone
+                    {
+                        name = string.IsNullOrEmpty(item.name) ? item.type : item.name,
+                        worldCenter = RiverMath.ToWorld3D(item.x, item.y, 0f),
+                        halfExtentsXZ = halfExtents,
+                        minClearanceM = minClearance
+                    });
+                }
+            }
+        }
+
+        // Replaces the hardcoded hub/Dermaga footprints with the real XZ bounds of the spawned objects.
+        // Zones with no matching renderer keep their spec fallback. Particle renderers are skipped.
+        private static void RefineAvoidZonesToRealFootprints(Transform root, List<KaliKampungBuilder.AvoidanceZone> avoidZones)
+        {
+            Transform[] all = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < avoidZones.Count; i++)
+            {
+                KaliKampungBuilder.AvoidanceZone z = avoidZones[i];
+                Transform match = null;
+                foreach (Transform t in all)
+                {
+                    if (t.name == z.name && t.GetComponentInChildren<Renderer>(true) != null)
+                    {
+                        match = t;
+                        break;
+                    }
+                }
+                if (match == null) continue;
+
+                bool any = false;
+                Bounds b = default;
+                foreach (Renderer r in match.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r is ParticleSystemRenderer) continue;
+                    if (!any) { b = r.bounds; any = true; }
+                    else b.Encapsulate(r.bounds);
+                }
+                if (!any) continue;
+
+                z.worldCenter = new Vector3(b.center.x, 0f, b.center.z);
+                z.halfExtentsXZ = new Vector2(b.extents.x, b.extents.z);
+                avoidZones[i] = z;
+            }
+        }
+
+        private static bool TryGetAvoidanceSpec(string type, out Vector2 halfExtentsXZ, out float minClearanceM)
+        {
+            switch (type)
+            {
+                case "bank_sampah":
+                case "pos_medis":
+                case "karantina_biohazard":
+                case "pengepul":
+                    halfExtentsXZ = new Vector2(3.0f, 4.5f);
+                    minClearanceM = 6.5f;
+                    return true;
+                case "kopdes":
+                case "toko_alat":
+                    halfExtentsXZ = new Vector2(3.0f, 5.5f);
+                    minClearanceM = 6.5f;
+                    return true;
+                case "dermaga":
+                    halfExtentsXZ = new Vector2(4.0f, 2.0f);
+                    minClearanceM = 6.0f;
+                    return true;
+                case "jembatan":
+                    halfExtentsXZ = new Vector2(23.0f, 3.8f);
+                    minClearanceM = 5.0f;
+                    return true;
+                case "sluice_gate":
+                    halfExtentsXZ = new Vector2(15.0f, 8.0f);
+                    minClearanceM = 5.0f;
+                    return true;
+                case "gunung_node":
+                    halfExtentsXZ = new Vector2(20.0f, 12.0f);
+                    minClearanceM = 5.0f;
+                    return true;
+                case "excavator":
+                    halfExtentsXZ = new Vector2(4.0f, 4.0f);
+                    minClearanceM = 5.0f;
+                    return true;
+                case "interceptor":
+                    halfExtentsXZ = new Vector2(4.5f, 3.0f);
+                    minClearanceM = 5.0f;
+                    return true;
+                case "trash_boom":
+                    halfExtentsXZ = new Vector2(9.0f, 2.0f);
+                    minClearanceM = 5.0f;
+                    return true;
+                case "spawn":
+                    halfExtentsXZ = new Vector2(1.0f, 1.0f);
+                    minClearanceM = 6.5f;
+                    return true;
+                default:
+                    halfExtentsXZ = Vector2.zero;
+                    minClearanceM = 0f;
+                    return false;
+            }
+        }
+
         private static bool ImportFromPath(string path)
         {
             if (!File.Exists(path))
@@ -227,7 +465,8 @@ namespace KaliRiverSweeper.Editor
                 return false;
             }
 
-            MapData data = JsonUtility.FromJson<MapData>(File.ReadAllText(path));
+            string rawJson = File.ReadAllText(path);
+            MapData data = JsonUtility.FromJson<MapData>(rawJson);
             if (data == null || data.items == null)
             {
                 Debug.LogError("[KALI] Failed to parse Map JSON.");
@@ -237,37 +476,100 @@ namespace KaliRiverSweeper.Editor
             GameObject existing = GameObject.Find("_KALI_World");
             if (existing != null) UnityEngine.Object.DestroyImmediate(existing);
 
-            GameObject root = new GameObject("_KALI_World");
-            GameObject terrainGroup = CreateGroup("Terrain", root.transform);
-            GameObject buildingsGroup = CreateGroup("Buildings", root.transform);
-            GameObject trashGroup = CreateGroup("Trash", root.transform);
-            GameObject infraGroup = CreateGroup("Infrastructure", root.transform);
-            GameObject gunungGroup = CreateGroup("GunungSampah", root.transform);
-            GameObject managersGroup = CreateGroup("Managers", root.transform);
-            GameObject lightingGroup = CreateGroup("Lighting", root.transform);
-
-            managersGroup.AddComponent<RiverGameManager>();
-            RiverTrashSpawner spawner = managersGroup.AddComponent<RiverTrashSpawner>();
-            spawner.SetTrashRoot(trashGroup.transform);
-            spawner.normalPrefabs = LoadTrashPrefabPool(NormalTrashNames);
-            spawner.medicalPrefabs = LoadTrashPrefabPool(MedicalTrashNames);
-            spawner.biohazardPrefabs = LoadTrashPrefabPool(BiohazardTrashNames);
-
-            BuildTerrainAndWater(terrainGroup.transform);
-            SetupLightingRig(lightingGroup.transform);
-
-            foreach (MapItem item in data.items)
+            var assetCache = new KaliMapBackdropBuilder.SceneAssetCache();
+            activeAssetCache = assetCache;
+            try
             {
-                SpawnItem(item, buildingsGroup.transform, trashGroup.transform, infraGroup.transform, gunungGroup.transform, root.transform);
-            }
+                GameObject root = new GameObject("_KALI_World");
+                GameObject terrainGroup = CreateGroup("Terrain", root.transform);
+                GameObject buildingsGroup = CreateGroup("Buildings", root.transform);
+                GameObject clutterGroup = CreateGroup("Clutter", root.transform);
+                GameObject treesGroup = CreateGroup("Trees", root.transform);
+                GameObject npcsGroup = CreateGroup("NPCs", root.transform);
+                GameObject trashGroup = CreateGroup("Trash", root.transform);
+                GameObject infraGroup = CreateGroup("Infrastructure", root.transform);
+                GameObject gunungGroup = CreateGroup("GunungSampah", root.transform);
+                GameObject managersGroup = CreateGroup("Managers", root.transform);
+                GameObject lightingGroup = CreateGroup("Lighting", root.transform);
 
-            foreach (string nikiPath in NikiRootPrefabs)
+                managersGroup.AddComponent<RiverGameManager>();
+                RiverTrashSpawner spawner = managersGroup.AddComponent<RiverTrashSpawner>();
+                spawner.SetTrashRoot(trashGroup.transform);
+                spawner.normalPrefabs = LoadTrashPrefabPool(NormalTrashNames);
+                spawner.medicalPrefabs = LoadTrashPrefabPool(MedicalTrashNames);
+                spawner.biohazardPrefabs = LoadTrashPrefabPool(BiohazardTrashNames);
+
+                BuildTerrainAndWater(terrainGroup.transform, out Material resolvedWaterMat);
+                SetupLightingRig(lightingGroup.transform);
+
+                foreach (MapItem item in data.items)
+                {
+                    SpawnItem(
+                        item,
+                        buildingsGroup.transform,
+                        trashGroup.transform,
+                        infraGroup.transform,
+                        gunungGroup.transform,
+                        treesGroup.transform,
+                        root.transform,
+                        assetCache);
+                }
+
+                CollectRowsAndAvoidance(data, rawJson, out var rowSpecs, out var avoidZones, out var footpaths);
+                RefineAvoidZonesToRealFootprints(root.transform, avoidZones);
+                var expanded =KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
+                var stats = KaliKampungBuilder.SpawnKampungAndClutter(
+                    expanded,
+                    buildingsGroup.transform,
+                    clutterGroup.transform,
+                    treesGroup.transform,
+                    assetCache,
+                    avoidZones,
+                    footpaths);
+
+                Physics.SyncTransforms();
+                var npcGroups = CollectNpcGroups(data);
+                var expandedNpcs = KaliNpcBuilder.ExpandNpcGroups(npcGroups, expanded, avoidZones, footpaths);
+                int npcCount = KaliNpcBuilder.SpawnNpcGroups(expandedNpcs, npcsGroup.transform, assetCache);
+
+                KaliMapBackdropBuilder.BuildBackdropAndBoundary(
+                    root.transform,
+                    assetCache,
+                    resolvedWaterMat,
+                    out int backdropCount,
+                    out int boundaryCount);
+
+                foreach (string nikiPath in NikiRootPrefabs)
+                {
+                    AttachPrefabIfPresent(root.transform, nikiPath);
+                }
+
+                EnsureEventSystem(root.transform);
+
+                Debug.Log(
+                    $"[KALI] Imported {data.items.Length} JSON items + kampung expansion from {path} into _KALI_World | " +
+                    $"buildings={stats.totalBuildings} (rumah={stats.rumahCount}, warung={stats.warungCount}, west={stats.westCount}, east={stats.eastCount}), " +
+                    $"jetties={stats.jettyCount}, bins={stats.binCount}, boats={stats.boatCount}, lanterns={stats.lanternCount}, " +
+                    $"npcs={npcCount}, rearTrees={stats.rearTreeCount}, backdrop={backdropCount}, boundaries={boundaryCount}.");
+                return true;
+            }
+            finally
             {
-                AttachPrefabIfPresent(root.transform, nikiPath);
+                activeAssetCache = null;
             }
+        }
 
-            Debug.Log($"[KALI] Imported {data.items.Length} objects from {path} into _KALI_World.");
-            return true;
+        private static void EnsureEventSystem(Transform root)
+        {
+            if (UnityEngine.Object.FindObjectOfType<EventSystem>() != null) return;
+            GameObject esGo = new GameObject("EventSystem");
+            esGo.transform.SetParent(root);
+            esGo.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            esGo.AddComponent<InputSystemUIInputModule>();
+#else
+            esGo.AddComponent<StandaloneInputModule>();
+#endif
         }
 
         private static GameObject LoadFirstPrefab(params string[] paths) => LoadFirstAsset<GameObject>(paths);
@@ -294,7 +596,7 @@ namespace KaliRiverSweeper.Editor
             return list.ToArray();
         }
 
-        private static void BuildTerrainAndWater(Transform parent)
+        private static void BuildTerrainAndWater(Transform parent, out Material resolvedWaterMat)
         {
             float worldWidthM = RiverMath.WorldW * RiverMath.MapScale; // 130m
             float worldLenM = RiverMath.WorldH * RiverMath.MapScale;  // 180m
@@ -315,6 +617,7 @@ namespace KaliRiverSweeper.Editor
                     }
                 }
                 EnsureCollider(valley, concaveMesh: true, ensureRootCollider: false, solidRootCollider: false);
+                KaliMapBackdropBuilder.MarkStaticDecor(valley, includeOccluder: true);
             }
             else
             {
@@ -348,6 +651,8 @@ namespace KaliRiverSweeper.Editor
                 ApplyTint(river, new Color(0.24f, 0.20f, 0.14f, 0.85f));
             }
 
+            resolvedWaterMat = riverRenderer != null ? riverRenderer.sharedMaterial : waterMat;
+
             if (river.GetComponent<RiverWaterSurfaceFollower>() == null)
             {
                 river.AddComponent<RiverWaterSurfaceFollower>();
@@ -370,6 +675,7 @@ namespace KaliRiverSweeper.Editor
             riverbed.transform.position = new Vector3(0f, RiverbedTopY - 0.5f, 0f);
             riverbed.transform.localScale = new Vector3(worldWidthM, 1f, worldLenM);
             ApplyTint(riverbed, new Color(0.18f, 0.15f, 0.11f));
+            KaliMapBackdropBuilder.MarkStaticDecor(riverbed, includeOccluder: true);
 
             const int slices = 18;
             float sliceLenM = worldLenM / slices;
@@ -390,6 +696,7 @@ namespace KaliRiverSweeper.Editor
                 westBank.transform.position = new Vector3(-halfWorldX + westWidth * 0.5f, bankCenterY, zCenter);
                 westBank.transform.localScale = new Vector3(westWidth, bankThickness, sliceLenM + 0.15f);
                 ApplyTint(westBank, bankColor);
+                KaliMapBackdropBuilder.MarkStaticDecor(westBank, includeOccluder: true);
 
                 float eastEdge = cxWorld + hwWorld;
                 float eastWidth = Mathf.Max(2f, halfWorldX - eastEdge);
@@ -399,6 +706,7 @@ namespace KaliRiverSweeper.Editor
                 eastBank.transform.position = new Vector3(eastEdge + eastWidth * 0.5f, bankCenterY, zCenter);
                 eastBank.transform.localScale = new Vector3(eastWidth, bankThickness, sliceLenM + 0.15f);
                 ApplyTint(eastBank, bankColor);
+                KaliMapBackdropBuilder.MarkStaticDecor(eastBank, includeOccluder: true);
             }
         }
 
@@ -409,7 +717,21 @@ namespace KaliRiverSweeper.Editor
             {
                 GameObject rig = (GameObject)PrefabUtility.InstantiatePrefab(rigPrefab, parent);
                 rig.name = "PF_LightingRig";
-                Debug.Log("[KALI] Successfully instantiated JC's PF_LightingRig.");
+
+                Light rigLight = rig.GetComponentInChildren<Light>(true);
+                if (rigLight != null) RenderSettings.sun = rigLight;
+
+                Material skyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Project/Lighting/Materials/M_KaliSky.mat");
+                if (skyMat != null) RenderSettings.skybox = skyMat;
+
+                RenderSettings.ambientMode = AmbientMode.Trilight;
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+
+                KaliDayNightCycle cycle = rig.GetComponent<KaliDayNightCycle>();
+                if (cycle != null) cycle.SetHour(cycle.startHour);
+
+                Debug.Log("[KALI] Successfully instantiated PF_LightingRig + M_KaliSky.");
                 return;
             }
 
@@ -423,8 +745,43 @@ namespace KaliRiverSweeper.Editor
             l.shadows = LightShadows.Soft;
         }
 
-        private static void SpawnItem(MapItem item, Transform buildings, Transform trash, Transform infra, Transform gunung, Transform root)
+        private static void SpawnItem(
+            MapItem item,
+            Transform buildings,
+            Transform trash,
+            Transform infra,
+            Transform gunung,
+            Transform trees,
+            Transform root,
+            KaliMapBackdropBuilder.SceneAssetCache assetCache)
         {
+            if (item.type == "kampung_row" || item.type == "npc_group")
+            {
+                return;
+            }
+
+            if (item.type == "pohon")
+            {
+                uint h = Fnv1aHash(item.id);
+                var rng = new System.Random((int)h);
+                float yaw = (float)(rng.NextDouble() * 360.0);
+                float scale = 0.85f + (float)(rng.NextDouble() * 0.40);
+                float tilt = (float)(rng.NextDouble() * 8.0 - 4.0);
+                bool useAltGreen = rng.NextDouble() < 0.45;
+                KaliMapBackdropBuilder.CreateLowPolyTree(
+                    trees,
+                    assetCache,
+                    RiverMath.ToWorld3D(item.x, item.y, BankTopY),
+                    yaw,
+                    scale,
+                    tilt,
+                    item.name,
+                    useAltGreen,
+                    addCollider: true,
+                    isStatic: true);
+                return;
+            }
+
             if (item.type == "spawn")
             {
                 SpawnPlayerRig(item, root);
@@ -450,6 +807,12 @@ namespace KaliRiverSweeper.Editor
 
             GameObject go = SpawnEnvOrFallback(item, targetParent, groundY, out bool usedPrefab);
 
+            if (item.type is "bank_sampah" or "kopdes" or "toko_alat" or "pengepul" or "pos_medis" or "karantina_biohazard"
+                or "rumah" or "warung" or "warung_madura" or "jembatan" or "sluice_gate" or "dermaga")
+            {
+                KaliMapBackdropBuilder.MarkStaticDecor(go, includeOccluder: item.type != "dermaga");
+            }
+
             if (item.type == "gunung_node")
             {
                 GunungNodeController gCtrl = go.GetComponent<GunungNodeController>();
@@ -466,6 +829,27 @@ namespace KaliRiverSweeper.Editor
                 AttachOnTopIfPresent(go.transform, "Assets/_Project/Lighting/Prefabs/PF_WarningBeacon_PintuAir.prefab");
                 CreatePintuAirPileZone(item, infra);
             }
+            else if (item.type is "bank_sampah" or "pos_medis" or "karantina_biohazard" or "pengepul")
+            {
+                CreateStationRiverDockTrigger(item, go.transform);
+            }
+        }
+
+        private static void CreateStationRiverDockTrigger(MapItem item, Transform stationTransform)
+        {
+            float cxWorld = (RiverMath.RiverCenterMapX(item.y) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+            float hwWorld = RiverMath.RiverHalfWidthMap(item.y) * RiverMath.MapScale;
+            Vector3 stPos = stationTransform.position;
+            float bankEdgeX = stPos.x >= cxWorld ? (cxWorld + hwWorld - 1.5f) : (cxWorld - hwWorld + 1.5f);
+            float midX = (stPos.x + bankEdgeX) * 0.5f;
+            float spanX = Mathf.Max(6f, Mathf.Abs(stPos.x - bankEdgeX) + 5f);
+
+            GameObject dockTrigger = new GameObject($"{item.name}_RiverDockTrigger");
+            dockTrigger.transform.SetParent(stationTransform, worldPositionStays: true);
+            dockTrigger.transform.position = new Vector3(midX, 0.8f, stPos.z);
+            BoxCollider bc = dockTrigger.AddComponent<BoxCollider>();
+            bc.isTrigger = true;
+            bc.size = new Vector3(spanX, 4.5f, 8f);
         }
 
         private static GameObject SpawnEnvOrFallback(MapItem item, Transform parent, float groundY, out bool usedPrefab)
@@ -512,6 +896,7 @@ namespace KaliRiverSweeper.Editor
             cc.height = 1.8f;
             cc.radius = 0.4f;
             KaliPlayerController ctrl = player.AddComponent<KaliPlayerController>();
+            player.AddComponent<KaliFieldGuideOverlay>();
 
             Camera mainCam = Camera.main;
             if (mainCam == null)
@@ -523,6 +908,11 @@ namespace KaliRiverSweeper.Editor
             mainCam.transform.SetParent(player.transform);
             mainCam.transform.localPosition = new Vector3(0f, 0.7f, 0f);
             mainCam.transform.localRotation = Quaternion.identity;
+            mainCam.clearFlags = CameraClearFlags.Skybox;
+            mainCam.fieldOfView = 60f;
+            UniversalAdditionalCameraData camData = mainCam.GetComponent<UniversalAdditionalCameraData>();
+            if (camData == null) camData = mainCam.gameObject.AddComponent<UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = true;
 
             GameObject socket = new GameObject("ToolSocket");
             socket.transform.SetParent(mainCam.transform);
@@ -783,10 +1173,32 @@ namespace KaliRiverSweeper.Editor
             return g;
         }
 
+        private static uint Fnv1aHash(string text)
+        {
+            unchecked
+            {
+                uint hash = 2166136261u;
+                if (!string.IsNullOrEmpty(text))
+                {
+                    for (int i = 0; i < text.Length; i++)
+                    {
+                        hash ^= text[i];
+                        hash *= 16777619u;
+                    }
+                }
+                return hash;
+            }
+        }
+
         private static void ApplyTint(GameObject go, Color col)
         {
             Renderer r = go.GetComponent<Renderer>();
             if (r == null) return;
+            if (activeAssetCache != null)
+            {
+                r.sharedMaterial = KaliMapBackdropBuilder.GetSharedTintMaterial(activeAssetCache, col);
+                return;
+            }
             Shader sh = Shader.Find("Universal Render Pipeline/Lit");
             if (sh == null) sh = Shader.Find("Standard");
             r.sharedMaterial = new Material(sh) { color = col };

@@ -67,7 +67,7 @@ namespace KaliRiverSweeper.Core
 
     /// <summary>
     /// Authoritative catalog of all 20 official JC tools matching origin/jc-excavator-tools SM_Tool_* specs.
-    /// Tools unlock automatically as cumulative Rupiah crosses each milestone.
+    /// Cumulative Rupiah milestones unlock purchase availability at Kopdes (bought via RiverGameManager.BuyTool).
     /// </summary>
     public static class ToolCatalog
     {
@@ -120,5 +120,11 @@ namespace KaliRiverSweeper.Core
         }
 
         public static bool IsSnakeGrabber(int index) => index == SnakeGrabberIndex;
+
+        public static float GetEffectiveMedicalPrickChance(int equippedIndex, int highestUnlockedIndex)
+        {
+            if (highestUnlockedIndex >= SnakeGrabberIndex) return 0f;
+            return GetTool(equippedIndex).MedicalPrickChance;
+        }
     }
 }

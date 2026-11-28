@@ -1,7 +1,7 @@
-"""One-command build for the KALI Blender assets (excavator + 20 tools + trash props + clean products).
+"""One-command build for the KALI Blender assets (excavator + 20 tools + trash props + clean products + rigging).
 
-    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash|products] [--repo ROOT]
-    blender -b --factory-startup -P blender/build_all.py -- [--only excavator|tools|trash|products] [--repo ROOT]
+    /opt/bpyenv/bin/python blender/build_all.py [--only excavator|tools|trash|products|equipment|rigging] [--repo ROOT]
+    blender -b --factory-startup -P blender/build_all.py -- [--only excavator|tools|trash|products|equipment|rigging] [--repo ROOT]
     Blender GUI: open this file in the Text Editor (saved, so __file__ is known) and press Run Script.
 
 Outputs (paths relative to the repo root):
@@ -9,6 +9,10 @@ Outputs (paths relative to the repo root):
     tools:     tools_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, tools_common.BLEND_PATH
     trash:     trash_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, trash_common.BLEND_PATH
     products:  products_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, products_common.BLEND_PATH
+    equipment: equipment_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures (+ Emission), equipment_common.BLEND_PATH
+    rigging:   unity/Assets/_Project/Rigging/{SK_VillagerNPC,SM_Villager_TrashBag,SM_Villager_Bin,
+               Anim_PlayerToolSwing}.fbx, Rigging/Textures/T_Villager_Palette.png,
+               blender/SK_VillagerNPC.blend, blender/Anim_PlayerToolSwing.blend
     report:    blender/build_report.json (repo-relative paths only)
 Exit code 1 if any asset failed.
 """
@@ -27,10 +31,11 @@ from kali_blender import excavator_spec as S  # noqa: E402
 from kali_blender import tools_common as tc  # noqa: E402
 from kali_blender import trash_common as trc  # noqa: E402
 from kali_blender import products_common as pc  # noqa: E402
+from kali_blender import equipment_common as ec  # noqa: E402
 from kali_blender.export_fbx import export_excavator, export_tool, verify_fbx  # noqa: E402
 
 DEFAULT_ROOT = os.path.dirname(HERE)
-STAGES = ["excavator", "tools", "trash", "products"]
+STAGES = ["excavator", "tools", "trash", "products", "equipment", "rigging"]
 
 
 def _argv():
@@ -82,6 +87,76 @@ def build_excavator(root, report):
     return entry
 
 
+def _rig_entry(report, root, name, fbx_rel, blend_rel):
+    entry = {"asset": name, "kind": "rigging", "status": "FAIL", "tris": None, "issues": [], "error": None,
+             "fbx": fbx_rel, "blend": blend_rel, "bones": [], "takes": []}
+    report["assets"].append(entry)
+    return entry
+
+
+def build_rigging(root, report):
+    """SK_VillagerNPC (+ its two socket props) and Anim_PlayerToolSwing, with baked takes."""
+    from kali_blender import rigging_common as rc
+    from kali_blender import tool_swing as T
+    from kali_blender import villager as V
+
+    entry = _rig_entry(report, root, V.NAME, V.FBX_PATH, V.BLEND_PATH)
+    try:
+        _reset()
+        bpy.context.scene.render.fps = rc.FPS
+        img = V.PALETTE.write_png(os.path.join(root, V.PALETTE_PNG))
+        mat = V.PALETTE.material(V.MATERIAL, img)
+        bag, bin_obj = V.build_props(mat)
+        for prop in (bag, bin_obj):
+            path = os.path.join(root, rc.FBX_DIR, prop.name + ".fbx")
+            export_tool(prop, path)
+            verify_fbx(path, expected_meshes=[prop.name])
+        rig = V.build_rig()
+        mesh = V.build_mesh(mat)
+        V.skin(mesh, rig)
+        V.build_actions(rig)
+        fbx_abs = os.path.join(root, V.FBX_PATH)
+        rc.export_animated(rig, [mesh], fbx_abs)
+        info = verify_fbx(fbx_abs, expected_bones=[b[0] for b in V.BONES], expected_meshes=[V.NAME])
+        entry["bones"], entry["takes"] = info["bones"], rc.take_names_in_fbx(fbx_abs)
+        entry["tris"] = tc.tri_count(mesh)
+        lo, hi = V.TRI_BUDGET
+        if not lo <= entry["tris"] <= hi:
+            entry["issues"].append(f"tris {entry['tris']} outside budget {lo}-{hi}")
+        if entry["takes"] != sorted(V.TAKES):
+            entry["issues"].append(f"takes {entry['takes']} != {sorted(V.TAKES)}")
+        V.attach_props(rig, bag, bin_obj)
+        rc.set_take(rig, "Idle")
+        _save_blend(os.path.join(root, V.BLEND_PATH))
+        entry["status"] = "FAIL" if entry["issues"] else "PASS"
+        print(f"villager: {entry['tris']} tris, {len(info['bones'])} bones, takes {entry['takes']}")
+    except Exception as exc:
+        traceback.print_exc()
+        entry["error"] = f"{type(exc).__name__}: {exc}"
+
+    entry = _rig_entry(report, root, T.NAME, T.FBX_PATH, T.BLEND_PATH)
+    try:
+        _reset()
+        bpy.context.scene.render.fps = rc.FPS
+        rig = T.build_rig()
+        T.build_actions(rig)
+        fbx_abs = os.path.join(root, T.FBX_PATH)
+        # The +90 deg X on the rig object is intentional (cancels the axis conversion), so no apply.
+        rc.export_animated(rig, [], fbx_abs, apply_transforms=False)
+        info = verify_fbx(fbx_abs, expected_bones=[T.BONE], expected_meshes=[])
+        entry["bones"], entry["takes"] = info["bones"], rc.take_names_in_fbx(fbx_abs)
+        if entry["takes"] != sorted(T.TAKES):
+            entry["issues"].append(f"takes {entry['takes']} != {sorted(T.TAKES)}")
+        rc.set_take(rig, "SerokanScoop")
+        _save_blend(os.path.join(root, T.BLEND_PATH))
+        entry["status"] = "FAIL" if entry["issues"] else "PASS"
+        print(f"tool swing: takes {entry['takes']}")
+    except Exception as exc:
+        traceback.print_exc()
+        entry["error"] = f"{type(exc).__name__}: {exc}"
+    return report
+
+
 def _layer_collection(layer, name):
     if layer.collection.name == name:
         return layer
@@ -115,6 +190,14 @@ def _pack_config(kind):
             "validate": pc.validate_product, "fbx_dir": pc.FBX_DIR, "tex_dir": pc.TEX_DIR,
             "blend_path": pc.BLEND_PATH, "material": pc.MATERIAL_NAME, "atlas_files": pc.ATLAS_FILES,
             "preview": "Products_Preview",
+        }
+    if kind == "equipment":
+        return {
+            "kind": "equipment", "modules": ec.EQUIPMENT_MODULES, "load": ec.load_equipment_module,
+            "build": lambda mod, coll: ec.build_equipment(mod, collection=coll),
+            "validate": ec.validate_equipment, "fbx_dir": ec.FBX_DIR, "tex_dir": ec.TEX_DIR,
+            "blend_path": ec.BLEND_PATH, "material": ec.MATERIAL_NAME, "atlas_files": ec.ATLAS_FILES,
+            "preview": "Equipment_Preview",
         }
     return {
         "kind": "trash", "modules": trc.TRASH_MODULES, "load": trc.load_trash_module,
@@ -207,7 +290,7 @@ def _print_table(report):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Build KALI excavator, tool, trash and product assets.")
+    parser = argparse.ArgumentParser(description="Build KALI excavator, tool, trash, product and rigging assets.")
     parser.add_argument("--only", choices=STAGES, default=None)
     parser.add_argument("--repo", default=DEFAULT_ROOT, help="repo root (default: parent of blender/)")
     args = parser.parse_args(_argv())
@@ -228,6 +311,10 @@ def main():
         build_pack(root, report, "trash")
     if args.only in (None, "products"):
         build_pack(root, report, "products")
+    if args.only in (None, "equipment"):
+        build_pack(root, report, "equipment")
+    if args.only in (None, "rigging"):
+        build_rigging(root, report)
 
     failed = any(a["status"] != "PASS" for a in report["assets"]) or \
         any(at["status"] != "PASS" for at in report["atlases"].values())

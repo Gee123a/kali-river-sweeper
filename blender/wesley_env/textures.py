@@ -185,6 +185,118 @@ def trash_palette(seed=91):
     return np.clip(out * grain[..., None], 0, 1)
 
 
+def seng_gelombang(seed=101):
+    """Corrugated zinc sheet (light, tinted per material). Ribs vary along V so they run
+    down the roof slope (MeshKit projects roof faces on XZ: u = across, v = along the ridge);
+    16 ribs per tile = 12.5 cm pitch at the 2 m kit tile. Rust streaks drip along U."""
+    rng = np.random.default_rng(seed)
+    v = np.arange(SIZE)[:, None] / SIZE
+    rib = np.sin(v * 2 * np.pi * 16)
+    lum = 0.80 + rib * 0.13 + (np.abs(rib) > 0.96) * 0.04            # lit crest / shadowed valley
+    lum = lum * (0.92 + (_fbm(rng, SIZE, 4, 4) - 0.5) * 0.12)
+    streak = _value_noise(rng, SIZE, 32)                                # streaks: stretched along U
+    streak = np.repeat(streak[:, ::8], 8, axis=1)
+    rust_mask = np.clip((streak * _fbm(rng, SIZE, 3, 4) - 0.32) * 3.2, 0, 1) * 0.75
+    lap = (np.arange(SIZE)[None, :] % (SIZE // 2) < 5) * 0.22           # sheet overlap seam every 1 m
+    rust_mask = np.clip(rust_mask + lap * (0.4 + 0.6 * _fbm(rng, SIZE, 8, 3)), 0, 1)
+    paint = np.repeat(lum[..., None], 3, -1)
+    rust = np.array([0.56, 0.36, 0.24])
+    m = rust_mask[..., None]
+    return np.clip(paint * (1 - m) + rust * lum[..., None] * m, 0, 1)
+
+
+def kawat_jaring(seed=111):
+    """Welded wire mesh (RGBA, alpha-clipped): 16 cells per 2 m tile = 12.5 cm squares
+    (open enough to read the sorted trash inside the Bank Sampah cage)."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    cell = SIZE // 16
+    wire = ((xx % cell) < 4) | ((yy % cell) < 4)
+    lum = 0.62 + (_fbm(rng, SIZE, 8, 3) - 0.5) * 0.3
+    rust = np.clip((_fbm(rng, SIZE, 5, 4) - 0.6) * 3.0, 0, 1)
+    rgb = np.stack([lum, lum, lum * 1.02], -1) * (1 - rust[..., None] * 0.5) + \
+        np.array([0.45, 0.28, 0.17]) * rust[..., None] * 0.5
+    return np.concatenate([np.clip(rgb, 0, 1), wire[..., None].astype(float)], -1)
+
+
+def ponton_hdpe(seed=121):
+    """Floating HDPE dock cubes (marina pontoon, blue): 4 x 4 cubes of 0.5 m per 2 m tile,
+    each with a soft bevelled top, a centre boss and corner lugs; algae grime in the seams."""
+    rng = np.random.default_rng(seed)
+    cell = SIZE // 4
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    lx, ly = (xx % cell) - cell / 2, (yy % cell) - cell / 2
+    edge = np.maximum(np.abs(lx), np.abs(ly)) / (cell / 2)          # 0 centre .. 1 seam
+    lum = 0.78 + 0.22 * np.clip((0.97 - edge) / 0.25, 0, 1)         # bevel toward the seam
+    lum = np.where(edge > 0.95, 0.35, lum)                          # dark seam
+    boss = np.hypot(lx, ly) < cell * 0.14
+    lum = np.where(boss, lum * 1.12, lum)
+    for cx, cy in ((-1, -1), (-1, 1), (1, -1), (1, 1)):             # corner lugs
+        lug = np.hypot(lx - cx * cell * 0.38, ly - cy * cell * 0.38) < cell * 0.055
+        lum = np.where(lug, lum * 0.8, lum)
+    lum = lum * (0.94 + (_fbm(rng, SIZE, 8, 3) - 0.5) * 0.12)
+    blue = np.stack([0.16 * lum, 0.40 * lum, 0.78 * lum], -1)
+    algae = np.clip((edge - 0.82) * 5, 0, 1) * np.clip(_fbm(rng, SIZE, 4, 4) * 1.4 - 0.35, 0, 1)
+    m = algae[..., None] * 0.7
+    return np.clip(blue * (1 - m) + np.array([0.20, 0.26, 0.14]) * m, 0, 1)
+
+
+def tanah_rumput(seed=131):
+    """Bank-top ground (SM_Env_RiverValleyTerrain, 4 m tile): patchy tropical grass over
+    damp brown kampung soil, worn bare footpath patches and small pebbles. Full colour."""
+    rng = np.random.default_rng(seed)
+    soil_n = _fbm(rng, SIZE, 6, 6)
+    soil = np.stack([0.36, 0.27, 0.18], -1) * (0.82 + (soil_n[..., None] - 0.5) * 0.5)
+    blades = _value_noise(rng, SIZE, 128) * 0.6 + _value_noise(rng, SIZE, 256) * 0.4
+    hue = _fbm(rng, SIZE, 3, 4)[..., None]                               # yellowed vs lush grass
+    lush, dry = np.array([0.24, 0.36, 0.13]), np.array([0.44, 0.44, 0.20])
+    grass = (lush * (1 - hue) + dry * hue) * (0.72 + blades[..., None] * 0.5)
+    cover = np.clip((_fbm(rng, SIZE, 3, 5) - 0.36) * 4.0 + (blades - 0.5) * 1.2, 0, 1)[..., None]
+    out = soil * (1 - cover) + grass * cover
+    peb = np.clip((_value_noise(rng, SIZE, 96) - 0.86) * 12, 0, 1)[..., None] * (1 - cover)   # gravel
+    out = out * (1 - peb) + np.array([0.46, 0.42, 0.36]) * (0.8 + soil_n[..., None] * 0.3) * peb
+    return np.clip(out, 0, 1)
+
+
+def talud_beton(seed=141):
+    """River revetment (talud): 1 m x 0.5 m precast concrete blocks laid in running bond,
+    dark joints, damp algae/silt stains rising from the waterline. Grey, full colour."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    bw, bh = SIZE // 4, SIZE // 8                                        # 4 m tile -> 1 m x 0.5 m
+    row = yy // bh
+    xs = xx + (row % 2) * (bw // 2)
+    lx, ly = xs % bw, yy % bh
+    joint = np.minimum(np.minimum(lx, bw - lx), np.minimum(ly, bh - ly))
+    block_id = row * 8 + (xs // bw) % 8
+    tone = rng.uniform(0.62, 0.78, 64)[block_id % 64]
+    grain = _fbm(rng, SIZE, 8, 5)
+    lum = tone + (grain - 0.5) * 0.16 - (rng.random((SIZE, SIZE)) > 0.994) * 0.2
+    lum = np.where(joint < 3, 0.26 + grain * 0.06, lum * (0.88 + 0.12 * np.clip(joint / 6, 0, 1)))
+    stain = np.clip((_fbm(rng, SIZE, 4, 5) - 0.45) * 2.5, 0, 1)
+    rgb = np.stack([lum, lum * 1.01, lum * 0.98], -1)
+    algae = np.array([0.30, 0.34, 0.20]) * lum[..., None]
+    m = stain[..., None] * 0.55
+    return np.clip(rgb * (1 - m) + algae * m, 0, 1).transpose(1, 0, 2)   # long side along V = river (+Z)
+
+
+def lumpur_dasar(seed=151):
+    """Riverbed silt: dark wet brown-black mud with ripples along the flow (+Z = V),
+    sunken stones and a few half-buried scraps."""
+    rng = np.random.default_rng(seed)
+    base = 0.62 + (_fbm(rng, SIZE, 5, 6) - 0.5) * 0.5
+    v = np.arange(SIZE)[:, None] / SIZE
+    warp = _fbm(rng, SIZE, 4, 3) * 3.0
+    ripple = np.sin((v * 12 + warp) * 2 * np.pi) * 0.07
+    lum = base + ripple
+    mud = np.stack([0.24, 0.19, 0.13], -1) * lum[..., None]
+    stones = np.clip((_value_noise(rng, SIZE, 48) - 0.85) * 10, 0, 1)[..., None]   # sunken stones
+    mud = mud * (1 - stones * 0.7) + np.array([0.22, 0.21, 0.18]) * stones * 0.7
+    scraps = _clutter(seed + 1, 50, [(0.30, 0.27, 0.22), (0.22, 0.25, 0.28), (0.40, 0.34, 0.20)], [3, 2, 1], 0.5, 0.5)
+    mask = np.clip((_fbm(rng, SIZE, 8, 4) - 0.66) * 6.0, 0, 1)[..., None]
+    return np.clip(mud * (1 - mask) + scraps * 0.5 * mask, 0, 1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -195,17 +307,26 @@ GENERATORS = {
     "T_Env_Kayu": kayu_lapuk,
     "T_Env_Tali": tali,
     "T_Env_TrashPalette": trash_palette,
+    "T_Env_SengGelombang": seng_gelombang,
+    "T_Env_KawatJaring": kawat_jaring,
+    "T_Env_PontonHDPE": ponton_hdpe,
+    "T_Env_TanahRumput": tanah_rumput,
+    "T_Env_TaludBeton": talud_beton,
+    "T_Env_LumpurDasar": lumpur_dasar,
 }
 
 
 def save_png(name, rgb, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, name + ".png")
-    img = bpy.data.images.new(name, SIZE, SIZE, alpha=False)
-    rgba = np.concatenate([np.clip(rgb, 0, 1), np.ones((SIZE, SIZE, 1))], -1)
+    has_alpha = rgb.shape[-1] == 4
+    img = bpy.data.images.new(name, SIZE, SIZE, alpha=has_alpha)
+    rgba = np.clip(rgb, 0, 1) if has_alpha else np.concatenate([np.clip(rgb, 0, 1), np.ones((SIZE, SIZE, 1))], -1)
     img.pixels.foreach_set(rgba[::-1].astype(np.float32).ravel())   # Blender rows start at the bottom
     img.filepath_raw = path
     img.file_format = "PNG"
+    if has_alpha:
+        img.alpha_mode = "STRAIGHT"
     img.save()
     bpy.data.images.remove(img)
     return path

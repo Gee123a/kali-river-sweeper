@@ -65,6 +65,9 @@ namespace KaliRiverSweeper.UI
         private TMP_Text clarityPercent;
         private TMP_Text monsunTimer;
         private TMP_Text monsunLabel;
+        private TMP_Text clockTime;
+        private int lastClockMinute = -1;
+        private float clockPollTimer;
         private GameObject biohazardStrip;
         private Image biohazardHatchImage;
         private TMP_Text biohazardCountdown;
@@ -119,6 +122,7 @@ namespace KaliRiverSweeper.UI
             clarityPercent = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_Kejernihan/TMP_KejernihanPct");
             monsunTimer = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_MonsunTimer");
             monsunLabel = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_MonsunLabel");
+            clockTime = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_ClockTime");
             biohazardStrip = FindGo("TC_ContextualAlertRail/Strip_BiohazardTimer");
             biohazardHatchImage = Find<Image>("TC_ContextualAlertRail/Strip_BiohazardTimer/Img_CrossHatch90");
             biohazardCountdown = Find<TMP_Text>("TC_ContextualAlertRail/Strip_BiohazardTimer/TMP_BiohazardCountdown");
@@ -193,6 +197,13 @@ namespace KaliRiverSweeper.UI
                 subscribeRetryTimer = 0.5f;
                 TrySubscribeManager();
                 TrySubscribePlayer();
+            }
+
+            clockPollTimer -= Time.unscaledDeltaTime;
+            if (clockPollTimer <= 0f)
+            {
+                clockPollTimer = 0.25f;
+                UpdateClock(false);
             }
 
             UpdateToast();
@@ -448,6 +459,7 @@ namespace KaliRiverSweeper.UI
 
             SetText(monsunTimer, FormatClock(manager.monsoonCountdownRemaining));
             SetText(monsunLabel, manager.isMonsoonStorm ? "BADAI" : "MONSUN");
+            UpdateClock(false);
             SetText(damLabel, "DAM " + Mathf.RoundToInt(manager.gunungSampahHealth * 100f).ToString(Invariant) + "%");
 
             bool hasBiohazard = manager.biohazardCargo > 0;
@@ -472,6 +484,17 @@ namespace KaliRiverSweeper.UI
             SetText(kas, "Rp " + FormatRupiah(manager.rupiah));
             SetText(muatan, manager.cargoCount.ToString(Invariant) + " / " + manager.cargoCapacity.ToString(Invariant));
             SetText(warga, manager.communityTrust.ToString(Invariant));
+        }
+
+        private void UpdateClock(bool force)
+        {
+            if (clockTime == null) return;
+            KaliDayNightCycle cycle = KaliDayNightCycle.Instance;
+            if (cycle == null) return;
+            int minute = cycle.ClockMinuteOfDay;
+            if (!force && minute == lastClockMinute) return;
+            lastClockMinute = minute;
+            SetText(clockTime, cycle.ClockText);
         }
 
         private void HandleToolUnlocked(ToolDefinition tool)
