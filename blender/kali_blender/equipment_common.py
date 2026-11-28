@@ -53,6 +53,11 @@ EQUIPMENT_MODULES = [
     "equip_14_laundry_basket",
     "equip_15_water_bucket",
     "equip_16_solar_interceptor",
+    "equip_17_karung",
+    "equip_18_gerobak",
+    "equip_19_truk_sampah",
+    "equip_20_easter_egg_mound",
+    "equip_21_easter_egg_glint",
 ]
 
 

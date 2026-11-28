@@ -32,11 +32,12 @@ from kali_blender import excavator_spec as S  # noqa: E402
 from kali_blender import tools_common as tc  # noqa: E402
 from kali_blender import trash_common as trc  # noqa: E402
 from kali_blender import products_common as pc  # noqa: E402
+from kali_blender import bundles_common as bc  # noqa: E402
 from kali_blender import equipment_common as ec  # noqa: E402
 from kali_blender.export_fbx import export_excavator, export_tool, verify_fbx  # noqa: E402
 
 DEFAULT_ROOT = os.path.dirname(HERE)
-STAGES = ["excavator", "tools", "trash", "products", "equipment", "rigging"]
+STAGES = ["excavator", "tools", "trash", "products", "equipment", "rigging", "bundles"]
 
 
 def _argv():
@@ -235,11 +236,19 @@ def _pack_config(kind):
     """Settings for one prop pack. 'tools', 'trash' and 'products' share the same build/export/atlas flow."""
     if kind == "tools":
         return {
-            "kind": "tool", "modules": tc.TOOL_MODULES, "load": tc.load_tool_module,
+            "kind": "tool", "modules": tc.TOOL_MODULES + tc.STARTER_MODULES, "load": tc.load_tool_module,
             "build": lambda mod, coll: tc.build_tool(mod, collection=coll),
             "validate": tc.validate_tool, "fbx_dir": tc.FBX_DIR, "tex_dir": tc.TEX_DIR,
             "blend_path": tc.BLEND_PATH, "material": tc.MATERIAL_NAME, "atlas_files": tc.ATLAS_FILES,
             "preview": "Tools_Preview",
+        }
+    if kind == "bundles":
+        return {
+            "kind": "bundle", "modules": bc.BUNDLE_MODULES, "load": bc.load_bundle_module,
+            "build": lambda mod, coll: bc.build_bundle(mod, collection=coll),
+            "validate": bc.validate_bundle, "fbx_dir": bc.FBX_DIR, "tex_dir": bc.TEX_DIR,
+            "blend_path": bc.BLEND_PATH, "material": bc.MATERIAL_NAME, "atlas_files": bc.ATLAS_FILES,
+            "preview": "Bundles_Preview",
         }
     if kind == "products":
         return {
@@ -373,6 +382,8 @@ def main():
         build_pack(root, report, "equipment")
     if args.only in (None, "rigging"):
         build_rigging(root, report)
+    if args.only in (None, "bundles"):
+        build_pack(root, report, "bundles")
 
     failed = any(a["status"] != "PASS" for a in report["assets"]) or \
         any(at["status"] != "PASS" for at in report["atlases"].values())

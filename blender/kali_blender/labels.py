@@ -840,6 +840,21 @@ def _solar_interceptor(c):
     c.paint(c.text("PENCEGAT SAMPAH", 20, 6.2, 3.2, "impact.ttf", max_w=36, spacing=1.1), "#1a1a1a")
 
 
+def _karung(c):
+    """Woven polypropylene rice sack (karung): white weave, blue and red side stripes, plain BERAS 25 KG print."""
+    c.panel("front", (60.0, 90.0))
+    c.paint(c.full(), "#ecebe4")
+    for y in range(0, 90, 2):                                   # weave texture
+        c.paint(c.rect(0, y, 60, y + 0.5), "#d6d3c8", 0.7)
+    for x in range(0, 60, 2):
+        c.paint(c.rect(x, 0, x + 0.4, 90), "#dcd9ce", 0.5)
+    for x0 in (4.0, 52.0):
+        c.paint(c.rect(x0, 0, x0 + 3.0, 90), "#1d4ed8")
+        c.paint(c.rect(x0 + 3.5, 0, x0 + 4.5, 90), "#dc2626")
+    c.paint(c.text("BERAS", 30, 55, 9.0, "impact.ttf", max_w=36, spacing=1.15), "#1d4ed8")
+    c.paint(c.text("25 KG", 30, 42, 6.0, "impact.ttf", max_w=24), "#dc2626")
+
+
 ARTS = {
     "indomy": (_indomy, "pack", "film"),
     "bingo": (_bingo, "pack", "film"),
@@ -854,6 +869,7 @@ ARTS = {
     "aquo_galon": (lambda c: _aquo(c, (42.0, 10.0)), "wrap", "bottle"),      # 19 L jug sticker band
     "biohazard_drum": (_biohazard_drum, "wrap", "steel"),
     "anyaman": (_anyaman, "pack", "paint"),
+    "karung": (_karung, "pack", "paint"),
     "solar_interceptor": (_solar_interceptor, "pair", "paint"),
     "tong_anorganik": (_tong_anorganik, "wrap", "paint"),
     "sampan_planks": (_sampan_planks, "pack", "paint"),

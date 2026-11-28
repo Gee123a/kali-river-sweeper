@@ -203,6 +203,22 @@ for k, fn in tc.ATLAS_FILES.items():
         img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
     check(ok, f"atlas {fn} 2048x2048")
 check(len({s['name'] for s in specs}) == 20, "20 unique tool names")
+# Tier-0 role starters (plan_jc 7B): extra tools sharing a free swatch row of an official tool's cell
+for name in tc.STARTER_MODULES:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    try:
+        mod = tc.load_tool_module(name); obj = tc.build_tool(name)
+        check(not tc.validate_tool(obj, mod.SPEC), f"starter tool {name} validate {tc.validate_tool(obj, mod.SPEC)} tris={tc.tri_count(obj)}")
+        check(mod.SPEC.get("swatch_base", 0) + len(mod.SPEC["palette"]) <= 16, f"starter tool {name} swatches fit the cell")
+    except Exception as e:
+        check(False, f"starter tool {name} builds ({e})"); continue
+    check(os.path.exists(os.path.join(REPO, tc.FBX_DIR, mod.SPEC["name"] + ".fbx")), f"starter tool FBX {mod.SPEC['name']} exists")
+for role in ("Serok", "Capit", "Ganco", "Garuk"):
+    p = os.path.join(REPO, "unity/Assets/_Project/Props/Tools/Icons", f"T_Icon_Role_{role}.png")
+    ok = os.path.exists(p)
+    if ok:
+        img = bpy.data.images.load(p); ok = tuple(img.size) == (256, 256) and img.channels == 4
+    check(ok, f"role icon T_Icon_Role_{role}.png 256x256 RGBA")
 
 # ------------------------------------------------ trash (Medical B3)
 tspecs = []
@@ -270,6 +286,22 @@ for k, fn in ec.ATLAS_FILES.items():
     if ok:
         img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
     check(ok, f"equipment atlas {fn} 2048x2048")
+# ------------------------------------------------ instanced river bundles (R1-J1): <100 tris, one instancing material
+from kali_blender import bundles_common as bc
+for name in bc.BUNDLE_MODULES:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    try:
+        mod = bc.load_bundle_module(name); obj = bc.build_bundle(name)
+        check(not bc.validate_bundle(obj, mod.SPEC), f"bundle {name} validate {bc.validate_bundle(obj, mod.SPEC)} tris={tc.tri_count(obj)}")
+    except Exception as e:
+        check(False, f"bundle {name} builds ({e})"); continue
+    check(os.path.exists(os.path.join(REPO, bc.FBX_DIR, mod.SPEC["name"] + ".fbx")), f"bundle FBX {mod.SPEC['name']} exists")
+for k, fn in bc.ATLAS_FILES.items():
+    p = os.path.join(REPO, bc.TEX_DIR, fn)
+    ok = os.path.exists(p)
+    if ok:
+        img = bpy.data.images.load(p); ok = tuple(img.size) == (2048, 2048)
+    check(ok, f"bundle atlas {fn} 2048x2048")
 check(not os.path.exists(os.path.join(REPO, "unity/Assets/_Project/Art")), "no stale outputs under Art/ (JC folders are Props/, Rigging/)")
 print(f"\n{len(fails)} FAIL(s)")
 sys.exit(1 if fails else 0)

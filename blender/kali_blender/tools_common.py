@@ -54,6 +54,10 @@ TOOL_MODULES = [
     "tool_19_penebas_gergaji_ganda", "tool_20_garuk_skimmer_hidrolik",
 ]
 
+# Tier-0 role starters (MECHANICS_SPEC C2, plan_jc 7B). Not in the official 20: the atlas has no free cell, so each
+# borrows the empty bottom swatch rows of a cell whose tool uses only 2 swatches (SPEC "swatch_base": 8).
+STARTER_MODULES = ["tool_21_sarung_tangan_karet", "tool_22_garuk_bambu"]
+
 
 def load_tool_module(mod_name):
     return importlib.import_module(f"kali_blender.tools.{mod_name}")
@@ -172,7 +176,7 @@ def assemble(spec, parts, material_name=MATERIAL_NAME):
         if "kali_label" in p:
             _fit_label_uvs(p, label_uv_rect(spec["index"], spec["label_art"]["rows"]))
         else:
-            _box_project_into(p, swatch_rect(spec["index"], p["kali_swatch"]))
+            _box_project_into(p, swatch_rect(spec["index"], p["kali_swatch"] + spec.get("swatch_base", 0)))
     for p in parts:
         p.select_set(True)
     bpy.context.view_layer.objects.active = parts[0]
@@ -290,7 +294,8 @@ def write_atlas_images(specs, out_dir, files=ATLAS_FILES):
     emission = np.zeros((n, n, 4), dtype=np.float32); emission[..., 3] = 1.0   # only written if files has "emission"
     for spec in specs:
         for s, (hexstr, metal, smooth, *glow) in enumerate(spec["palette"]):
-            u0, v0, u1, v1 = swatch_rect(spec["index"], s, margin=False)
+            # swatch_base: an extra prop borrowing the free swatch rows of a full atlas's cell (starter tools)
+            u0, v0, u1, v1 = swatch_rect(spec["index"], s + spec.get("swatch_base", 0), margin=False)
             x0, x1 = int(math.floor(u0 * n)), int(math.ceil(u1 * n))
             y0, y1 = int(math.floor(v0 * n)), int(math.ceil(v1 * n))   # numpy row 0 = bottom (Blender)
             albedo[y0:y1, x0:x1, :3] = _srgb(hexstr)

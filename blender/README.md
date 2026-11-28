@@ -133,6 +133,44 @@ Pivot WATERLINE = origin di permukaan air (importer menaruh `trash_boom` di y = 
 boom / perahu / tong dibuat oleh `KALI > JC > Build Equipment Prefabs` (BoxCollider, tanpa Rigidbody); lampu/beacon oleh
 `KALI > Lighting > Build All Lighting Assets`. Keduanya memakai satu material `Props/Equipment/Materials/M_Equipment_Atlas.mat`.
 
+## Sungai sejuta sampah / Million-piece river loop (plan.md, plan_jc R1-R4, 7B, 7C)
+
+### Bundel instanced / Instanced bundles (stage `bundles`, R1-J1)
+Field sampah digambar sebagai data instanced (plan_ivan R0-I2 / R1-I2), jadi aset ini sangat ringan: < 100 tris, satu
+mesh per varian, SATU material `M_Bundles_Atlas` (swatch datar, `enableInstancing = true` oleh KaliPropPrefabBuilder),
+origin WATERLINE. Prefab `PF_Trash_InstBundle_<Varian>` hanya MeshFilter + MeshRenderer (tanpa collider / Rigidbody /
+RiverTrashItem: sistem field yang mengatur posisi, pickup dan kelas sampah). Output `unity/Assets/_Project/Props/Bundles/`
+(terpisah dari `Trash/Meshes` agar builder trash tidak menjadikannya sampah mengapung penuh). Mix 80/14/6 (plan.md).
+
+| Mesh | Kelas | Tris |
+|---|---|---|
+| `SM_Trash_InstBundle_NormalKresek` | Normal (3 kresek merah/biru/putih) | 96 |
+| `SM_Trash_InstBundle_NormalBotol` | Normal (4 botol PET + tali kuning) | 92 |
+| `SM_Trash_InstBundle_NormalStyrofoam` | Normal (lempeng styrofoam + pecahan) | 44 |
+| `SM_Trash_InstBundle_NormalCampur` | Normal (kresek hitam, botol oranye, styrofoam) | 68 |
+| `SM_Trash_InstBundle_Medis` | Medical (kantong B3 kuning + 3 suntikan) | 57 |
+| `SM_Trash_InstBundle_Biohazard` | Biohazard (drum ungu dalam genangan lime) | 57 |
+
+### Alat starter + ikon peran / Starter tools + role icons (7B)
+- `SM_Tool_SarungTanganKaret` (Capit tier-0, sarung tangan karet kuning, 498 tris) dan `SM_Tool_GarukBambu` (Garuk tier-0,
+  garuk bambu 2.07 m, 400 tris): pipeline tools biasa (grip di origin, +Z, 300-1200 tris), `tc.STARTER_MODULES` (bukan
+  bagian 20 alat resmi). Atlas tools penuh, jadi keduanya memakai baris swatch kosong 2-3 di sel #1 / #3 (SPEC `swatch_base` 8);
+  UV dan piksel alat lain tidak berubah.
+- `T_Icon_Role_{Serok,Capit,Ganco,Garuk}.png` 256 px RGBA di `unity/Assets/_Project/Props/Tools/Icons/` (cakram warna
+  peran + piktogram putih + nama), dibuat prosedural: `blender -b --factory-startup -P blender/build_icons.py` (`kali_blender/icons.py`).
+
+### Equipment baru / New equipment (R2-J1, R3-J1 / 7C, R4-J1)
+| Mesh | Benda / Object | Ukuran (m) | Tris |
+|---|---|---|---|
+| `SM_Prop_Karung` | Karung beras anyaman (BERAS 25 KG) terikat; pivot DASAR. Dipikul: anak `Socket_Carry`, pos (0, -0.45, 0.15), rot (0, 0, 90) | 0.59 x 0.36 x 0.86 | 204 |
+| `SM_Prop_Gerobak` | Gerobak kayu sampah, rangka oranye, 2 roda, gagang; pivot tanah, depan +Z | 1.16 x 1.98 x 0.70 | 528 |
+| `SM_Prop_TrukSampah` | Motor roda tiga pengangkut sampah, bak terbuka; pivot tanah tengah, depan +Z; prefab mendapat anak kosong `Socket_Load` di (0, 0.62, -0.76) (dicek oleh `build()`) | 1.59 x 3.07 x 1.86 | 1054 |
+| `SM_Prop_EasterEggMound` | Gundukan lumpur + sampah untuk alat setengah terkubur; pivot DASAR | 0.92 x 0.76 x 0.30 | 204 |
+| `SM_Prop_EasterEggGlint` | Kilau bintang emisif (3 bidang silang, tidak perlu billboard); sel 20 baris 2-3 | 0.32 x 0.28 x 0.32 | 48 |
+
+Easter egg `PF_EasterEgg_{EmberCat5L,BlokMagnet50kg,PenebasGergajiGanda}` dirakit oleh `KALI > JC > Build Easter Egg Prefabs`
+(mound + prefab alat dimiringkan 62 deg, 40% tingginya terbenam di puncak, tengah + glint 0.12 m di atas; trigger BoxCollider di root).
+
 ## Produk bersih / Clean products (products stage)
 Versi BARU dan utuh dari 9 barang yang sama (merek parodi yang sama): segel rapat, penuh, label bersih
 (`labels.render_label(..., dirty=False)`), tanpa kusut/sobek/penyok. Untuk toko / item dunia, bukan sampah mengapung.

@@ -49,6 +49,30 @@ namespace Kali.Props.EditorTools
         private const string EquipmentMaterialPath = EquipmentMaterialFolder + "/M_Equipment_Atlas.mat";
         private const string EquipmentAtlasBaseName = "T_Equipment_Atlas";
 
+        // Instanced river bundles (plan.md R1-J1 / R1-I2): mesh + ONE instancing material, no per-instance components.
+        private const string BundleMeshFolder = PropsRoot + "/Bundles/Meshes";
+        private const string BundlePrefabFolder = PropsRoot + "/Bundles/Prefabs";
+        private const string BundleMaterialFolder = PropsRoot + "/Bundles/Materials";
+        private const string BundleTextureFolder = PropsRoot + "/Bundles/Textures";
+        private const string BundleMaterialPath = BundleMaterialFolder + "/M_Bundles_Atlas.mat";
+        private const string BundleAtlasBaseName = "T_Bundles_Atlas";
+        private const string BundleMeshPattern = @"^SM_Trash_InstBundle_(.+)\.fbx$";
+
+        // Easter eggs (R4-J1): PF_EasterEgg_<Tool> = mound + tool prefab posed half-buried + glint, built from these.
+        private static readonly string[] EasterEggTools = { "EmberCat5L", "BlokMagnet50kg", "PenebasGergajiGanda" };
+        private static readonly Vector3 EasterEggToolEuler = new Vector3(62f, 25f, 0f);   // tilted, lying in the hollow
+        private const float EasterEggMoundTopY = 0.30f;     // equip_20_easter_egg_mound crown height
+        private const float EasterEggBuryFraction = 0.4f;   // share of the tilted tool's height sunk into the mound
+        private const float EasterEggGlintGap = 0.12f;      // glint sits this far above the tool
+
+        // Empty child sockets added to equipment prefabs, by mesh variant (values mirror the Blender modules).
+        private static readonly Dictionary<string, KeyValuePair<string, Vector3>> PropSockets =
+            new Dictionary<string, KeyValuePair<string, Vector3>>
+            {
+                // equip_19_truk_sampah.SOCKET_LOAD_UNITY: cargo bed floor centre, for the trash heap.
+                ["TrukSampah"] = new KeyValuePair<string, Vector3>("Socket_Load", new Vector3(0f, 0.62f, -0.76f)),
+            };
+
         private const string RiggingMeshFolder = RiggingRoot;
         private const string RiggingPrefabFolder = RiggingRoot;
         private const string RiggingMaterialFolder = RiggingRoot + "/Materials";
@@ -140,6 +164,33 @@ namespace Kali.Props.EditorTools
             }
         }
 
+        [MenuItem("KALI/JC/Build Bundle Prefabs")]
+        public static void BuildBundlePrefabsMenu()
+        {
+            try
+            {
+                BuildAtlasMaterials();
+                BuildBundlePrefabs();
+            }
+            finally
+            {
+                AssetDatabase.SaveAssets();
+            }
+        }
+
+        [MenuItem("KALI/JC/Build Easter Egg Prefabs")]
+        public static void BuildEasterEggPrefabsMenu()
+        {
+            try
+            {
+                BuildEasterEggPrefabs();
+            }
+            finally
+            {
+                AssetDatabase.SaveAssets();
+            }
+        }
+
         [MenuItem("KALI/JC/Build Atlas Materials")]
         public static void BuildAtlasMaterialsMenu()
         {
@@ -179,6 +230,9 @@ namespace Kali.Props.EditorTools
             int productFailed = 0;
             int equipmentBuilt = 0;
             int equipmentFailed = 0;
+            int bundleBuilt = 0;
+            int bundleFailed = 0;
+            int easterEggs = 0;
             bool excavatorBuilt = false;
 
             try
@@ -202,6 +256,13 @@ namespace Kali.Props.EditorTools
                 BuildPrefabsFromFolder(EquipmentMeshFolder, EquipmentMeshPattern, EquipmentPrefabFolder, "PF_Prop_",
                     LoadEquipmentMaterial(), BuildEquipmentPrefab, out equipmentBuilt, out equipmentFailed);
 
+                // 2d. Instanced river bundles (mesh + instancing material only).
+                BuildPrefabsFromFolder(BundleMeshFolder, BundleMeshPattern, BundlePrefabFolder, "PF_Trash_InstBundle_",
+                    LoadBundleMaterial(), BuildBundlePrefab, out bundleBuilt, out bundleFailed);
+
+                // 2e. Easter eggs (need the tool + equipment prefabs above).
+                easterEggs = BuildEasterEggPrefabs();
+
                 // 4. Excavator prefab & materials.
                 excavatorBuilt = BuildExcavatorPrefab();
             }
@@ -213,6 +274,8 @@ namespace Kali.Props.EditorTools
                           + " | tool prefabs built=" + toolBuilt + " failed=" + toolFailed
                           + " | product prefabs built=" + productBuilt + " failed=" + productFailed
                           + " | equipment prefabs built=" + equipmentBuilt + " failed=" + equipmentFailed
+                          + " | bundle prefabs built=" + bundleBuilt + " failed=" + bundleFailed
+                          + " | easter eggs built=" + easterEggs
                           + " | excavator built=" + excavatorBuilt);
             }
         }
@@ -232,6 +295,8 @@ namespace Kali.Props.EditorTools
             EnsureFolder(ProductMaterialFolder);
             EnsureFolder(EquipmentTextureFolder);
             EnsureFolder(EquipmentMaterialFolder);
+            EnsureFolder(BundleTextureFolder);
+            EnsureFolder(BundleMaterialFolder);
 
             AssetDatabase.StartAssetEditing();
             try
@@ -241,6 +306,7 @@ namespace Kali.Props.EditorTools
                 ConfigureAtlasTextures(ToolTextureFolder, ToolAtlasBaseName, smoothAlbedo: false);
                 ConfigureAtlasTextures(ProductTextureFolder, ProductAtlasBaseName, smoothAlbedo: true);
                 ConfigureAtlasTextures(EquipmentTextureFolder, EquipmentAtlasBaseName, smoothAlbedo: true);
+                ConfigureAtlasTextures(BundleTextureFolder, BundleAtlasBaseName, smoothAlbedo: false);   // flat swatches
                 // Equipment only: emission mask (white on bulb / lens), sRGB, bilinear + mipmaps.
                 ConfigureTextureImporter(EquipmentTextureFolder + "/" + EquipmentAtlasBaseName + "_Emission.png",
                     TextureImporterType.Default, true, false);
@@ -255,10 +321,21 @@ namespace Kali.Props.EditorTools
             if (CreateOrUpdateAtlasMaterial(ToolMaterialPath, ToolTextureFolder, ToolAtlasBaseName)) ok++;
             if (CreateOrUpdateAtlasMaterial(ProductMaterialPath, ProductTextureFolder, ProductAtlasBaseName)) ok++;
             if (CreateOrUpdateAtlasMaterial(EquipmentMaterialPath, EquipmentTextureFolder, EquipmentAtlasBaseName)) ok++;
+            if (CreateOrUpdateAtlasMaterial(BundleMaterialPath, BundleTextureFolder, BundleAtlasBaseName))
+            {
+                ok++;
+                // The river bundle field draws thousands of copies with instanced rendering.
+                Material bundleMat = AssetDatabase.LoadAssetAtPath<Material>(BundleMaterialPath);
+                if (bundleMat != null)
+                {
+                    bundleMat.enableInstancing = true;
+                    EditorUtility.SetDirty(bundleMat);
+                }
+            }
 
             AssetDatabase.SaveAssets();
-            Debug.Log(LogPrefix + "Atlas materials ready: " + ok + "/4 (" + TrashMaterialPath + ", " + ToolMaterialPath
-                      + ", " + ProductMaterialPath + ", " + EquipmentMaterialPath + ")");
+            Debug.Log(LogPrefix + "Atlas materials ready: " + ok + "/5 (" + TrashMaterialPath + ", " + ToolMaterialPath
+                      + ", " + ProductMaterialPath + ", " + EquipmentMaterialPath + ", " + BundleMaterialPath + ")");
             return ok;
         }
 
@@ -584,6 +661,14 @@ namespace Kali.Props.EditorTools
                 box.center = localBounds.center;
                 box.size = localBounds.size;
 
+                KeyValuePair<string, Vector3> socket;
+                if (entry.Variant != null && PropSockets.TryGetValue(entry.Variant, out socket))
+                {
+                    var socketGo = new GameObject(socket.Key);
+                    socketGo.transform.SetParent(root.transform, false);
+                    socketGo.transform.localPosition = socket.Value;
+                }
+
                 return SavePrefab(root, prefabPath);
             }
             finally
@@ -617,10 +702,173 @@ namespace Kali.Props.EditorTools
         }
 
         // Boom and boats keep their Blender waterline origin (importer places "trash_boom" at y = 0); the bin keeps its
-        // base origin. Same body as BuildProductPrefab: material + solid fitted BoxCollider.
+        // base origin. Same body as BuildProductPrefab: material + solid fitted BoxCollider (+ PropSockets children).
         private static bool BuildEquipmentPrefab(MeshEntry entry, string prefabPath, Material mat)
         {
             return BuildProductPrefab(entry, prefabPath, mat);
+        }
+
+        // ------------------------------------------------------------------
+        // 2d. Instanced river bundles: MeshFilter + MeshRenderer with the instancing material, nothing else. The bundle
+        // field (R1-I2) owns position, pickup and waste class; the prefab is just the mesh/material pair to instance.
+        // ------------------------------------------------------------------
+
+        private static Material LoadBundleMaterial()
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(BundleMaterialPath);
+            if (mat == null)
+            {
+                Debug.LogWarning(LogPrefix + "Material not found: " + BundleMaterialPath + " (run Build Atlas Materials)");
+            }
+
+            return mat;
+        }
+
+        private static void BuildBundlePrefabs()
+        {
+            int built;
+            int failed;
+            BuildPrefabsFromFolder(BundleMeshFolder, BundleMeshPattern, BundlePrefabFolder, "PF_Trash_InstBundle_",
+                LoadBundleMaterial(), BuildBundlePrefab, out built, out failed);
+        }
+
+        private static bool BuildBundlePrefab(MeshEntry entry, string prefabPath, Material mat)
+        {
+            GameObject root = InstantiateUnpacked(entry);
+            if (root == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                ApplyMaterial(root, mat);
+                foreach (Collider c in root.GetComponentsInChildren<Collider>(true))
+                {
+                    Object.DestroyImmediate(c);
+                }
+
+                return SavePrefab(root, prefabPath);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // 2e. Easter eggs (R4-J1): mound + the existing tool prefab half-buried in its hollow + sparkle glint.
+        // A trigger BoxCollider on the root is the pickup volume for R4-I2.
+        // ------------------------------------------------------------------
+
+        private static int BuildEasterEggPrefabs()
+        {
+            EnsureFolder(EquipmentPrefabFolder);
+            GameObject mound = LoadFirstAsset(EquipmentPrefabFolder + "/PF_Prop_EasterEggMound.prefab",
+                EquipmentMeshFolder + "/SM_Prop_EasterEggMound.fbx");
+            GameObject glint = LoadFirstAsset(EquipmentPrefabFolder + "/PF_Prop_EasterEggGlint.prefab",
+                EquipmentMeshFolder + "/SM_Prop_EasterEggGlint.fbx");
+            int built = 0;
+            foreach (string tool in EasterEggTools)
+            {
+                GameObject toolAsset = LoadFirstAsset(ToolPrefabFolder + "/PF_Tool_" + tool + ".prefab",
+                    ToolMeshFolder + "/SM_Tool_" + tool + ".fbx");
+                if (mound == null || toolAsset == null)
+                {
+                    Debug.LogWarning(LogPrefix + "Easter egg " + tool + " skipped: missing mound or tool (build equipment + tools first).");
+                    continue;
+                }
+
+                var root = new GameObject("PF_EasterEgg_" + tool);
+                try
+                {
+                    AddChildInstance(mound, root.transform, Vector3.zero, Vector3.zero);
+                    // Tools differ a lot in size (5 L bucket .. 1.5 m saw): place by the tilted tool's own bounds so it
+                    // is centred on the mound and sunk EasterEggBuryFraction of its height into the crown.
+                    GameObject toolGo = AddChildInstance(toolAsset, root.transform, Vector3.zero, EasterEggToolEuler);
+                    Bounds tb;
+                    if (TryGetRendererBounds(toolGo, out tb))
+                    {
+                        float y = EasterEggMoundTopY - EasterEggBuryFraction * tb.size.y - tb.min.y;
+                        toolGo.transform.localPosition = new Vector3(-tb.center.x, y, -tb.center.z);
+                        if (glint != null)
+                        {
+                            float top = tb.max.y + y + EasterEggGlintGap;
+                            AddChildInstance(glint, root.transform, new Vector3(0f, top, 0f), Vector3.zero);
+                        }
+                    }
+
+                    Bounds b;
+                    if (TryGetLocalBounds(root, out b))
+                    {
+                        BoxCollider box = root.AddComponent<BoxCollider>();
+                        box.isTrigger = true;
+                        box.center = b.center;
+                        box.size = b.size;
+                    }
+
+                    if (SavePrefab(root, EquipmentPrefabFolder + "/PF_EasterEgg_" + tool + ".prefab"))
+                    {
+                        built++;
+                    }
+                }
+                finally
+                {
+                    Object.DestroyImmediate(root);
+                }
+            }
+
+            Debug.Log(LogPrefix + "Easter egg prefabs built: " + built + "/" + EasterEggTools.Length);
+            return built;
+        }
+
+        private static GameObject LoadFirstAsset(params string[] paths)
+        {
+            foreach (string path in paths)
+            {
+                GameObject go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (go != null)
+                {
+                    return go;
+                }
+            }
+
+            return null;
+        }
+
+        // Nested prefab instance (keeps the link to the tool / mound prefab); colliders stripped, the root owns the trigger.
+        private static GameObject AddChildInstance(GameObject asset, Transform parent, Vector3 localPos, Vector3 localEuler)
+        {
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(asset, parent);
+            go.transform.localPosition = localPos;
+            go.transform.localEulerAngles = localEuler;
+            foreach (Collider c in go.GetComponentsInChildren<Collider>(true))
+            {
+                Object.DestroyImmediate(c);
+            }
+
+            return go;
+        }
+
+        // World-space renderer bounds; the temporary easter-egg root sits at the origin, so world = root space.
+        private static bool TryGetRendererBounds(GameObject go, out Bounds bounds)
+        {
+            bounds = new Bounds();
+            bool any = false;
+            foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
+            {
+                if (!any)
+                {
+                    bounds = r.bounds;
+                    any = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(r.bounds);
+                }
+            }
+
+            return any;
         }
 
         // ------------------------------------------------------------------
@@ -818,7 +1066,8 @@ namespace Kali.Props.EditorTools
             PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
             string prefix = entry.AssetPath.Contains("SM_Tool_") ? "PF_Tool_"
                 : entry.AssetPath.Contains("SM_Product_") ? "PF_Product_"
-                : entry.AssetPath.Contains("SM_Prop_") ? "PF_Prop_" : "PF_Trash_";
+                : entry.AssetPath.Contains("SM_Prop_") ? "PF_Prop_"
+                : entry.AssetPath.Contains("SM_Trash_InstBundle_") ? "PF_Trash_InstBundle_" : "PF_Trash_";
             instance.name = prefix + entry.Variant;
             return instance;
         }
