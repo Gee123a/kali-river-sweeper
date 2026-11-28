@@ -99,6 +99,8 @@ namespace KaliRiverSweeper.Core
 
             speechContent.text = npcName + ": " + line;
             speechUntil = Time.unscaledTime + SpeechSeconds;
+            KaliAmbientNpc ambient = GetComponent<KaliAmbientNpc>();
+            if (ambient != null) ambient.PlayTalk();
             OnSpoke?.Invoke(this, line);
         }
 

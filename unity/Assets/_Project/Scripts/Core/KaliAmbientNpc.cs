@@ -35,6 +35,12 @@ namespace KaliRiverSweeper.Core
     {
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+
+        private const float JumperCycle = 5.6f;
+        // Clip time at the jumper's take-off (procedural u = 0.36) is 0.87 s into Anim_Kid_JettyJump.
+        private const float JumperClipStart = 0.36f * JumperCycle - 0.87f;
+        private const string HeadPath = "VillagerRig/Hips/Spine/Chest/Neck/Head";
 
         private static readonly Quaternion SeatedUpperLegOffset = Quaternion.Euler(-82f, 0f, 0f);
         private static readonly Quaternion SeatedLowerLegOffset = Quaternion.Euler(84f, 0f, 0f);
@@ -60,6 +66,12 @@ namespace KaliRiverSweeper.Core
         public AnimationClip idleClip;
         public AnimationClip carryBinClip;
         public AnimationClip throwTrashClip;
+        [Tooltip("Role clip from SK_VillagerNPC.fbx; when set, procedural bone offsets are skipped.")]
+        public AnimationClip poseClip;
+        [Tooltip("Played once on PlayTalk (Talk_Gesture). Leave null for seated/swimming/jumping roles.")]
+        public AnimationClip talkClip;
+        [Tooltip("Per-NPC palette, set as _BaseMap via MaterialPropertyBlock.")]
+        public Texture2D paletteTexture;
         public Transform rodPivot;
         public Transform rodTip;
         public Transform rodLine;
@@ -73,7 +85,6 @@ namespace KaliRiverSweeper.Core
 
         private Animator cachedAnimator;
         private Renderer[] cachedRenderers;
-        private SkinnedMeshRenderer bodyRenderer;
         private MaterialPropertyBlock propBlock;
 
         private Transform spineBone;
@@ -103,6 +114,8 @@ namespace KaliRiverSweeper.Core
         private AnimationClipPlayable clipPlayable;
         private float activeClipLength = 1f;
         private bool graphInitialized;
+        private AnimationClip graphClip;
+        private float talkUntil;
 
         private float animTimer;
         private float currentVisibility = 1f;
@@ -118,7 +131,7 @@ namespace KaliRiverSweeper.Core
             if (Application.isPlaying)
             {
                 SampleBasePoseForCleanStart();
-                SetupPlayableGraph();
+                SetupPlayableGraph(SelectActiveClip());
             }
         }
 
@@ -130,7 +143,7 @@ namespace KaliRiverSweeper.Core
             if (Application.isPlaying && !graphInitialized)
             {
                 SampleBasePoseForCleanStart();
-                SetupPlayableGraph();
+                SetupPlayableGraph(SelectActiveClip());
             }
         }
 
@@ -173,14 +186,35 @@ namespace KaliRiverSweeper.Core
             float visScale = baseUniformScale * Mathf.SmoothStep(0.05f, 1f, Mathf.Clamp01(currentVisibility));
             transform.localScale = new Vector3(visScale, visScale, visScale);
 
+            AnimationClip wanted = animTimer < talkUntil ? talkClip : SelectActiveClip();
+            if (graphInitialized && wanted != graphClip) SetupPlayableGraph(wanted);
+
             if (graphInitialized && clipPlayable.IsValid())
             {
                 float speed = subBehavior == AmbientNpcSubBehavior.KidChaser ? 1.25f : 1.0f;
-                double t = ((animTimer * speed) + phaseOffset) % activeClipLength;
-                clipPlayable.SetTime(t);
+                clipPlayable.SetTime(ComputeClipTime(speed));
             }
 
             ApplyAnchoredTransform(animTimer + phaseOffset);
+        }
+
+        /// <summary>Plays talkClip once (its full length), then the ambient clip resumes.</summary>
+        public void PlayTalk()
+        {
+            if (talkClip == null) return;
+            talkUntil = animTimer + talkClip.length;
+        }
+
+        private double ComputeClipTime(float speed)
+        {
+            if (animTimer < talkUntil) return activeClipLength - (talkUntil - animTimer);
+            if (poseClip != null && subBehavior == AmbientNpcSubBehavior.KidJettyJumper)
+            {
+                // Clip plays once, in step with the procedural jump arc; holds its last frame.
+                float cyc = (animTimer + phaseOffset) % JumperCycle;
+                return Mathf.Clamp(cyc - JumperClipStart, 0f, activeClipLength - 1f / 30f);
+            }
+            return ((animTimer * speed) + phaseOffset) % activeClipLength;
         }
 
         private void Update()
@@ -210,10 +244,6 @@ namespace KaliRiverSweeper.Core
             if (cachedRenderers == null || cachedRenderers.Length == 0)
             {
                 cachedRenderers = GetComponentsInChildren<Renderer>(true);
-            }
-            if (bodyRenderer == null)
-            {
-                bodyRenderer = GetComponentInChildren<SkinnedMeshRenderer>(true);
             }
             if (propBlock == null)
             {
@@ -249,17 +279,26 @@ namespace KaliRiverSweeper.Core
             }
         }
 
+        // Body (skinned) and its accessory (under Head) get tint + palette; props stay untouched.
         private void ApplyClothingTint()
         {
-            if (bodyRenderer == null || propBlock == null) return;
-            bodyRenderer.GetPropertyBlock(propBlock);
-            propBlock.SetColor(BaseColorId, clothingTint);
-            propBlock.SetColor(ColorId, clothingTint);
-            bodyRenderer.SetPropertyBlock(propBlock);
+            if (cachedRenderers == null || propBlock == null) return;
+            Transform head = transform.Find(HeadPath);
+            for (int i = 0; i < cachedRenderers.Length; i++)
+            {
+                Renderer r = cachedRenderers[i];
+                if (r == null || !(r is SkinnedMeshRenderer || (head != null && r.transform.IsChildOf(head)))) continue;
+                r.GetPropertyBlock(propBlock);
+                propBlock.SetColor(BaseColorId, clothingTint);
+                propBlock.SetColor(ColorId, clothingTint);
+                if (paletteTexture != null) propBlock.SetTexture(BaseMapId, paletteTexture);
+                r.SetPropertyBlock(propBlock);
+            }
         }
 
         private AnimationClip SelectActiveClip()
         {
+            if (poseClip != null) return poseClip;
             if (subBehavior == AmbientNpcSubBehavior.KidChaser && carryBinClip != null)
             {
                 return carryBinClip;
@@ -280,10 +319,10 @@ namespace KaliRiverSweeper.Core
             hasAppliedBonePose = false;
         }
 
-        private void SetupPlayableGraph()
+        private void SetupPlayableGraph(AnimationClip clip)
         {
             DestroyPlayableGraph();
-            AnimationClip clip = SelectActiveClip();
+            graphClip = clip;
             if (cachedAnimator == null || clip == null) return;
 
             activeClipLength = Mathf.Max(0.1f, clip.length);
@@ -394,7 +433,7 @@ namespace KaliRiverSweeper.Core
                         {
                             castPitch = Mathf.Sin(t * 1.8f) * 2.2f;
                         }
-                        rodPivot.localRotation = rodBaseLocalRot * Quaternion.Euler(castPitch, 0f, 0f);
+                        if (poseClip == null) rodPivot.localRotation = rodBaseLocalRot * Quaternion.Euler(castPitch, 0f, 0f);
                     }
                     break;
                 }
@@ -416,7 +455,7 @@ namespace KaliRiverSweeper.Core
                         {
                             castPitch = Mathf.Sin(t * 1.6f) * 2.4f;
                         }
-                        rodPivot.localRotation = rodBaseLocalRot * Quaternion.Euler(castPitch, 0f, 0f);
+                        if (poseClip == null) rodPivot.localRotation = rodBaseLocalRot * Quaternion.Euler(castPitch, 0f, 0f);
                     }
                     break;
                 }
@@ -463,8 +502,7 @@ namespace KaliRiverSweeper.Core
 
                 case AmbientNpcSubBehavior.KidJettyJumper:
                 {
-                    const float cycleLen = 5.6f;
-                    float u = (t % cycleLen) / cycleLen;
+                    float u = (t % JumperCycle) / JumperCycle;
                     float waterY = GetSafeShallowFloorY(jumpWaterPos.y);
                     Vector3 splashTarget = new Vector3(jumpWaterPos.x, waterY, jumpWaterPos.z);
                     Vector3 toWater = splashTarget - anchorWorldPos;
@@ -555,6 +593,8 @@ namespace KaliRiverSweeper.Core
 
         private void ApplyBonePostureOffsets(bool forceApply)
         {
+            // Role clip already holds the pose; offsets are fallback only when it is missing.
+            if (poseClip != null) return;
             if (subBehavior == AmbientNpcSubBehavior.SeatedFisher)
             {
                 ApplyBoneDelta(leftUpperLeg, SeatedUpperLegOffset, ref lastLeftUpperLegRot, forceApply);

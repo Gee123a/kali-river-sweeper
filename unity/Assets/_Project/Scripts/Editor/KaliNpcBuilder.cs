@@ -360,7 +360,7 @@ namespace KaliRiverSweeper.Editor
             GameObject villagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(VillagerFbxPath);
             GameObject binPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(VillagerBinFbxPath);
             GameObject rodPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RodFbxPath);
-            LoadVillagerClips(out AnimationClip idleClip, out AnimationClip carryBinClip, out AnimationClip throwTrashClip);
+            Dictionary<string, AnimationClip> clips = LoadVillagerClips();
 
             bool fallbackMode = villagerPrefab == null;
             if (fallbackMode)
@@ -368,7 +368,6 @@ namespace KaliRiverSweeper.Editor
                 Debug.LogWarning("[KALI] SK_VillagerNPC.fbx not found; spawning low-poly ambient NPC stand-ins.");
             }
 
-            var paletteMaterials = new Dictionary<string, Material>();
             var namedGroups = new HashSet<string>();
             Material rodLineMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.14f, 0.14f, 0.16f));
             Material rodBobberMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.86f, 0.24f, 0.18f));
@@ -387,11 +386,12 @@ namespace KaliRiverSweeper.Editor
                     : (GameObject)PrefabUtility.InstantiatePrefab(bodyPrefab, parent);
 
                 npcGo.name = $"NPC_{spec.role}_{i + 1:00}_{spec.groupId}";
+                Texture2D palette = null;
                 if (named)
                 {
                     spec.uniformScale = look.scale;
                     spec.clothingTint = Color.white; // palette texture carries the colours
-                    if (!fallbackMode) ApplyNamedLook(npcGo, look, paletteMaterials);
+                    if (!fallbackMode) palette = ApplyNamedLook(npcGo, look);
                 }
                 StripAllColliders(npcGo);
 
@@ -459,9 +459,12 @@ namespace KaliRiverSweeper.Editor
                 npc.baseUniformScale = spec.uniformScale;
                 npc.phaseOffset = spec.phaseOffset;
                 npc.clothingTint = spec.clothingTint;
-                npc.idleClip = idleClip;
-                npc.carryBinClip = carryBinClip;
-                npc.throwTrashClip = throwTrashClip;
+                npc.idleClip = ClipNamed(clips, "Idle");
+                npc.carryBinClip = ClipNamed(clips, "CarryBin");
+                npc.throwTrashClip = ClipNamed(clips, "ThrowTrash");
+                npc.poseClip = PoseClipFor(spec.subBehavior, clips);
+                npc.talkClip = spec.subBehavior == AmbientNpcSubBehavior.Standard ? ClipNamed(clips, "Talk_Gesture") : null;
+                npc.paletteTexture = palette;
                 npc.propRoot = propRoot;
                 npc.chaseAxisWorld = spec.chaseAxisWorld;
                 npc.chaseRadius = spec.chaseRadius;
@@ -619,7 +622,8 @@ namespace KaliRiverSweeper.Editor
             importer.SaveAndReimport();
         }
 
-        private static void ApplyNamedLook(GameObject npcGo, NamedVillager look, Dictionary<string, Material> materials)
+        // Accessory spawn only; the palette is applied per renderer by KaliAmbientNpc (MaterialPropertyBlock).
+        private static Texture2D ApplyNamedLook(GameObject npcGo, NamedVillager look)
         {
             if (look.accessory != null)
             {
@@ -634,27 +638,28 @@ namespace KaliRiverSweeper.Editor
                 }
             }
 
-            Texture2D palette = AssetDatabase.LoadAssetAtPath<Texture2D>(RiggingDir + "Textures/" + look.palette);
-            if (palette == null) return;
-            Renderer[] renderers = npcGo.GetComponentsInChildren<Renderer>(true);
-            for (int r = 0; r < renderers.Length; r++)
-            {
-                renderers[r].sharedMaterial = PaletteMaterial(materials, renderers[r].sharedMaterial, palette);
-            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(RiggingDir + "Textures/" + look.palette);
         }
 
-        // One material per (palette, source material); a copy keeps the source asset untouched.
-        private static Material PaletteMaterial(Dictionary<string, Material> cache, Material source, Texture2D palette)
+        private static AnimationClip ClipNamed(Dictionary<string, AnimationClip> clips, string name)
         {
-            if (source == null) return null;
-            string key = palette.name + "|" + source.name;
-            if (!cache.TryGetValue(key, out Material mat))
+            return clips.TryGetValue(name, out AnimationClip clip) ? clip : null;
+        }
+
+        // Role clip per sub-behaviour (README "Ambient NPC clips"); null keeps the procedural fallback.
+        private static AnimationClip PoseClipFor(AmbientNpcSubBehavior sub, Dictionary<string, AnimationClip> clips)
+        {
+            switch (sub)
             {
-                mat = new Material(source) { name = "M_" + palette.name };
-                mat.SetTexture("_BaseMap", palette);
-                cache[key] = mat;
+                case AmbientNpcSubBehavior.SeatedFisher: return ClipNamed(clips, "Anim_Fisher_SittingCast");
+                case AmbientNpcSubBehavior.StandingFisher: return ClipNamed(clips, "Anim_Fisher_StandingIdle");
+                case AmbientNpcSubBehavior.CrouchedWasher: return ClipNamed(clips, "Anim_Washer_CrouchedScrub");
+                case AmbientNpcSubBehavior.KidWader: return ClipNamed(clips, "Anim_Kid_WadeShallow");
+                case AmbientNpcSubBehavior.KidChaser: return ClipNamed(clips, "Anim_Kid_Splash");
+                case AmbientNpcSubBehavior.KidJettyJumper: return ClipNamed(clips, "Anim_Kid_JettyJump");
+                case AmbientNpcSubBehavior.ChatterBinCarrier: return ClipNamed(clips, "CarryBin");
+                default: return ClipNamed(clips, "Anim_Chatter_TalkingIdle");
             }
-            return mat;
         }
 
         private static GameObject CreateStandInVillager(Transform parent, Material mat)
@@ -691,22 +696,19 @@ namespace KaliRiverSweeper.Editor
             }
         }
 
-        private static void LoadVillagerClips(out AnimationClip idle, out AnimationClip carryBin, out AnimationClip throwTrash)
+        private static Dictionary<string, AnimationClip> LoadVillagerClips()
         {
-            idle = null;
-            carryBin = null;
-            throwTrash = null;
+            var clips = new Dictionary<string, AnimationClip>(StringComparer.Ordinal);
             UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(VillagerFbxPath);
-            if (assets == null) return;
+            if (assets == null) return clips;
 
             for (int i = 0; i < assets.Length; i++)
             {
                 AnimationClip clip = assets[i] as AnimationClip;
                 if (clip == null || clip.name.StartsWith("__preview__", StringComparison.Ordinal)) continue;
-                if (string.Equals(clip.name, "Idle", StringComparison.Ordinal)) idle = clip;
-                else if (string.Equals(clip.name, "CarryBin", StringComparison.Ordinal)) carryBin = clip;
-                else if (string.Equals(clip.name, "ThrowTrash", StringComparison.Ordinal)) throwTrash = clip;
+                clips[clip.name] = clip;
             }
+            return clips;
         }
 
         private static AmbientNpcRole ParseRole(string raw)
