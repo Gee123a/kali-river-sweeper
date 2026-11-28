@@ -640,6 +640,126 @@
         "rumah": 0.72,
         "warung_madura": 0.28
       }
+    },
+    {
+      "id": "npc_kids_jetty5",
+      "type": "npc_group",
+      "role": "kids",
+      "x": 569,
+      "y": 1161,
+      "count": 2,
+      "radius": 1.0,
+      "seed": 501
+    },
+    {
+      "id": "npc_kids_east_shallow",
+      "type": "npc_group",
+      "role": "kids",
+      "x": 586,
+      "y": 1030,
+      "count": 3,
+      "radius": 1.1,
+      "seed": 502
+    },
+    {
+      "id": "npc_kids_west_jetty3",
+      "type": "npc_group",
+      "role": "kids",
+      "x": 432,
+      "y": 912,
+      "count": 3,
+      "radius": 1.1,
+      "seed": 503
+    },
+    {
+      "id": "npc_fisher_jetty1",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 488,
+      "y": 345,
+      "count": 1,
+      "radius": 0.4,
+      "seed": 511
+    },
+    {
+      "id": "npc_fisher_jetty2",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 492,
+      "y": 561,
+      "count": 2,
+      "radius": 0.6,
+      "seed": 512
+    },
+    {
+      "id": "npc_fisher_jetty4",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 594,
+      "y": 950,
+      "count": 1,
+      "radius": 0.4,
+      "seed": 513
+    },
+    {
+      "id": "npc_fisher_west_bank",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 374,
+      "y": 1110,
+      "count": 1,
+      "radius": 0.4,
+      "seed": 514
+    },
+    {
+      "id": "npc_washer_west_mid",
+      "type": "npc_group",
+      "role": "washer",
+      "x": 442,
+      "y": 865,
+      "count": 2,
+      "radius": 1.1,
+      "seed": 521
+    },
+    {
+      "id": "npc_washer_east_south",
+      "type": "npc_group",
+      "role": "washer",
+      "x": 571,
+      "y": 1205,
+      "count": 2,
+      "radius": 1.0,
+      "seed": 522
+    },
+    {
+      "id": "npc_washer_west_north",
+      "type": "npc_group",
+      "role": "washer",
+      "x": 485,
+      "y": 440,
+      "count": 1,
+      "radius": 0.5,
+      "seed": 523
+    },
+    {
+      "id": "npc_chatter_west_warung",
+      "type": "npc_group",
+      "role": "chatter",
+      "x": 472,
+      "y": 563,
+      "count": 2,
+      "radius": 0.65,
+      "seed": 531
+    },
+    {
+      "id": "npc_chatter_east_warung",
+      "type": "npc_group",
+      "role": "chatter",
+      "x": 599,
+      "y": 1074,
+      "count": 2,
+      "radius": 0.48,
+      "seed": 532
     }
   ],
   "zones": [

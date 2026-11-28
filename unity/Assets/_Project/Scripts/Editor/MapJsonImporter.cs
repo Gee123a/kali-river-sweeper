@@ -60,6 +60,9 @@ namespace KaliRiverSweeper.Editor
             public int seed;
             public int depth;
             public KampungMix mix;
+            public string role;
+            public int count;
+            public float radius;
         }
 
         private static KaliMapBackdropBuilder.SceneAssetCache activeAssetCache;
@@ -264,6 +267,51 @@ namespace KaliRiverSweeper.Editor
             return KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
         }
 
+        public static List<KaliNpcBuilder.ExpandedNpc> ExpandDefaultMapNpcGroups()
+        {
+            if (!File.Exists(DefaultMapPath))
+            {
+                Debug.LogError($"[KALI] Map JSON not found at: {DefaultMapPath}");
+                return new List<KaliNpcBuilder.ExpandedNpc>();
+            }
+
+            string rawJson = File.ReadAllText(DefaultMapPath);
+            MapData data = JsonUtility.FromJson<MapData>(rawJson);
+            if (data == null || data.items == null)
+            {
+                Debug.LogError("[KALI] Failed to parse default Map JSON.");
+                return new List<KaliNpcBuilder.ExpandedNpc>();
+            }
+
+            CollectRowsAndAvoidance(data, rawJson, out var rowSpecs, out var avoidZones, out var footpaths);
+            GameObject built = GameObject.Find("_KALI_World");
+            if (built != null) RefineAvoidZonesToRealFootprints(built.transform, avoidZones);
+            var expandedBuildings = KaliKampungBuilder.ExpandKampungRows(rowSpecs, avoidZones, footpaths);
+            var npcGroups = CollectNpcGroups(data);
+            return KaliNpcBuilder.ExpandNpcGroups(npcGroups, expandedBuildings, avoidZones, footpaths);
+        }
+
+        private static List<KaliNpcBuilder.NpcGroupSpec> CollectNpcGroups(MapData data)
+        {
+            var groups = new List<KaliNpcBuilder.NpcGroupSpec>();
+            if (data?.items == null) return groups;
+            foreach (MapItem item in data.items)
+            {
+                if (item.type != "npc_group") continue;
+                groups.Add(new KaliNpcBuilder.NpcGroupSpec
+                {
+                    id = item.id,
+                    role = item.role,
+                    x = item.x,
+                    y = item.y,
+                    count = item.count,
+                    radius = item.radius,
+                    seed = item.seed
+                });
+            }
+            return groups;
+        }
+
         private static void CollectRowsAndAvoidance(
             MapData data,
             string rawJson,
@@ -437,6 +485,7 @@ namespace KaliRiverSweeper.Editor
                 GameObject buildingsGroup = CreateGroup("Buildings", root.transform);
                 GameObject clutterGroup = CreateGroup("Clutter", root.transform);
                 GameObject treesGroup = CreateGroup("Trees", root.transform);
+                GameObject npcsGroup = CreateGroup("NPCs", root.transform);
                 GameObject trashGroup = CreateGroup("Trash", root.transform);
                 GameObject infraGroup = CreateGroup("Infrastructure", root.transform);
                 GameObject gunungGroup = CreateGroup("GunungSampah", root.transform);
@@ -478,6 +527,11 @@ namespace KaliRiverSweeper.Editor
                     avoidZones,
                     footpaths);
 
+                Physics.SyncTransforms();
+                var npcGroups = CollectNpcGroups(data);
+                var expandedNpcs = KaliNpcBuilder.ExpandNpcGroups(npcGroups, expanded, avoidZones, footpaths);
+                int npcCount = KaliNpcBuilder.SpawnNpcGroups(expandedNpcs, npcsGroup.transform, assetCache);
+
                 KaliMapBackdropBuilder.BuildBackdropAndBoundary(
                     root.transform,
                     assetCache,
@@ -496,7 +550,7 @@ namespace KaliRiverSweeper.Editor
                     $"[KALI] Imported {data.items.Length} JSON items + kampung expansion from {path} into _KALI_World | " +
                     $"buildings={stats.totalBuildings} (rumah={stats.rumahCount}, warung={stats.warungCount}, west={stats.westCount}, east={stats.eastCount}), " +
                     $"jetties={stats.jettyCount}, bins={stats.binCount}, boats={stats.boatCount}, lanterns={stats.lanternCount}, " +
-                    $"rearTrees={stats.rearTreeCount}, backdrop={backdropCount}, boundaries={boundaryCount}.");
+                    $"npcs={npcCount}, rearTrees={stats.rearTreeCount}, backdrop={backdropCount}, boundaries={boundaryCount}.");
                 return true;
             }
             finally
@@ -701,7 +755,7 @@ namespace KaliRiverSweeper.Editor
             Transform root,
             KaliMapBackdropBuilder.SceneAssetCache assetCache)
         {
-            if (item.type == "kampung_row")
+            if (item.type == "kampung_row" || item.type == "npc_group")
             {
                 return;
             }

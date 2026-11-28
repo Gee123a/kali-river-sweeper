@@ -73,21 +73,14 @@
 - [x] **Task 4F (Ivan Core Scope Complete)**: fixed `ApplyCargoGainAndMedicalCheck` event-ordering race, `IsToolUnlocked(index >= 1)`, duplicate `BuyUpgrade` guard, `sampanUnlocked` boat gate, `piledRiverTrashCount` sync, exposed `isInBoat`/`isFreeCam`/cooldown state, added `EventSystem` (`InputSystemUIInputModule`) + UI raycast guard, and reconciled `DESIGN.md` with `HUD_SPEC_NIKI.md`. *(Remaining UI prefab/controller items are tracked in `plan_niki.md` Tasks 4A–4B.)*
 - [x] **Task 4G: Kopdes `BuyTool`, `SafeClosestPoint`, Field Guide Overlay (`8dd27dd`), SSOT Sync & Surface Swimming / Stamina / Drowning** *(12/12 QA suites, 550 asserts)*.
 - [x] **Task 4H: Procedural Skybox, 12-Min Day/Night Cycle (`KaliDayNightCycle.cs`), Water Sun Glint & HUD Clock (`T` phase cycle)** *(12/12 QA suites, 563+ asserts)*.
-- [x] **Task 4I (Initial Landing): Dense Kampung Rows, Seeded Clutter, Low-Poly Trees, Backdrop Ring & Play Boundary** *(landed in `6ab0d43`; follow-up real-footprint clearance in Task 4I-B)*.
+- [x] **Task 4I (Initial Landing & Real-Footprint Re-Layout)**: dense kampung rows (`6ab0d43`) + real-footprint hub/dermaga/bridge/spawn clearance (`d7cdd17`, 61 houses across West/East banks, 5 jetties, 70 rear trees, 13/13 QA suites).
+- [x] **Task 4J: Ambient River NPC System (`Scripts/Core/KaliAmbientNpc.cs`, `Scripts/Editor/KaliNpcBuilder.cs`, `kali-river-map.json`, `Main.unity`)**: `12 npc_group` entries expanding deterministically into **22 ambient NPCs** (`8` kids `0.60–0.68x` at shallow edges & Jetty 05, `5` Bapak fishers on jetties/bank with bamboo rods + vertical line/bobber, `5` Ibu washers crouching on bank slope + wash tubs, `4` warung chatters incl. bin carrier), using JC's `SK_VillagerNPC` read-only with `MaterialPropertyBlock` tints, `AnimatorCullingMode.CullUpdateTransforms` `PlayableGraph`, non-blocking zero-collider setup, `20:00–05:30` day/night fade, monsoon water evacuation for kids/washers, and `14/14` QA suites (`1,888` asserts) PASS.
 - [x] **Task 5A: Core Wiring Hardening** *(Play Mode verified at `1280x720`, 0 console errors)*.
 
-### Priority 1: Map Layout, Ambient NPCs, Progression & QA (Active Track)
-- [ ] **Task 4I-B: Kampung Rows Re-Layout (In Progress — separate active pass)**: finish real-footprint hub/dermaga/bridge/spawn clearance (`ab7b962` wip) across `kali-river-map.json`, `KaliKampungBuilder.cs`, `MapJsonImporter.cs`, and re-bake `Main.unity`.
-  - *Blocks*: Task 4J (Ambient NPCs), Task 4K (QA-suite update), and Wesley's tree/hills/`tangga cuci`/jetty integrations (`plan_wesley.md`).
-- [ ] **Task 4J: Ambient River NPC System (`/Users/mynamegee/kali-handoff/KALI_NPC_BRIEF.md`)** *(Depends on Task 4I-B kampung rows commit)*:
-  - [ ] Add `npc_group` entries (`kids` 6–10, `fisher` 4–6, `washer` 4–6, `chatter` 3–5 across warungs/houses) to `kali-river-map.json` at real jetties, bank edges, and warungs (never on hubs, Dermaga boarding spots, spawn, footpaths, or boat lane).
-  - [ ] Expand `npc_group` deterministically (seeded `System.Random`) in `MapJsonImporter.cs` under `_KALI_World/NPCs`, using JC's `SK_VillagerNPC` read-only (`0.6–0.7` uniform scale for kids, `MaterialPropertyBlock` clothing tints; procedural fallback if clip missing).
-  - [ ] Add `KaliAmbientNpc.cs` in `Scripts/Core/`: zero per-frame allocations, `CullUpdateTransforms`, non-blocking/no colliders, `20:00–05:30` fade via `KaliDayNightCycle.Instance.CurrentHour`, and kids/washers exit water during `RiverGameManager.isMonsoonStorm`.
-  - [ ] Validate in Unity + capture `npc_jetty`, `npc_washing`, `npc_kids`, `npc_overview` screenshots; hand off missing clip list to JC (`plan_jc.md` Task 4A).
-- [ ] **Task 4K: QA-Suite Fixes (`Scripts/Editor/KaliCoreQaTests.cs`)** *(Depends on Task 4I-B, Task 4J & Task 4L)*:
-  - [ ] Update `VerifyKampungRowsAndMapEdge` building count & real-footprint clearance assertions for the re-laid kampung rows (`ab7b962` pending QA update).
-  - [ ] Add ambient NPC QA suite (`npc_group` deterministic expansion, per-role counts in range, zero overlap with hubs/Dermaga/spawn/boat lane, zero blocking colliders).
-  - [ ] Add/adjust QA assertions for Task 4L progression balance fixes and verify all `KaliCoreQaTests` suites pass (`0` errors).
+### Priority 1: Progression, QA & Unity Version Decision (Active Track)
+- [ ] **Task 4K: QA-Suite Fixes (`Scripts/Editor/KaliCoreQaTests.cs`)** *(Depends on Task 4L)*:
+  - [x] Added `VerifyAmbientRiverNpcs` suite (`npc_group` determinism, per-role counts, hub/Dermaga/spawn/boat-lane clearance, zero blocking colliders, day/night & monsoon checks; `14/14` suites, `1,888` asserts PASS).
+  - [ ] Verify/update `VerifyKampungRowsAndMapEdge` & progression assertions alongside Task 4L progression balance fixes (`0` errors).
 - [ ] **Task 4L: Progression Audit Fixes (`Scripts/Core/RiverGameManager.cs`, `ToolCatalog.cs`, `KaliPlayerController.cs`)**:
   - [ ] Audit & rebalance the **20-tool Kopdes `BuyTool(int)` ladder** (milestone vs purchase flow, cost/unlock pacing, and clear feedback so players climb tiers intentionally instead of skipping tools).
   - [ ] Rebalance **Trash Boom passive income & water relief** (`boomTimer` `4s` loop in `RiverGameManager.cs`) so it complements active river sweeping without breaking Kopdes tool progression.
