@@ -57,6 +57,16 @@ namespace KaliRiverSweeper.Editor
             new Color(0.82f, 0.74f, 0.64f, 1f)
         };
 
+        // ponytail: one named villager per group (first spawned member); other members keep default "Warga".
+        private static readonly Dictionary<string, (string name, bool isEsTehSeller)> NamedVillagerByGroup =
+            new Dictionary<string, (string, bool)>
+            {
+                { "npc_washer_west_mid", ("Bu Siti", false) },
+                { "npc_fisher_jetty2", ("Pak Darto", false) },
+                { "npc_kids_west_jetty3", ("Raka", false) },
+                { "npc_chatter_west_warung", ("Mbok Nah", true) }
+            };
+
         public static bool IsInBoatLane(Vector3 worldPos)
         {
             if (!RiverMath.IsInRiver(worldPos)) return false;
@@ -297,6 +307,7 @@ namespace KaliRiverSweeper.Editor
             float initialWaterY = RiverGameManager.BaseWaterLevelY + 4 * RiverGameManager.WaterRisePerPiledUnit;
 
             int spawned = 0;
+            var namedGroups = new HashSet<string>();
             for (int i = 0; i < npcs.Count; i++)
             {
                 ExpandedNpc spec = npcs[i];
@@ -379,6 +390,14 @@ namespace KaliRiverSweeper.Editor
                 npc.chaseRadius = spec.chaseRadius;
                 npc.jumpWaterPos = resolvedJumpWater;
                 npc.ApplyEditorPreviewPose();
+
+                KaliNpcInteractable talk = npcGo.AddComponent<KaliNpcInteractable>();
+                if (NamedVillagerByGroup.TryGetValue(spec.groupId, out (string name, bool isEsTehSeller) named) &&
+                    namedGroups.Add(spec.groupId))
+                {
+                    talk.npcName = named.name;
+                    talk.isEsTehSeller = named.isEsTehSeller;
+                }
 
                 if (spec.role == AmbientNpcRole.Fisher)
                 {
