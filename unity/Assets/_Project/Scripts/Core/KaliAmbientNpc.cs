@@ -38,10 +38,13 @@ namespace KaliRiverSweeper.Core
 
         private static readonly Quaternion SeatedUpperLegOffset = Quaternion.Euler(-82f, 0f, 0f);
         private static readonly Quaternion SeatedLowerLegOffset = Quaternion.Euler(84f, 0f, 0f);
-        private static readonly Quaternion CrouchUpperLegOffset = Quaternion.Euler(-34f, 0f, 0f);
-        private static readonly Quaternion CrouchLowerLegOffset = Quaternion.Euler(58f, 0f, 0f);
-        private static readonly Quaternion CrouchSpineOffset = Quaternion.Euler(14f, 0f, 0f);
-        private static readonly Quaternion CrouchChestOffset = Quaternion.Euler(10f, 0f, 0f);
+        private static readonly Quaternion CrouchUpperLegOffset = Quaternion.Euler(-52f, 0f, 0f);
+        private static readonly Quaternion CrouchLowerLegOffset = Quaternion.Euler(104f, 0f, 0f);
+        private static readonly Quaternion CrouchFootOffset = Quaternion.Euler(-52f, 0f, 0f);
+        private static readonly Quaternion CrouchSpineOffset = Quaternion.Euler(22f, 0f, 0f);
+        private static readonly Quaternion CrouchChestOffset = Quaternion.Euler(14f, 0f, 0f);
+        private static readonly Quaternion LeftArmRestRot = Quaternion.Euler(287.7f, 9.3f, 359.0f);
+        private static readonly Quaternion RightArmRestRot = Quaternion.Euler(287.7f, 350.7f, 1.0f);
 
         [Header("Identity & Placement")]
         public string groupId = string.Empty;
@@ -58,6 +61,9 @@ namespace KaliRiverSweeper.Core
         public AnimationClip carryBinClip;
         public AnimationClip throwTrashClip;
         public Transform rodPivot;
+        public Transform rodTip;
+        public Transform rodLine;
+        public Transform rodBobber;
         public Transform propRoot;
 
         [Header("Behavior Bounds")]
@@ -74,15 +80,23 @@ namespace KaliRiverSweeper.Core
         private Transform chestBone;
         private Transform leftUpperLeg;
         private Transform leftLowerLeg;
+        private Transform leftFoot;
         private Transform rightUpperLeg;
         private Transform rightLowerLeg;
+        private Transform rightFoot;
+        private Transform leftUpperArm;
+        private Transform leftLowerArm;
+        private Transform rightUpperArm;
+        private Transform rightLowerArm;
 
         private Quaternion lastSpineRot;
         private Quaternion lastChestRot;
         private Quaternion lastLeftUpperLegRot;
         private Quaternion lastLeftLowerLegRot;
+        private Quaternion lastLeftFootRot;
         private Quaternion lastRightUpperLegRot;
         private Quaternion lastRightLowerLegRot;
+        private Quaternion lastRightFootRot;
         private bool hasAppliedBonePose;
 
         private PlayableGraph playableGraph;
@@ -149,7 +163,7 @@ namespace KaliRiverSweeper.Core
 
             float targetVis = EvaluateTargetVisibility();
             currentVisibility = dt > 0f
-                ? Mathf.MoveTowards(currentVisibility, targetVis, dt * 0.85f)
+                ? Mathf.MoveTowards(currentVisibility, targetVis, dt * 1.4f)
                 : targetVis;
 
             bool shouldShow = currentVisibility > 0.02f;
@@ -161,8 +175,7 @@ namespace KaliRiverSweeper.Core
 
             if (graphInitialized && clipPlayable.IsValid())
             {
-                float speed = subBehavior == AmbientNpcSubBehavior.ChatterBinCarrier ? 0.45f
-                    : (subBehavior == AmbientNpcSubBehavior.KidChaser ? 1.25f : 1.0f);
+                float speed = subBehavior == AmbientNpcSubBehavior.KidChaser ? 1.25f : 1.0f;
                 double t = ((animTimer * speed) + phaseOffset) % activeClipLength;
                 clipPlayable.SetTime(t);
             }
@@ -213,14 +226,26 @@ namespace KaliRiverSweeper.Core
                 chestBone = transform.Find("VillagerRig/Hips/Spine/Chest");
                 leftUpperLeg = transform.Find("VillagerRig/Hips/LeftUpperLeg");
                 leftLowerLeg = transform.Find("VillagerRig/Hips/LeftUpperLeg/LeftLowerLeg");
+                leftFoot = transform.Find("VillagerRig/Hips/LeftUpperLeg/LeftLowerLeg/LeftFoot");
                 rightUpperLeg = transform.Find("VillagerRig/Hips/RightUpperLeg");
                 rightLowerLeg = transform.Find("VillagerRig/Hips/RightUpperLeg/RightLowerLeg");
+                rightFoot = transform.Find("VillagerRig/Hips/RightUpperLeg/RightLowerLeg/RightFoot");
+                leftUpperArm = transform.Find("VillagerRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm");
+                leftLowerArm = transform.Find("VillagerRig/Hips/Spine/Chest/LeftShoulder/LeftUpperArm/LeftLowerArm");
+                rightUpperArm = transform.Find("VillagerRig/Hips/Spine/Chest/RightShoulder/RightUpperArm");
+                rightLowerArm = transform.Find("VillagerRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm");
             }
 
-            if (rodPivot != null && !hasRodBaseRot)
+            if (rodPivot != null)
             {
-                rodBaseLocalRot = rodPivot.localRotation;
-                hasRodBaseRot = true;
+                if (!hasRodBaseRot)
+                {
+                    rodBaseLocalRot = rodPivot.localRotation;
+                    hasRodBaseRot = true;
+                }
+                if (rodTip == null) rodTip = rodPivot.Find("Rod_Tip");
+                if (rodLine == null) rodLine = rodPivot.Find("Rod_Line");
+                if (rodBobber == null) rodBobber = rodPivot.Find("Rod_Bobber");
             }
         }
 
@@ -235,10 +260,6 @@ namespace KaliRiverSweeper.Core
 
         private AnimationClip SelectActiveClip()
         {
-            if (subBehavior == AmbientNpcSubBehavior.ChatterBinCarrier && carryBinClip != null)
-            {
-                return carryBinClip;
-            }
             if (subBehavior == AmbientNpcSubBehavior.KidChaser && carryBinClip != null)
             {
                 return carryBinClip;
@@ -351,6 +372,7 @@ namespace KaliRiverSweeper.Core
         {
             Vector3 pos = anchorWorldPos;
             Quaternion rot = anchorWorldRot;
+            float castLift = 0f;
 
             switch (subBehavior)
             {
@@ -361,10 +383,17 @@ namespace KaliRiverSweeper.Core
                     rot *= Quaternion.Euler(Mathf.Sin(t * 0.9f) * 1.5f, sway, 0f);
                     if (rodPivot != null && hasRodBaseRot)
                     {
-                        float castCycle = (t * 0.14f) % 1f;
-                        float castPitch = castCycle < 0.12f
-                            ? Mathf.Sin((castCycle / 0.12f) * Mathf.PI) * 14f
-                            : Mathf.Sin(t * 1.8f) * 2.4f;
+                        float castCycle = ((t * 0.12f) + 0.35f) % 1f;
+                        float castPitch = 0f;
+                        if (castCycle > 0.88f)
+                        {
+                            castLift = Mathf.Sin(((castCycle - 0.88f) / 0.12f) * Mathf.PI);
+                            castPitch = -castLift * 14f;
+                        }
+                        else
+                        {
+                            castPitch = Mathf.Sin(t * 1.8f) * 2.2f;
+                        }
                         rodPivot.localRotation = rodBaseLocalRot * Quaternion.Euler(castPitch, 0f, 0f);
                     }
                     break;
@@ -376,10 +405,17 @@ namespace KaliRiverSweeper.Core
                     rot *= Quaternion.Euler(Mathf.Sin(t * 1.1f) * 1.8f, Mathf.Sin(t * 0.7f) * 3.5f, 0f);
                     if (rodPivot != null && hasRodBaseRot)
                     {
-                        float castCycle = (t * 0.12f) % 1f;
-                        float castPitch = castCycle < 0.14f
-                            ? Mathf.Sin((castCycle / 0.14f) * Mathf.PI) * 16f
-                            : Mathf.Sin(t * 1.6f) * 2.8f;
+                        float castCycle = ((t * 0.11f) + 0.35f) % 1f;
+                        float castPitch = 0f;
+                        if (castCycle > 0.86f)
+                        {
+                            castLift = Mathf.Sin(((castCycle - 0.86f) / 0.14f) * Mathf.PI);
+                            castPitch = -castLift * 16f;
+                        }
+                        else
+                        {
+                            castPitch = Mathf.Sin(t * 1.6f) * 2.4f;
+                        }
                         rodPivot.localRotation = rodBaseLocalRot * Quaternion.Euler(castPitch, 0f, 0f);
                     }
                     break;
@@ -387,16 +423,16 @@ namespace KaliRiverSweeper.Core
 
                 case AmbientNpcSubBehavior.CrouchedWasher:
                 {
-                    pos.y -= 0.16f;
+                    pos.y -= 0.215f;
                     float scrub = Mathf.Sin(t * 4.4f);
-                    pos.y += Mathf.Abs(scrub) * 0.018f;
-                    rot *= Quaternion.Euler(5f + scrub * 4.5f, 0f, Mathf.Cos(t * 2.2f) * 2.5f);
+                    pos.y += Mathf.Abs(scrub) * 0.012f;
+                    rot *= Quaternion.Euler(4f + scrub * 3.0f, 0f, Mathf.Cos(t * 2.2f) * 2.0f);
                     break;
                 }
 
                 case AmbientNpcSubBehavior.KidWader:
                 {
-                    float splashHop = Mathf.Abs(Mathf.Sin(t * 3.2f)) * 0.13f;
+                    float splashHop = Mathf.Abs(Mathf.Sin(t * 3.2f)) * 0.11f;
                     float waterBaseY = GetSafeShallowFloorY(anchorWorldPos.y);
                     pos.y = waterBaseY + splashHop;
                     rot *= Quaternion.Euler(Mathf.Sin(t * 3.2f) * 5f, Mathf.Sin(t * 1.9f) * 16f, Mathf.Cos(t * 3.2f) * 5f);
@@ -405,16 +441,22 @@ namespace KaliRiverSweeper.Core
 
                 case AmbientNpcSubBehavior.KidChaser:
                 {
-                    float arc = Mathf.Sin(t * 1.45f);
-                    float dArc = Mathf.Cos(t * 1.45f);
-                    Vector3 offset = chaseAxisWorld * (arc * chaseRadius);
-                    float strideHop = Mathf.Abs(Mathf.Sin(t * 5.2f)) * 0.09f;
+                    float omega = 1.45f;
+                    float angle = t * omega;
+                    float arc = Mathf.Sin(angle);
+                    float side = Mathf.Cos(angle);
+                    Vector3 axis = chaseAxisWorld.sqrMagnitude > 0.001f ? chaseAxisWorld.normalized : Vector3.forward;
+                    Vector3 perp = Vector3.Cross(Vector3.up, axis).normalized;
+                    const float ovalHalfWidth = 0.18f;
+                    Vector3 offset = axis * (arc * chaseRadius) + perp * (side * ovalHalfWidth);
+                    float strideHop = Mathf.Abs(Mathf.Sin(t * 5.2f)) * 0.08f;
                     pos = anchorWorldPos + offset;
                     pos.y = GetSafeShallowFloorY(anchorWorldPos.y) + strideHop;
-                    Vector3 moveDir = chaseAxisWorld * (dArc >= 0f ? 1f : -1f);
-                    if (moveDir.sqrMagnitude > 0.001f)
+
+                    Vector3 moveDir = axis * (side * chaseRadius) - perp * (arc * ovalHalfWidth);
+                    if (moveDir.sqrMagnitude > 0.0001f)
                     {
-                        rot = Quaternion.LookRotation(moveDir.normalized, Vector3.up) * Quaternion.Euler(4f, 0f, Mathf.Sin(t * 5.2f) * 6f);
+                        rot = Quaternion.LookRotation(moveDir.normalized, Vector3.up) * Quaternion.Euler(4f, 0f, Mathf.Sin(t * 5.2f) * 5f);
                     }
                     break;
                 }
@@ -425,34 +467,40 @@ namespace KaliRiverSweeper.Core
                     float u = (t % cycleLen) / cycleLen;
                     float waterY = GetSafeShallowFloorY(jumpWaterPos.y);
                     Vector3 splashTarget = new Vector3(jumpWaterPos.x, waterY, jumpWaterPos.z);
+                    Vector3 toWater = splashTarget - anchorWorldPos;
+                    toWater.y = 0f;
+                    Quaternion faceWaterRot = toWater.sqrMagnitude > 0.001f
+                        ? Quaternion.LookRotation(toWater.normalized, Vector3.up)
+                        : anchorWorldRot;
+                    Quaternion faceJettyRot = toWater.sqrMagnitude > 0.001f
+                        ? Quaternion.LookRotation(-toWater.normalized, Vector3.up)
+                        : anchorWorldRot;
 
                     if (u < 0.36f)
                     {
-                        // Pre-jump bounce on jetty tip
                         float hop = Mathf.Abs(Mathf.Sin((u / 0.36f) * Mathf.PI * 3f)) * 0.08f;
                         pos = anchorWorldPos + new Vector3(0f, hop, 0f);
+                        rot = faceWaterRot;
                     }
                     else if (u < 0.54f)
                     {
-                        // Jump arc off jetty into shallow edge
                         float j = (u - 0.36f) / 0.18f;
                         pos = Vector3.Lerp(anchorWorldPos, splashTarget, j);
                         pos.y += Mathf.Sin(j * Mathf.PI) * 0.85f;
-                        rot *= Quaternion.Euler(j * 16f, 0f, 0f);
+                        rot = faceWaterRot * Quaternion.Euler(j * 16f, 0f, 0f);
                     }
                     else if (u < 0.80f)
                     {
-                        // Splash in shallow water next to jetty
                         float s = (u - 0.54f) / 0.26f;
                         pos = splashTarget + new Vector3(0f, Mathf.Abs(Mathf.Sin(s * Mathf.PI * 4f)) * 0.09f, 0f);
-                        rot *= Quaternion.Euler(0f, Mathf.Sin(s * Mathf.PI * 2f) * 28f, 0f);
+                        rot = faceWaterRot * Quaternion.Euler(0f, Mathf.Sin(s * Mathf.PI * 2f) * 28f, 0f);
                     }
                     else
                     {
-                        // Climb/hop back up to jetty deck
                         float c = (u - 0.80f) / 0.20f;
                         pos = Vector3.Lerp(splashTarget, anchorWorldPos, Mathf.SmoothStep(0f, 1f, c));
                         pos.y += Mathf.Sin(c * Mathf.PI) * 0.45f;
+                        rot = faceJettyRot;
                     }
                     break;
                 }
@@ -466,13 +514,41 @@ namespace KaliRiverSweeper.Core
             }
 
             transform.SetPositionAndRotation(pos, rot);
+
+            if (subBehavior == AmbientNpcSubBehavior.SeatedFisher || subBehavior == AmbientNpcSubBehavior.StandingFisher)
+            {
+                UpdateFishingLineAndBobber(t, castLift);
+            }
+        }
+
+        private void UpdateFishingLineAndBobber(float t, float castLift)
+        {
+            if (rodTip == null || rodLine == null || rodBobber == null) return;
+
+            RiverGameManager gm = RiverGameManager.Instance;
+            float waterY = gm != null ? gm.currentWaterLevelY : -0.17f;
+
+            Vector3 tipWorld = rodTip.position;
+            float restBobberY = Mathf.Clamp(waterY + Mathf.Sin(t * 2.3f) * 0.012f, -0.35f, tipWorld.y - 0.35f);
+            float castBobberY = Mathf.Max(restBobberY, tipWorld.y - 0.65f);
+            float bobberY = castLift > 0.001f ? Mathf.Lerp(restBobberY, castBobberY, castLift) : restBobberY;
+
+            Vector3 bobberWorld = new Vector3(tipWorld.x, bobberY, tipWorld.z);
+            float lineDist = Mathf.Max(0.25f, tipWorld.y - bobberWorld.y);
+            float npcScale = Mathf.Max(0.25f, transform.localScale.y);
+
+            rodLine.position = (tipWorld + bobberWorld) * 0.5f;
+            rodLine.rotation = Quaternion.identity;
+            rodLine.localScale = new Vector3(0.008f, (lineDist / npcScale) * 0.5f, 0.008f);
+
+            rodBobber.position = bobberWorld;
+            rodBobber.rotation = Quaternion.identity;
         }
 
         private float GetSafeShallowFloorY(float bakedFloorY)
         {
             RiverGameManager gm = RiverGameManager.Instance;
             if (gm == null) return bakedFloorY;
-            // Keep wading/splashing kids standing at shallow edge without submerging over chest height.
             float minWadingFloor = gm.currentWaterLevelY - 0.38f;
             return Mathf.Max(bakedFloorY, minWadingFloor);
         }
@@ -493,16 +569,38 @@ namespace KaliRiverSweeper.Core
                 ApplyBoneDelta(rightUpperLeg, CrouchUpperLegOffset, ref lastRightUpperLegRot, forceApply);
                 ApplyBoneDelta(leftLowerLeg, CrouchLowerLegOffset, ref lastLeftLowerLegRot, forceApply);
                 ApplyBoneDelta(rightLowerLeg, CrouchLowerLegOffset, ref lastRightLowerLegRot, forceApply);
+                ApplyBoneDelta(leftFoot, CrouchFootOffset, ref lastLeftFootRot, forceApply);
+                ApplyBoneDelta(rightFoot, CrouchFootOffset, ref lastRightFootRot, forceApply);
                 ApplyBoneDelta(spineBone, CrouchSpineOffset, ref lastSpineRot, forceApply);
                 ApplyBoneDelta(chestBone, CrouchChestOffset, ref lastChestRot, forceApply);
+
+                float scrub = Mathf.Sin((animTimer + phaseOffset) * 4.4f);
+                if (leftUpperArm != null) leftUpperArm.localRotation = LeftArmRestRot * Quaternion.Euler(0f, 0f, 38f + scrub * 8f);
+                if (rightUpperArm != null) rightUpperArm.localRotation = RightArmRestRot * Quaternion.Euler(0f, 0f, -38f + scrub * 8f);
+                if (leftLowerArm != null) leftLowerArm.localRotation = Quaternion.Euler(0f, 0f, 36f + scrub * 10f);
+                if (rightLowerArm != null) rightLowerArm.localRotation = Quaternion.Euler(0f, 0f, -36f + scrub * 10f);
                 hasAppliedBonePose = true;
+            }
+            else if (subBehavior == AmbientNpcSubBehavior.KidChaser)
+            {
+                float swing = Mathf.Sin((animTimer + phaseOffset) * 5.2f) * 26f;
+                if (leftUpperArm != null) leftUpperArm.localRotation = LeftArmRestRot * Quaternion.Euler(0f, 0f, swing);
+                if (rightUpperArm != null) rightUpperArm.localRotation = RightArmRestRot * Quaternion.Euler(0f, 0f, swing);
+                if (leftLowerArm != null) leftLowerArm.localRotation = Quaternion.Euler(0f, 0f, 34f);
+                if (rightLowerArm != null) rightLowerArm.localRotation = Quaternion.Euler(0f, 0f, -34f);
+            }
+            else if (subBehavior == AmbientNpcSubBehavior.ChatterBinCarrier)
+            {
+                if (leftUpperArm != null) leftUpperArm.localRotation = LeftArmRestRot * Quaternion.Euler(0f, 0f, 22f);
+                if (rightUpperArm != null) rightUpperArm.localRotation = RightArmRestRot * Quaternion.Euler(0f, 0f, -22f);
+                if (leftLowerArm != null) leftLowerArm.localRotation = Quaternion.Euler(0f, 0f, 54f);
+                if (rightLowerArm != null) rightLowerArm.localRotation = Quaternion.Euler(0f, 0f, -54f);
             }
         }
 
         private void ApplyBoneDelta(Transform bone, Quaternion localOffset, ref Quaternion lastWritten, bool forceApply)
         {
             if (bone == null) return;
-            // Only apply if Animator refreshed the bone since last write (prevents double-rotation when CullUpdateTransforms culls).
             if (!forceApply && hasAppliedBonePose && Mathf.Abs(Quaternion.Dot(bone.localRotation, lastWritten)) >= 0.9999f)
             {
                 return;

@@ -50,11 +50,11 @@ namespace KaliRiverSweeper.Editor
         private static readonly Color[] ClothingTints =
         {
             new Color(1.00f, 1.00f, 1.00f, 1f),
-            new Color(0.84f, 0.88f, 1.00f, 1f),
-            new Color(1.00f, 0.92f, 0.68f, 1f),
-            new Color(0.80f, 0.96f, 0.84f, 1f),
-            new Color(1.00f, 0.78f, 0.78f, 1f),
-            new Color(0.86f, 0.78f, 0.68f, 1f)
+            new Color(0.84f, 0.90f, 1.04f, 1f),
+            new Color(1.06f, 0.96f, 0.70f, 1f),
+            new Color(0.78f, 0.96f, 0.80f, 1f),
+            new Color(0.94f, 0.76f, 0.84f, 1f),
+            new Color(0.82f, 0.74f, 0.64f, 1f)
         };
 
         public static bool IsInBoatLane(Vector3 worldPos)
@@ -131,63 +131,83 @@ namespace KaliRiverSweeper.Editor
                         bool seated = (i == 0);
                         subBehavior = seated ? AmbientNpcSubBehavior.SeatedFisher : AmbientNpcSubBehavior.StandingFisher;
 
-                        // Local +X on jetty extends toward the river; +Z sits clear of moored boat (-Z side).
+                        // Local +X on jetty extends toward the river; +Z sits clear of center ladder (-0.45..+0.45) and moored boat (-Z).
                         Vector3 localOffset = seated
-                            ? new Vector3(2.35f, 0f, 0.22f)
-                            : new Vector3(0.95f - (i - 1) * 0.75f, 0f, -0.32f);
+                            ? new Vector3(2.22f, 0f, 0.62f)
+                            : new Vector3(0.70f - (i - 1) * 0.65f, 0f, -0.52f);
                         pos = jetty.pos + jRot * localOffset;
                         pos.y = 1.46f;
 
                         Vector3 riverDir = jRot * Vector3.right;
-                        yawDeg = Mathf.Atan2(riverDir.x, riverDir.z) * Mathf.Rad2Deg + (seated ? 0f : (jitterA - 0.5f) * 20f);
+                        float baseRiverYaw = Mathf.Atan2(riverDir.x, riverDir.z) * Mathf.Rad2Deg;
+                        yawDeg = baseRiverYaw + (seated ? 14f : -42f + (jitterA - 0.5f) * 10f);
                     }
                     else if (role == AmbientNpcRole.Fisher)
                     {
-                        pos = ComputeBankOrShorelinePoint(spec.x, spec.y, i, targetCount, spec.radius, 0f, -11.0f);
+                        pos = ComputeBankOrShorelinePoint(spec.x, spec.y, i, targetCount, spec.radius, 0f, -11.2f);
                         pos.y = 1.38f;
                         yawDeg = ComputeRiverFacingYawZ(new Vector2(pos.x, pos.z));
                         subBehavior = AmbientNpcSubBehavior.StandingFisher;
                     }
                     else if (role == AmbientNpcRole.Kids && hasJetty)
                     {
-                        onJetty = true;
                         Quaternion jRot = Quaternion.Euler(0f, jetty.yawDeg, 0f);
                         bool isJumper = (i == 0);
-                        subBehavior = isJumper ? AmbientNpcSubBehavior.KidJettyJumper : AmbientNpcSubBehavior.KidWader;
-
-                        Vector3 localOffset = isJumper
-                            ? new Vector3(2.35f, 0f, -0.18f)
-                            : new Vector3(1.05f, 0f, 0.34f);
-                        pos = jetty.pos + jRot * localOffset;
-                        pos.y = 1.46f;
-
-                        Vector3 riverDir = jRot * Vector3.right;
-                        yawDeg = Mathf.Atan2(riverDir.x, riverDir.z) * Mathf.Rad2Deg;
-
                         if (isJumper)
                         {
-                            // Keep jumper Edit Mode preview grounded cleanly on jetty tip.
+                            onJetty = true;
+                            subBehavior = AmbientNpcSubBehavior.KidJettyJumper;
+                            pos = jetty.pos + jRot * new Vector3(0.75f, 0f, -0.55f);
+                            pos.y = 1.46f;
+
+                            Vector3 riverDir = jRot * Vector3.right;
+                            yawDeg = Mathf.Atan2(riverDir.x, riverDir.z) * Mathf.Rad2Deg - 32f;
+
+                            // Keep jumper Edit Mode preview grounded cleanly on jetty edge; jump riverward+sideways into shallow edge clear of boat lane.
                             phase = 0.0f;
-                            Vector3 jumpLocal = new Vector3(2.75f, 0f, 1.05f);
-                            jumpTarget = jetty.pos + jRot * jumpLocal;
-                            jumpTarget.y = -0.22f;
+                            jumpTarget = ClampOutsideBoatLane(jetty.pos + jRot * new Vector3(1.65f, 0f, -1.75f));
+                            jumpTarget.y = -0.35f;
+                        }
+                        else
+                        {
+                            onJetty = false;
+                            subBehavior = AmbientNpcSubBehavior.KidWader;
+                            float sideMapY = spec.y + 18f + (i - 1) * 9f;
+                            pos = ComputeShorelineSpreadPoint(spec.x, sideMapY, 0, 1, 0f, shallowMapOffset: 2.2f, 0.5f);
+                            pos.y = -0.28f;
+                            Vector2 toJetty = new Vector2(jetty.pos.x - pos.x, jetty.pos.z - pos.z);
+                            yawDeg = toJetty.sqrMagnitude > 0.001f
+                                ? Mathf.Atan2(toJetty.x, toJetty.y) * Mathf.Rad2Deg
+                                : ComputeRiverFacingYawZ(new Vector2(pos.x, pos.z));
                         }
                     }
                     else if (role == AmbientNpcRole.Kids)
                     {
-                        pos = ComputeShorelineSpreadPoint(spec.x, spec.y, i, targetCount, spec.radius, shallowMapOffset: 1.4f, jitterA);
-                        pos.y = -0.18f;
-                        Vector2 pXZ = new Vector2(pos.x, pos.z);
-                        yawDeg = ComputeRiverFacingYawZ(pXZ) + (jitterB - 0.5f) * 65f;
-                        subBehavior = (i % 2 == 1) ? AmbientNpcSubBehavior.KidChaser : AmbientNpcSubBehavior.KidWader;
-                        chaseAxis = ComputeShorelineTangent(pos.z);
-                        chaseRad = Mathf.Clamp(spec.radius * 0.55f, 0.45f, 0.85f);
+                        bool isChaser = (i >= 1 && targetCount >= 2);
+                        if (isChaser)
+                        {
+                            pos = ComputeShorelineSpreadPoint(spec.x, spec.y, 1, 3, spec.radius, shallowMapOffset: 2.5f, 0.5f);
+                            pos.y = -0.31f;
+                            subBehavior = AmbientNpcSubBehavior.KidChaser;
+                            chaseAxis = ComputeShorelineTangent(pos.z);
+                            chaseRad = Mathf.Clamp(spec.radius * 0.72f, 0.65f, 0.90f);
+                            phase = (i == 1) ? 0.0f : 0.75f;
+                            yawDeg = Mathf.Atan2(chaseAxis.x, chaseAxis.z) * Mathf.Rad2Deg;
+                        }
+                        else
+                        {
+                            pos = ComputeShorelineSpreadPoint(spec.x, spec.y, i, targetCount, spec.radius, shallowMapOffset: 2.4f, jitterA);
+                            pos.y = -0.30f;
+                            Vector2 pXZ = new Vector2(pos.x, pos.z);
+                            yawDeg = ComputeRiverFacingYawZ(pXZ) + (jitterB - 0.5f) * 55f;
+                            subBehavior = AmbientNpcSubBehavior.KidWader;
+                        }
                     }
                     else if (role == AmbientNpcRole.Washer)
                     {
-                        pos = ComputeShorelineSpreadPoint(spec.x, spec.y, i, targetCount, spec.radius, shallowMapOffset: -3.2f, jitterA);
-                        pos.y = 0.36f;
-                        yawDeg = ComputeRiverFacingYawZ(new Vector2(pos.x, pos.z)) + (jitterB - 0.5f) * 16f;
+                        pos = ComputeShorelineSpreadPoint(spec.x, spec.y, i, targetCount, spec.radius, shallowMapOffset: -1.2f, jitterA);
+                        pos.y = 0.15f;
+                        yawDeg = ComputeRiverFacingYawZ(new Vector2(pos.x, pos.z)) + (jitterB - 0.5f) * 14f;
                         subBehavior = AmbientNpcSubBehavior.CrouchedWasher;
                         hasLaundryProp = (i == 0);
                     }
@@ -216,6 +236,18 @@ namespace KaliRiverSweeper.Editor
                         (!onJetty && IsInBoatLane(pos)))
                     {
                         continue;
+                    }
+
+                    if (subBehavior == AmbientNpcSubBehavior.KidChaser)
+                    {
+                        Vector3 pPlus = pos + chaseAxis * chaseRad;
+                        Vector3 pMinus = pos - chaseAxis * chaseRad;
+                        if (IsInBoatLane(pPlus) || IsInBoatLane(pMinus) ||
+                            !IsClearOfAvoidZones(new Vector2(pPlus.x, pPlus.z), avoidZones, 1.5f) ||
+                            !IsClearOfAvoidZones(new Vector2(pMinus.x, pMinus.z), avoidZones, 1.5f))
+                        {
+                            chaseRad = 0.45f;
+                        }
                     }
 
                     result.Add(new ExpandedNpc
@@ -262,6 +294,8 @@ namespace KaliRiverSweeper.Editor
             Material rodBobberMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.86f, 0.24f, 0.18f));
             Material standInMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.75f, 0.42f, 0.34f));
 
+            float initialWaterY = RiverGameManager.BaseWaterLevelY + 4 * RiverGameManager.WaterRisePerTrashUnit;
+
             int spawned = 0;
             for (int i = 0; i < npcs.Count; i++)
             {
@@ -289,13 +323,6 @@ namespace KaliRiverSweeper.Editor
                     anim.applyRootMotion = false;
                 }
 
-                Transform rodPivot = null;
-                if (spec.role == AmbientNpcRole.Fisher)
-                {
-                    Transform socket = npcGo.transform.Find("VillagerRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/Socket_RightHand");
-                    rodPivot = AttachFishingRod(socket != null ? socket : npcGo.transform, npcGo.transform, socket != null, rodBambooMat, rodLineMat, rodBobberMat);
-                }
-
                 Transform propRoot = null;
                 if (spec.subBehavior == AmbientNpcSubBehavior.ChatterBinCarrier && binPrefab != null)
                 {
@@ -312,16 +339,16 @@ namespace KaliRiverSweeper.Editor
                 }
                 else if (spec.role == AmbientNpcRole.Washer && spec.hasLaundryProp && binPrefab != null)
                 {
-                    Vector3 sideOffset = baseRot * new Vector3(0.55f, 0f, -0.08f);
+                    Vector3 sideOffset = baseRot * new Vector3(0.42f, 0f, 0.14f);
                     Vector3 binPos = groundedPos + sideOffset;
                     if (TryRaycastSolidGround(binPos, out float binGroundY, out string _))
                     {
-                        binPos.y = Mathf.Max(0.05f, binGroundY);
+                        binPos.y = Mathf.Max(-0.10f, binGroundY - 0.045f);
                     }
                     GameObject tub = (GameObject)PrefabUtility.InstantiatePrefab(binPrefab, parent);
                     tub.name = $"NPC_WashTub_{i + 1:00}";
                     tub.transform.SetPositionAndRotation(binPos, baseRot * Quaternion.Euler(0f, 22f, 0f));
-                    tub.transform.localScale = new Vector3(0.82f, 0.65f, 0.82f);
+                    tub.transform.localScale = new Vector3(1.05f, 0.82f, 1.05f);
                     StripAllColliders(tub);
                     propRoot = tub.transform;
                 }
@@ -331,7 +358,7 @@ namespace KaliRiverSweeper.Editor
                 {
                     if (TryRaycastSolidGround(resolvedJumpWater, out float waterBedY, out string _))
                     {
-                        resolvedJumpWater.y = Mathf.Clamp(waterBedY, -0.40f, 0.15f);
+                        resolvedJumpWater.y = Mathf.Clamp(waterBedY, -0.45f, 0.05f);
                     }
                 }
 
@@ -347,12 +374,35 @@ namespace KaliRiverSweeper.Editor
                 npc.idleClip = idleClip;
                 npc.carryBinClip = carryBinClip;
                 npc.throwTrashClip = throwTrashClip;
-                npc.rodPivot = rodPivot;
                 npc.propRoot = propRoot;
                 npc.chaseAxisWorld = spec.chaseAxisWorld;
                 npc.chaseRadius = spec.chaseRadius;
                 npc.jumpWaterPos = resolvedJumpWater;
                 npc.ApplyEditorPreviewPose();
+
+                if (spec.role == AmbientNpcRole.Fisher)
+                {
+                    Transform socket = npcGo.transform.Find("VillagerRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/Socket_RightHand");
+                    float rodLen = spec.onJetty ? 2.25f : 2.75f;
+                    AttachFishingRod(
+                        socket != null ? socket : npcGo.transform,
+                        npcGo.transform,
+                        socket != null,
+                        rodLen,
+                        initialWaterY,
+                        rodBambooMat,
+                        rodLineMat,
+                        rodBobberMat,
+                        out Transform rodPivot,
+                        out Transform rodTip,
+                        out Transform rodLine,
+                        out Transform rodBobber);
+                    npc.rodPivot = rodPivot;
+                    npc.rodTip = rodTip;
+                    npc.rodLine = rodLine;
+                    npc.rodBobber = rodBobber;
+                    npc.ApplyEditorPreviewPose();
+                }
 
                 spawned++;
             }
@@ -393,23 +443,27 @@ namespace KaliRiverSweeper.Editor
             return false;
         }
 
-        private static Transform AttachFishingRod(
+        private static void AttachFishingRod(
             Transform parent,
             Transform npcRoot,
             bool useSocketTransform,
+            float rodLen,
+            float waterTargetY,
             Material bambooMat,
             Material lineMat,
-            Material bobberMat)
+            Material bobberMat,
+            out Transform rodPivot,
+            out Transform rodTip,
+            out Transform rodLine,
+            out Transform rodBobber)
         {
             GameObject pivot = new GameObject("NPC_FishingRod");
             pivot.transform.SetParent(parent, worldPositionStays: false);
             pivot.transform.localPosition = useSocketTransform ? Vector3.zero : new Vector3(0.22f, 0.85f, 0.15f);
-            // Align pivot upright with NPC forward (+Z) so local -Y hangs straight down in world space
-            // (Socket_RightHand's own rest frame is rolled 90 deg sideways).
-            pivot.transform.rotation = npcRoot.rotation * Quaternion.Euler(-16f, 0f, 0f);
+            // Align pivot gently angled forward over water with NPC forward (+Z).
+            pivot.transform.rotation = npcRoot.rotation * Quaternion.Euler(-8f, 0f, 0f);
 
             // Bamboo pole pointing forward (+Z) from hand
-            const float rodLen = 2.15f;
             GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pole.name = "Rod_Bamboo";
             pole.transform.SetParent(pivot.transform, worldPositionStays: false);
@@ -419,28 +473,51 @@ namespace KaliRiverSweeper.Editor
             pole.GetComponent<Renderer>().sharedMaterial = bambooMat;
             StripAllColliders(pole);
 
+            GameObject tipGo = new GameObject("Rod_Tip");
+            tipGo.transform.SetParent(pivot.transform, worldPositionStays: false);
+            tipGo.transform.localPosition = new Vector3(0f, 0f, rodLen * 0.94f);
+
+            Vector3 tipWorld = tipGo.transform.position;
+            float clampedBobberY = Mathf.Min(waterTargetY, tipWorld.y - 0.35f);
+            Vector3 bobberWorld = new Vector3(tipWorld.x, clampedBobberY, tipWorld.z);
+            float lineLen = Mathf.Max(0.25f, tipWorld.y - bobberWorld.y);
+            float npcScale = Mathf.Max(0.25f, npcRoot.localScale.y);
+
             // Vertical line hanging straight down toward the water from rod tip
-            const float lineLen = 1.65f;
             GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             line.name = "Rod_Line";
             line.transform.SetParent(pivot.transform, worldPositionStays: false);
-            line.transform.localRotation = Quaternion.Euler(16f, 0f, 0f);
-            Vector3 tipLocal = new Vector3(0f, 0f, rodLen * 0.94f);
-            Vector3 worldDownInPivot = line.transform.localRotation * Vector3.down;
-            line.transform.localPosition = tipLocal + worldDownInPivot * (lineLen * 0.5f);
-            line.transform.localScale = new Vector3(0.008f, lineLen * 0.5f, 0.008f);
+            line.transform.position = (tipWorld + bobberWorld) * 0.5f;
+            line.transform.rotation = Quaternion.identity;
+            line.transform.localScale = new Vector3(0.008f, (lineLen / npcScale) * 0.5f, 0.008f);
             line.GetComponent<Renderer>().sharedMaterial = lineMat;
             StripAllColliders(line);
 
             GameObject bobber = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             bobber.name = "Rod_Bobber";
             bobber.transform.SetParent(pivot.transform, worldPositionStays: false);
-            bobber.transform.localPosition = tipLocal + worldDownInPivot * lineLen;
+            bobber.transform.position = bobberWorld;
+            bobber.transform.rotation = Quaternion.identity;
             bobber.transform.localScale = new Vector3(0.055f, 0.075f, 0.055f);
             bobber.GetComponent<Renderer>().sharedMaterial = bobberMat;
             StripAllColliders(bobber);
 
-            return pivot.transform;
+            rodPivot = pivot.transform;
+            rodTip = tipGo.transform;
+            rodLine = line.transform;
+            rodBobber = bobber.transform;
+        }
+
+        private static Vector3 ClampOutsideBoatLane(Vector3 worldPos)
+        {
+            if (!IsInBoatLane(worldPos)) return worldPos;
+            float mapX = worldPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+            float mapY = worldPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+            float cx = RiverMath.RiverCenterMapX(mapY);
+            float hw = RiverMath.RiverHalfWidthMap(mapY);
+            float safeOffset = Mathf.Max(2f, hw - ShallowEdgeMarginMapUnits + 2.5f);
+            float clampedMapX = mapX >= cx ? (cx + safeOffset) : (cx - safeOffset);
+            return RiverMath.ToWorld3D(clampedMapX, mapY, worldPos.y);
         }
 
         private static GameObject CreateStandInVillager(Transform parent, Material mat)

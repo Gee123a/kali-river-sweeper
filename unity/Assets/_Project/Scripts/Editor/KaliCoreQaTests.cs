@@ -1140,6 +1140,21 @@ namespace KaliRiverSweeper.Editor
                     case AmbientNpcRole.Kids:
                         kidsCount++;
                         Assert(a.uniformScale >= 0.58f && a.uniformScale <= 0.72f, $"Kid uniform scale in ~0.6-0.7 range (got {a.uniformScale:F2})");
+                        if (a.subBehavior == AmbientNpcSubBehavior.KidWader)
+                        {
+                            Assert(!a.onJetty, $"KidWader {a.groupId} must be in shallow water, not on dry jetty deck");
+                        }
+                        if (a.subBehavior == AmbientNpcSubBehavior.KidJettyJumper)
+                        {
+                            Assert(!KaliNpcBuilder.IsInBoatLane(a.jumpWaterPos), $"KidJettyJumper {a.groupId} jumpWaterPos must stay clear of boat lane");
+                        }
+                        if (a.subBehavior == AmbientNpcSubBehavior.KidChaser)
+                        {
+                            Vector3 pPlus = a.worldPos + a.chaseAxisWorld * a.chaseRadius;
+                            Vector3 pMinus = a.worldPos - a.chaseAxisWorld * a.chaseRadius;
+                            Assert(!KaliNpcBuilder.IsInBoatLane(pPlus) && !KaliNpcBuilder.IsInBoatLane(pMinus),
+                                $"KidChaser {a.groupId} run track must stay out of boat lane");
+                        }
                         if (!a.onJetty)
                         {
                             float mapX = a.worldPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
@@ -1196,6 +1211,14 @@ namespace KaliRiverSweeper.Editor
                     {
                         Assert(anim.cullingMode == AnimatorCullingMode.CullUpdateTransforms, $"NPC {sceneNpcs[i].name} must use CullUpdateTransforms");
                     }
+                    if (sceneNpcs[i].role == AmbientNpcRole.Fisher && sceneNpcs[i].rodBobber != null)
+                    {
+                        Vector3 bobPos = sceneNpcs[i].rodBobber.position;
+                        Assert(bobPos.y >= -0.35f && bobPos.y <= 0.05f,
+                            $"Fisher {sceneNpcs[i].name} bobber must rest on water surface (got y={bobPos.y:F2})");
+                        Assert(RiverMath.IsInRiver(bobPos),
+                            $"Fisher {sceneNpcs[i].name} bobber must hang over river water (got {bobPos:F2})");
+                    }
                 }
             }
 
@@ -1215,32 +1238,63 @@ namespace KaliRiverSweeper.Editor
                     KaliDayNightCycle cycle = rig.AddComponent<KaliDayNightCycle>();
                     InvokeNonPublic(cycle, "Awake");
 
-                    GameObject npcGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
-                    UnityEngine.Object.DestroyImmediate(npcGo.GetComponent<Collider>());
-                    Renderer r = npcGo.GetComponent<Renderer>();
-                    KaliAmbientNpc npc = npcGo.AddComponent<KaliAmbientNpc>();
-                    npc.role = AmbientNpcRole.Kids;
-                    npc.subBehavior = AmbientNpcSubBehavior.KidWader;
-                    npc.anchorWorldPos = Vector3.zero;
-                    npc.anchorWorldRot = Quaternion.identity;
-                    npc.baseUniformScale = 0.65f;
-                    InvokeNonPublic(npc, "Awake");
+                    GameObject kidGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
+                    UnityEngine.Object.DestroyImmediate(kidGo.GetComponent<Collider>());
+                    Renderer kidR = kidGo.GetComponent<Renderer>();
+                    KaliAmbientNpc kidNpc = kidGo.AddComponent<KaliAmbientNpc>();
+                    kidNpc.role = AmbientNpcRole.Kids;
+                    kidNpc.subBehavior = AmbientNpcSubBehavior.KidWader;
+                    kidNpc.anchorWorldPos = Vector3.zero;
+                    kidNpc.anchorWorldRot = Quaternion.identity;
+                    kidNpc.baseUniformScale = 0.65f;
+                    InvokeNonPublic(kidNpc, "Awake");
+
+                    GameObject washerGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
+                    UnityEngine.Object.DestroyImmediate(washerGo.GetComponent<Collider>());
+                    Renderer washerR = washerGo.GetComponent<Renderer>();
+                    KaliAmbientNpc washerNpc = washerGo.AddComponent<KaliAmbientNpc>();
+                    washerNpc.role = AmbientNpcRole.Washer;
+                    washerNpc.subBehavior = AmbientNpcSubBehavior.CrouchedWasher;
+                    washerNpc.anchorWorldPos = Vector3.zero;
+                    washerNpc.anchorWorldRot = Quaternion.identity;
+                    washerNpc.baseUniformScale = 1f;
+                    InvokeNonPublic(washerNpc, "Awake");
+
+                    GameObject fisherGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
+                    UnityEngine.Object.DestroyImmediate(fisherGo.GetComponent<Collider>());
+                    Renderer fisherR = fisherGo.GetComponent<Renderer>();
+                    KaliAmbientNpc fisherNpc = fisherGo.AddComponent<KaliAmbientNpc>();
+                    fisherNpc.role = AmbientNpcRole.Fisher;
+                    fisherNpc.subBehavior = AmbientNpcSubBehavior.StandingFisher;
+                    fisherNpc.anchorWorldPos = Vector3.zero;
+                    fisherNpc.anchorWorldRot = Quaternion.identity;
+                    fisherNpc.baseUniformScale = 1f;
+                    InvokeNonPublic(fisherNpc, "Awake");
 
                     cycle.SetHour(12f);
-                    npc.StepSimulation(2f);
-                    Assert(r.enabled, "Ambient NPC stays visible at noon");
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(kidR.enabled && washerR.enabled && fisherR.enabled, "Ambient NPCs stay visible at noon");
 
                     cycle.SetHour(22.5f);
-                    npc.StepSimulation(2f);
-                    Assert(!r.enabled, "Ambient NPC hides/fades out at night (22:30)");
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(!kidR.enabled && !washerR.enabled && !fisherR.enabled, "Ambient NPCs hide/fade out at night (22:30)");
 
                     cycle.SetHour(12f);
-                    npc.StepSimulation(2f);
-                    Assert(r.enabled, "Ambient NPC returns in daytime");
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(kidR.enabled && washerR.enabled && fisherR.enabled, "Ambient NPCs return in daytime");
 
                     gm.isMonsoonStorm = true;
-                    npc.StepSimulation(2f);
-                    Assert(!r.enabled, "Kids leave water during monsoon storm");
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(!kidR.enabled && !washerR.enabled, "Kids and washers leave water during monsoon storm");
+                    Assert(fisherR.enabled, "Bank/jetty fisher stays outside monsoon water evacuation rule");
                 }
             }
             finally

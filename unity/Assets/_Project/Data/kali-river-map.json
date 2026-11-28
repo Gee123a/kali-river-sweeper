@@ -726,7 +726,7 @@
       "type": "npc_group",
       "role": "washer",
       "x": 571,
-      "y": 1205,
+      "y": 1258,
       "count": 2,
       "radius": 1.0,
       "seed": 522
@@ -755,10 +755,10 @@
       "id": "npc_chatter_east_warung",
       "type": "npc_group",
       "role": "chatter",
-      "x": 599,
-      "y": 1074,
+      "x": 598,
+      "y": 1058,
       "count": 2,
-      "radius": 0.48,
+      "radius": 0.55,
       "seed": 532
     }
   ],
