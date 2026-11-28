@@ -47,14 +47,17 @@ def ladder(role): return sorted((t for t in TOOLS if t[7] == role), key=lambda t
 UPG = {"sampan": 40000, "boom": 75000, "bins": 30000, "excavator": 120000}
 # station z (m) and lateral walk (m) from the river bank; from kali-river-map.json (z = (y-720)*0.125)
 ST = {"bank": (58, 30), "kopdes": (46, 30), "pengepul": (70, 22), "medis": (0, 37), "karantina": (-31, 30)}
-BRIDGE_Z, GUNUNG_Z = 2.5, -71.0
-WALK, BOAT = 7.5, 10.0   # avg of walk 6.5 / sprint 10.5 on land; boatSpeed 10
+BRIDGE_Z = 2.5
+# Gunung Sampah nearest collider face on the river (+Z) side, measured in the open scene (Unity bounds of the 3 nodes:
+# z -58.0 / -56.2 / -55.5). Dredge stand point = face + tool reach (+3.5 in a boat with excavator) + 0.5 (GM aim test).
+GUNUNG_FACE_Z = -55.5
+WALK, BOAT = 8.5, 10.0   # 50/50 walk 6.5 / sprint 10.5 on land (KaliPlayerController); boatSpeed 10
 
 
 class Run:
     def __init__(s, arch, seed):
         s.r = random.Random(seed); s.a = arch
-        s.t = 0.0; s.rp = 0; s.cum = 0; s.hp = 100.0; s.trust = 40
+        s.t = 0.0; s.rp = 0; s.cum = 0; s.hp = 100.0; s.trust = 40; s.audit = False; s.debt = 0
         s.slot = [1, 0, 0, 0]; s.eq = 1; s.unl = 1; s.upg = set(); s.cap = 8
         s.cargo = {"N": 0, "M": 0, "B": 0}; s.bio_t = 0.0
         s.gunung = [1.0, 1.0, 1.0]
@@ -169,25 +172,35 @@ class Run:
         for _ in range(units if c == "M" else 0):
             if s.r.random() < prick: s.hp -= PRICK_DMG; s.pricks += 1
 
+    def trust_add(s, n):
+        s.trust = min(100, s.trust + n) if n > 0 else max(0, s.trust + n)
+        if s.trust < 25: s.audit = True            # UpdateTrustAuditState: on below 25, off at 30+
+        elif s.trust >= 30: s.audit = False
+    def trust_mult(s): return 1.15 if s.trust >= 70 else (.75 if s.audit else 1.0)
+
     def sell(s, where):
-        if s.water >= SELL_LOCK and where != "pengepul":
-            return
+        if s.water >= SELL_LOCK: return           # SELL-LOCK refuses every station AND the pengepul (only Q dump works)
         if where == "pengepul":
             for c, q in s.cargo.items():
-                if q: s.earn(q * PENGEPUL[c]); s.trust = max(0, s.trust - (8 if c == "M" else 12 if c == "B" else 0) * q)
+                if q: s.earn(q * PENGEPUL[c]); s.trust_add(-{"N": 0, "M": 8, "B": 12}[c] * q)
             s.cargo = {k: 0 for k in s.cargo}; return
         want = {"bank": "N", "medis": "M", "karantina": "B"}[where]
         for c, q in list(s.cargo.items()):
             if not q: continue
             if c == want or s.a.dump_all_at_bank:
                 if c == want:
-                    mult = 1.15 if s.trust >= 70 else (.75 if s.trust < 25 else 1)
-                    s.earn(int(q * PAY[c] * mult))
+                    gross = int(q * PAY[c] * s.trust_mult())
+                    paid_debt = min(s.debt, gross); s.debt -= paid_debt
+                    s.earn(gross - paid_debt)     # GM: netPayout = gross - debtPaid; cumulative counts net
+                    s.trust_add(4 * q)            # GM: trustGain = qty * 4 at a correct station
                     if c == "M": s.hp = min(100, s.hp + 10)
                     if c == "B": s.bio_t = 0
                 else:
-                    s.rp -= FINE[c] * q; s.fines += FINE[c] * q
-                    s.trust = max(0, s.trust - (8 if c == "M" else 12) * q)
+                    fine = q * FINE[c]
+                    paid = min(max(s.rp, 0), fine); short = fine - paid
+                    s.rp -= paid; s.fines += fine; s.debt += short
+                    extra = max(2, (short // 5000) * 2) if short > 0 else 0   # GM extraDebtTrustLoss
+                    s.trust_add(-({"N": 4, "M": 8, "B": 12}[c] * q + extra))
                 s.cargo[c] = 0
 
     def can_afford_any(s):
@@ -206,7 +219,7 @@ class Run:
                     s.rp -= UPG[want]; s.upg.add(want); s.buy_t[want] = s.t; bought = True
                     if want == "sampan": s.cap = max(s.cap, 22)
                     if want == "excavator": s.cap = 60
-                    if want == "bins": s.trust = min(100, s.trust + 25)
+                    if want == "bins": s.trust_add(25)
                 elif isinstance(want, int) and want not in s.owned and s.unlocked(want):
                     price = s.price(want)
                     if s.rp >= price:
@@ -220,15 +233,17 @@ class Run:
         ganco = s.tool(s.slot[2]) if s.slot[2] else None
         can_dredge = "excavator" in s.upg or (ganco is not None and ganco[6] > 0)
         if can_dredge and a.dredges and s.gh > .01 and s.cargo["B"] == 0 and not full:
-            t = s.travel(GUNUNG_Z, 0, boat)
+            tl = ganco or s.tool()
+            reach = tl[2] + (3.5 if "excavator" in s.upg and boat else 0)
+            t = s.travel(GUNUNG_FACE_Z + reach + .5, 0, boat)     # stand where the aim test (dist <= reach + 0.5) passes
             g = ganco[6] if ganco else 0
             dmg = max(.20, g) if "excavator" in s.upg else g
-            for i in range(3):
-                if s.gunung[i] > 0:
-                    swings = 3  # one burst per decision
-                    s.gunung[i] = max(0, s.gunung[i] - dmg * 1.5 * swings)
-                    t += swings * (ganco or s.tool())[4] + 1.0
-                    break
+            swings = 3  # one burst per decision
+            for _ in range(swings):                              # each swing: node takes dmg*1.5 (GunungNodeController), overflow lost
+                for i in range(3):
+                    if s.gunung[i] > 0:
+                        s.gunung[i] = max(0, s.gunung[i] - dmg * 1.5); break
+            t += swings * tl[4] + a.aim_time
             return t
         # deliver
         need_bio = s.cargo["B"] > 0 and s.bio_t > a.bio_patience
@@ -252,7 +267,7 @@ class Run:
         if garuk and s.piled and (not pool or s.water > .8 or s.piled >= a.pile_at or (s.storm and s.piled >= a.storm_pile_at)):
             t = s.travel(BARRIER_Z - 2, 0, boat)
             take = min(garuk[3], s.piled, s.cap - s.cargo_n())
-            for _ in range(take): s.piled -= 1; s.pickup(s.cls(True), via=garuk[0])
+            for _ in range(take): s.piled -= 1; s.pickup("N", via=garuk[0])
             return t + garuk[4] + .6
         if not pool:
             return 1.0
@@ -332,7 +347,7 @@ class Defender(Sorter):
     """Sorter who buys the Sampan first (cargo 22) and then defends Pintu Air in the storm."""
     name = "Defender (Sorter + Sampan)"
     def shopping(s, r):
-        starters = [i for i in (11, 3, 8) if i not in r.owned]
+        starters = [i for i in (11, 3, 8) if r.slot[TOOLS[i - 1][7]] == 0]
         if starters: return starters[:1]
         if "sampan" not in r.upg: return ["sampan"]
         return (["bins"] if "bins" not in r.upg else []) + cheapest_next(r)[:1]
@@ -343,8 +358,8 @@ class Optimizer(Arch):
     name = "Optimizer (save for #13, rush Gunung)"; aim_time = .8; dredges = True; pile_at = 12; storm_pile_at = 6; bio_patience = 25
     route = Sorter.route
     def shopping(s, r):
-        for t in (11, 8, 3):   # ToolCatalog tier-0 role starters
-            if t not in r.owned: return [t]
+        for t in (11, 8, 3):   # ToolCatalog tier-0 role starters: empty role slot
+            if r.slot[TOOLS[t - 1][7]] == 0: return [t]
         if 13 not in r.owned: return [13]   # Ganco ladder #8 -> #13 unlocks Gunung dredge
         return [u for u in ("sampan", "excavator", "boom") if u not in r.upg] + cheapest_next(r)[:1]
 
