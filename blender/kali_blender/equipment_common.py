@@ -44,6 +44,15 @@ EQUIPMENT_MODULES = [
     "equip_05_rakit_gabus",
     "equip_06_perahu_sampan",
     "equip_07_tong_sampah_kampung",
+    "equip_08_bola_plastik",
+    "equip_09_kail_kusut",
+    "equip_10_kotak_jarum",
+    "equip_11_gelas_es_teh",
+    "equip_12_quest_marker",
+    "equip_13_fishing_rod",
+    "equip_14_laundry_basket",
+    "equip_15_water_bucket",
+    "equip_16_solar_interceptor",
 ]
 
 
@@ -69,6 +78,11 @@ def validate_equipment(obj, spec):
     issues = trc.validate_trash(obj, spec, material=MATERIAL_NAME, prefab_prefix="PF_", pivot=pivot,
                                 tris_range=spec.get("tris", (trc.TRI_MIN, trc.TRI_MAX)),
                                 max_size=spec.get("max_size", 1.5))
+    if pivot == "grip":                     # hand socket: origin inside the mesh at the grip, like the tools
+        near = min((v.co.length for v in obj.data.vertices), default=None)
+        if near is None or near > 0.05:
+            issues.append(f"grip: nearest vertex {near} m from the origin (> 0.05)")
+        return issues
     if pivot != "floor":
         return issues
     floor = [v.co for v in obj.data.vertices if abs(v.co.z) < 1e-4]

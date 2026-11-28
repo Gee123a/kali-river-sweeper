@@ -807,6 +807,39 @@ def _sampan_planks(c):
     c.paint(c.text("REZEKI", 185, 52.5, 6.0, "impact.ttf", max_w=60), "#f1f1ea")
 
 
+def _anyaman(c):
+    """Woven bamboo (anyaman) basket wall: over-under strips in two straw tones with dark gaps."""
+    c.panel("front", (80.0, 25.0))
+    c.paint(c.full(), "#3d2b17")
+    sw, sh = 4.0, 2.5
+    for i in range(int(80 / sw)):
+        for j in range(int(25 / sh)):
+            x, y = i * sw, j * sh
+            col = "#d9b66e" if (i + j) % 2 else "#b88b45"
+            if (i + j) % 2:
+                c.paint(c.rect(x + 0.2, y + 0.35, x + sw - 0.2, y + sh - 0.35), col)
+            else:
+                c.paint(c.rect(x + 0.6, y + 0.1, x + sw - 0.6, y + sh - 0.1), col)
+    c.paint(c.rect(0, 0, 80, 1.0) | c.rect(0, 24.0, 80, 25), "#8a5f2a")
+
+
+def _solar_interceptor(c):
+    """Front panel: monocrystalline solar cells; back panel: hull sign PENCEGAT SAMPAH with hazard stripes."""
+    c.panel("front", (10.0, 10.0))
+    c.paint(c.full(), "#0f1f3d")
+    for i in range(6):
+        for j in range(6):
+            x, y = 0.2 + i * 1.6, 0.2 + j * 1.6
+            c.paint(c.rect(x, y, x + 1.5, y + 1.5), "#1d3a6e")
+            c.paint(c.rect(x + 0.05, y + 0.72, x + 1.45, y + 0.78), "#8fa3c4", 0.6)
+    c.paint(c.poly([(0, 7), (3, 10), (4, 10), (0, 6)]), "#ffffff", 0.18)
+    c.panel("back", (40.0, 10.0))
+    c.paint(c.full(), "#f5c518")
+    for k in range(10):
+        c.paint(c.poly([(k * 4.0, 0), (k * 4.0 + 2, 0), (k * 4.0 + 4, 2.2), (k * 4.0 + 2, 2.2)]), "#1a1a1a")
+    c.paint(c.text("PENCEGAT SAMPAH", 20, 6.2, 3.2, "impact.ttf", max_w=36, spacing=1.1), "#1a1a1a")
+
+
 ARTS = {
     "indomy": (_indomy, "pack", "film"),
     "bingo": (_bingo, "pack", "film"),
@@ -820,6 +853,8 @@ ARTS = {
     "aquo": (lambda c: _aquo(c, (10.0, 5.0)), "wrap", "bottle"),             # 600 ml bottle band (parody brand)
     "aquo_galon": (lambda c: _aquo(c, (42.0, 10.0)), "wrap", "bottle"),      # 19 L jug sticker band
     "biohazard_drum": (_biohazard_drum, "wrap", "steel"),
+    "anyaman": (_anyaman, "pack", "paint"),
+    "solar_interceptor": (_solar_interceptor, "pair", "paint"),
     "tong_anorganik": (_tong_anorganik, "wrap", "paint"),
     "sampan_planks": (_sampan_planks, "pack", "paint"),
     # clean product variants (render with dirty=False): bread in the window, unused foam
