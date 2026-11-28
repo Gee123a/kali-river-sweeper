@@ -22,6 +22,9 @@ namespace KaliRiverSweeper.Player
         public float swimClimbVerticalSpeed = 6.5f;
         public float boatSpeed = 10.0f;
         public float boatRideHeight = 0.80f;
+        public GameObject boatVisualPrefab;
+        public Vector3 boatVisualEuler;
+        public float boatVisualYOffset;
         public float freeCamSpeed = 18f;
         public float mouseSensitivity = 2.2f;
         public float interactRange = 7.5f; // legacy field kept for serialized scenes; hubs use *_ServicePoint triggers only
@@ -98,6 +101,7 @@ namespace KaliRiverSweeper.Player
         private GameObject activeToolVisual;
         private Quaternion toolSocketBaseRot = Quaternion.identity;
         private float toolSwingTimer;
+        private GameObject boatVisual;
 
         private void Awake()
         {
@@ -156,6 +160,7 @@ namespace KaliRiverSweeper.Player
 
         private void Update()
         {
+            SyncBoatVisual();
             RiverGameManager gm = RiverGameManager.Instance;
             if (gm != null && (gm.State != KaliGameState.Playing || gm.activeEnding != GameEnding.None))
             {
@@ -511,7 +516,10 @@ namespace KaliRiverSweeper.Player
             {
                 if (!TryInteractWithNearbyHub())
                 {
-                    TryToggleBoat(gm);
+                    if (isInBoat || !KaliRiverSweeper.Core.KaliNpcInteractable.TryTalkNearest(transform))
+                    {
+                        TryToggleBoat(gm);
+                    }
                 }
             }
 
@@ -852,6 +860,21 @@ namespace KaliRiverSweeper.Player
                 return col.ClosestPoint(point);
             }
             return col.bounds.ClosestPoint(point);
+        }
+
+        // ponytail: one sync per frame; instance is created lazily and hidden via SetActive, never destroyed.
+        private void SyncBoatVisual()
+        {
+            if (boatVisual == null && isInBoat && boatVisualPrefab != null)
+            {
+                boatVisual = Instantiate(boatVisualPrefab, transform);
+                foreach (Collider col in boatVisual.GetComponentsInChildren<Collider>(true)) Destroy(col);
+                foreach (Rigidbody body in boatVisual.GetComponentsInChildren<Rigidbody>(true)) Destroy(body);
+                // Player pivot sits boatRideHeight above water, so the hull lands at waterY + offset.
+                boatVisual.transform.localPosition = new Vector3(0f, boatVisualYOffset - boatRideHeight, 0f);
+                boatVisual.transform.localRotation = Quaternion.Euler(boatVisualEuler);
+            }
+            if (boatVisual != null && boatVisual.activeSelf != isInBoat) boatVisual.SetActive(isInBoat);
         }
 
         private void TeleportPlayer(Vector3 worldPos)
