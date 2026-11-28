@@ -98,7 +98,9 @@ namespace KaliRiverSweeper.Editor
                 VerifyDermagaRiverPortLimits,
                 VerifyTask4dAnd4fUxContracts,
                 VerifySwimmingStaminaAndDrowning,
-                VerifyDayNightCycle
+                VerifyDayNightCycle,
+                VerifyKampungRowsAndMapEdge,
+                VerifyAmbientRiverNpcs
             };
 
             assertCount = 0;
@@ -292,6 +294,7 @@ namespace KaliRiverSweeper.Editor
                 Assert(!gm.BuyTool(20), "BuyTool blocks purchase when rupiah is insufficient");
                 Assert(gm.rupiah == 2000 && gm.cumulativeEarnings == 30000 && gm.highestUnlockedToolIndex == 6, "Buying tool spends rupiah only");
 
+
                 Assert(gm.SelectTool(1) && gm.equippedToolIndex == 1, "SelectTool #01");
                 Assert(!gm.SelectTool(20) && gm.equippedToolIndex == 1, "SelectTool rejects unowned tool #20");
                 gm.CycleTool(-1);
@@ -301,6 +304,45 @@ namespace KaliRiverSweeper.Editor
 
                 InvokeNonPublic(gm, "AddEarnings", 28000);
                 Assert(gm.BuyKampungBins() && gm.kampungBinsInstalled, "Spend 30k on Kampung Bins");
+            }
+
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                InvokeNonPublic(gm, "AddEarnings", 30000);
+                gm.BuyTool(6);
+                // Task 4L: locked tools cannot be bought; trade-in credits half of the best owned lower tool
+                gm.rupiah = 500000;
+                Assert(!gm.BuyTool(7), "BuyTool blocks tools not yet unlocked by cumulative earnings");
+                Assert(gm.GetToolPrice(7) == 38000 - 14000, "Trade-in: #07 costs 38k minus half of owned #06 (28k)");
+                InvokeNonPublic(gm, "AddEarnings", 8000);
+                int before = gm.rupiah;
+                Assert(gm.BuyTool(7) && before - gm.rupiah == 24000, "BuyTool #07 charges the trade-in price");
+
+                // Task 4L: Trash Boom pays rupiah only (no milestone progress) and drains piled trash
+                int cumBefore = gm.cumulativeEarnings;
+                int piledBefore = gm.piledRiverTrashCount;
+                gm.trashBoomActive = true;
+                before = gm.rupiah;
+                InvokeNonPublic(gm, "Tick", RiverGameManager.BoomIntervalSeconds + 0.01f);
+                Assert(gm.rupiah - before == RiverGameManager.BoomPayoutRupiah && gm.cumulativeEarnings == cumBefore, "Trash Boom payout is rupiah-only");
+                Assert(gm.piledRiverTrashCount == Mathf.Max(0, piledBefore - 1), "Trash Boom drains one piled unit per cycle");
+            }
+
+            // Task 4L: monsoon surge adds upstream piled trash during the storm and escalates
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining - 0.01f;
+                int piled0 = gm.piledRiverTrashCount;
+                for (int i = 0; i < 90; i++) InvokeNonPublic(gm, "Tick", 0.1f); // early storm: 9s
+                int earlyAdded = gm.piledRiverTrashCount - piled0;
+                Assert(gm.isMonsoonStorm && earlyAdded == 1, "Early storm surge adds ~1 unit per 8s (got " + earlyAdded + ")");
+                gm.monsoonCountdownRemaining = 10f;
+                int piled1 = gm.piledRiverTrashCount;
+                for (int i = 0; i < 90; i++) InvokeNonPublic(gm, "Tick", 0.1f); // late storm: 9s
+                int lateAdded = gm.piledRiverTrashCount - piled1;
+                Assert(lateAdded >= 2, "Late storm surge escalates (got " + lateAdded + " in 9s)");
             }
 
             // Shop / economy API
@@ -1014,6 +1056,285 @@ namespace KaliRiverSweeper.Editor
                     gm.waterClarity = 0.12f;
                     cycle.Step(0.1f);
                     Assert(cycle.SmogFactor > 0.8f, $"Smog > 0.8 at waterClarity 0.12 (got {cycle.SmogFactor:F3})");
+                }
+            }
+            finally
+            {
+                cycleInstProp?.SetValue(null, prevCycle);
+            }
+        }
+
+        private static void VerifyKampungRowsAndMapEdge()
+        {
+            AssertApprox(1040f, RiverMath.WorldW, 0.0001f, "RiverMath.WorldW");
+            AssertApprox(1440f, RiverMath.WorldH, 0.0001f, "RiverMath.WorldH");
+            AssertApprox(0.125f, RiverMath.MapScale, 0.0001f, "RiverMath.MapScale");
+
+            var runA = MapJsonImporter.ExpandDefaultMapKampungRows();
+            var runB = MapJsonImporter.ExpandDefaultMapKampungRows();
+
+            Assert(runA.Count >= 60, $"kampung_row expansion produces >= 60 buildings (got {runA.Count})");
+            Assert(runA.Count == runB.Count, $"kampung_row expansion count is deterministic ({runA.Count} vs {runB.Count})");
+
+            Vector2[] protectedMapPoints = new Vector2[]
+            {
+                new Vector2(195f, 1185f), // Bank Sampah
+                new Vector2(195f, 1085f), // Koperasi Desa
+                new Vector2(285f, 1280f), // Gudang Pengepul
+                new Vector2(220f, 720f),  // Pos Medis B3
+                new Vector2(760f, 475f),  // Karantina Biohazard
+                new Vector2(378f, 1210f), // Dermaga Awal
+                new Vector2(645f, 615f),  // Dermaga Tengah
+                new Vector2(310f, 1210f)  // Spawn
+            };
+            Vector2[] protectedWorldXZ = new Vector2[protectedMapPoints.Length];
+            for (int p = 0; p < protectedMapPoints.Length; p++)
+            {
+                Vector3 wp = RiverMath.ToWorld3D(protectedMapPoints[p].x, protectedMapPoints[p].y, 0f);
+                protectedWorldXZ[p] = new Vector2(wp.x, wp.z);
+            }
+
+            int westCount = 0;
+            int eastCount = 0;
+
+            for (int i = 0; i < runA.Count; i++)
+            {
+                KaliKampungBuilder.ExpandedBuilding a = runA[i];
+                KaliKampungBuilder.ExpandedBuilding b = runB[i];
+
+                Assert(a.rowId == b.rowId, $"Deterministic rowId at index {i}");
+                Assert(a.buildingType == b.buildingType, $"Deterministic buildingType at index {i}");
+                Assert(Vector3.Distance(a.worldPos, b.worldPos) < 0.0001f, $"Deterministic worldPos at index {i}");
+                Assert(Mathf.Abs(a.yawDeg - b.yawDeg) < 0.0001f, $"Deterministic yawDeg at index {i}");
+                Assert(a.hasJetty == b.hasJetty, $"Deterministic hasJetty at index {i}");
+
+                Assert(!RiverMath.IsInRiver(a.worldPos), $"Expanded building {i} ({a.rowId}) must not be inside river");
+
+                if (a.isEastBank) eastCount++;
+                else westCount++;
+
+                float mapY = a.worldPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+                float riverCxWorld = (RiverMath.RiverCenterMapX(mapY) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
+                Vector2 toRiver = new Vector2(riverCxWorld - a.worldPos.x, 0f).normalized;
+                float yawRad = a.yawDeg * Mathf.Deg2Rad;
+                Vector2 localPlusX = new Vector2(Mathf.Cos(yawRad), -Mathf.Sin(yawRad));
+                float dot = Vector2.Dot(localPlusX, toRiver);
+                Assert(dot > 0.70f, $"Building {i} ({a.rowId}) must face river (dot={dot:F3})");
+
+                Vector2 posXZ = new Vector2(a.worldPos.x, a.worldPos.z);
+                for (int p = 0; p < protectedWorldXZ.Length; p++)
+                {
+                    float dist = Vector2.Distance(posXZ, protectedWorldXZ[p]);
+                    Assert(dist >= 6.0f, $"Building {i} ({a.rowId}) too close to protected hub/dermaga/spawn #{p} ({dist:F2}m < 6.0m)");
+                }
+            }
+
+            Assert(westCount >= 20 && eastCount >= 20, $"Both banks populated (west={westCount}, east={eastCount})");
+        }
+
+        private static void VerifyAmbientRiverNpcs()
+        {
+            var runA = MapJsonImporter.ExpandDefaultMapNpcGroups();
+            var runB = MapJsonImporter.ExpandDefaultMapNpcGroups();
+
+            Assert(runA.Count > 0, "npc_group expansion produces ambient NPCs");
+            Assert(runA.Count == runB.Count, $"npc_group expansion count is deterministic ({runA.Count} vs {runB.Count})");
+
+            int kidsCount = 0;
+            int fisherCount = 0;
+            int washerCount = 0;
+            int chatterCount = 0;
+
+            Vector2[] protectedMapPoints = new Vector2[]
+            {
+                new Vector2(195f, 1185f), // Bank Sampah
+                new Vector2(195f, 1085f), // Koperasi Desa
+                new Vector2(285f, 1280f), // Gudang Pengepul
+                new Vector2(220f, 720f),  // Pos Medis B3
+                new Vector2(760f, 475f),  // Karantina Biohazard
+                new Vector2(378f, 1210f), // Dermaga Awal
+                new Vector2(645f, 615f),  // Dermaga Tengah
+                new Vector2(310f, 1210f)  // Spawn
+            };
+            Vector2[] protectedWorldXZ = new Vector2[protectedMapPoints.Length];
+            for (int p = 0; p < protectedMapPoints.Length; p++)
+            {
+                Vector3 wp = RiverMath.ToWorld3D(protectedMapPoints[p].x, protectedMapPoints[p].y, 0f);
+                protectedWorldXZ[p] = new Vector2(wp.x, wp.z);
+            }
+
+            for (int i = 0; i < runA.Count; i++)
+            {
+                KaliNpcBuilder.ExpandedNpc a = runA[i];
+                KaliNpcBuilder.ExpandedNpc b = runB[i];
+
+                Assert(a.groupId == b.groupId, $"Deterministic NPC groupId at index {i}");
+                Assert(a.role == b.role, $"Deterministic NPC role at index {i}");
+                Assert(a.subBehavior == b.subBehavior, $"Deterministic NPC subBehavior at index {i}");
+                Assert(Vector3.Distance(a.worldPos, b.worldPos) < 0.0001f, $"Deterministic NPC worldPos at index {i}");
+                Assert(Mathf.Abs(a.yawDeg - b.yawDeg) < 0.0001f, $"Deterministic NPC yawDeg at index {i}");
+                Assert(Mathf.Abs(a.uniformScale - b.uniformScale) < 0.0001f, $"Deterministic NPC scale at index {i}");
+
+                switch (a.role)
+                {
+                    case AmbientNpcRole.Kids:
+                        kidsCount++;
+                        Assert(a.uniformScale >= 0.58f && a.uniformScale <= 0.72f, $"Kid uniform scale in ~0.6-0.7 range (got {a.uniformScale:F2})");
+                        if (a.subBehavior == AmbientNpcSubBehavior.KidWader)
+                        {
+                            Assert(!a.onJetty, $"KidWader {a.groupId} must be in shallow water, not on dry jetty deck");
+                        }
+                        if (a.subBehavior == AmbientNpcSubBehavior.KidJettyJumper)
+                        {
+                            Assert(!KaliNpcBuilder.IsInBoatLane(a.jumpWaterPos), $"KidJettyJumper {a.groupId} jumpWaterPos must stay clear of boat lane");
+                        }
+                        if (a.subBehavior == AmbientNpcSubBehavior.KidChaser)
+                        {
+                            Vector3 pPlus = a.worldPos + a.chaseAxisWorld * a.chaseRadius;
+                            Vector3 pMinus = a.worldPos - a.chaseAxisWorld * a.chaseRadius;
+                            Assert(!KaliNpcBuilder.IsInBoatLane(pPlus) && !KaliNpcBuilder.IsInBoatLane(pMinus),
+                                $"KidChaser {a.groupId} run track must stay out of boat lane");
+                        }
+                        if (!a.onJetty)
+                        {
+                            float mapX = a.worldPos.x / RiverMath.MapScale + RiverMath.WorldW * 0.5f;
+                            float mapY = a.worldPos.z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
+                            float cx = RiverMath.RiverCenterMapX(mapY);
+                            float hw = RiverMath.RiverHalfWidthMap(mapY);
+                            Assert(Mathf.Abs(mapX - cx) >= hw - 8f, $"Shallow kid {a.groupId} must stay near shallow edge, not deep channel");
+                        }
+                        break;
+                    case AmbientNpcRole.Fisher:
+                        fisherCount++;
+                        break;
+                    case AmbientNpcRole.Washer:
+                        washerCount++;
+                        break;
+                    case AmbientNpcRole.Chatter:
+                        chatterCount++;
+                        break;
+                }
+
+                if (!a.onJetty)
+                {
+                    Assert(!KaliNpcBuilder.IsInBoatLane(a.worldPos), $"NPC {i} ({a.groupId}) must not sit inside boat lane");
+                }
+
+                Vector2 posXZ = new Vector2(a.worldPos.x, a.worldPos.z);
+                for (int p = 0; p < protectedWorldXZ.Length; p++)
+                {
+                    float dist = Vector2.Distance(posXZ, protectedWorldXZ[p]);
+                    Assert(dist >= 4.0f, $"NPC {i} ({a.groupId}) too close to protected hub/dermaga/spawn #{p} ({dist:F2}m < 4.0m)");
+                }
+            }
+
+            Assert(kidsCount >= 6 && kidsCount <= 10, $"Kids count 6-10 (got {kidsCount})");
+            Assert(fisherCount >= 4 && fisherCount <= 6, $"Fisher count 4-6 (got {fisherCount})");
+            Assert(washerCount >= 4 && washerCount <= 6, $"Washer count 4-6 (got {washerCount})");
+            Assert(chatterCount >= 3 && chatterCount <= 5, $"Chatter count 3-5 (got {chatterCount})");
+
+            // Scene validation when _KALI_World/NPCs is baked
+            GameObject npcsRoot = GameObject.Find("_KALI_World/NPCs");
+            if (npcsRoot != null)
+            {
+                KaliAmbientNpc[] sceneNpcs = npcsRoot.GetComponentsInChildren<KaliAmbientNpc>(true);
+                Assert(sceneNpcs.Length == runA.Count, $"Scene NPC count matches expansion ({sceneNpcs.Length} vs {runA.Count})");
+                for (int i = 0; i < sceneNpcs.Length; i++)
+                {
+                    Collider[] cols = sceneNpcs[i].GetComponentsInChildren<Collider>(true);
+                    for (int c = 0; c < cols.Length; c++)
+                    {
+                        Assert(cols[c].isTrigger, $"NPC {sceneNpcs[i].name} must not have blocking collider ({cols[c].name})");
+                    }
+                    Animator anim = sceneNpcs[i].GetComponent<Animator>();
+                    if (anim != null)
+                    {
+                        Assert(anim.cullingMode == AnimatorCullingMode.CullUpdateTransforms, $"NPC {sceneNpcs[i].name} must use CullUpdateTransforms");
+                    }
+                    if (sceneNpcs[i].role == AmbientNpcRole.Fisher && sceneNpcs[i].rodBobber != null)
+                    {
+                        Vector3 bobPos = sceneNpcs[i].rodBobber.position;
+                        Assert(bobPos.y >= -0.35f && bobPos.y <= 0.05f,
+                            $"Fisher {sceneNpcs[i].name} bobber must rest on water surface (got y={bobPos.y:F2})");
+                        Assert(RiverMath.IsInRiver(bobPos),
+                            $"Fisher {sceneNpcs[i].name} bobber must hang over river water (got {bobPos:F2})");
+                    }
+                }
+            }
+
+            // Runtime day/night fade + monsoon evacuation verification
+            KaliDayNightCycle prevCycle = KaliDayNightCycle.Instance;
+            PropertyInfo cycleInstProp = typeof(KaliDayNightCycle).GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            cycleInstProp?.SetValue(null, null);
+            try
+            {
+                using (QaContext ctx = new QaContext())
+                {
+                    RiverGameManager gm = ctx.Manager;
+                    GameObject rig = ctx.Track(new GameObject("QA_NpcDayNightRig"));
+                    GameObject sunGo = ctx.Track(new GameObject("Sun"));
+                    sunGo.transform.SetParent(rig.transform, false);
+                    sunGo.AddComponent<Light>().type = LightType.Directional;
+                    KaliDayNightCycle cycle = rig.AddComponent<KaliDayNightCycle>();
+                    InvokeNonPublic(cycle, "Awake");
+
+                    GameObject kidGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
+                    UnityEngine.Object.DestroyImmediate(kidGo.GetComponent<Collider>());
+                    Renderer kidR = kidGo.GetComponent<Renderer>();
+                    KaliAmbientNpc kidNpc = kidGo.AddComponent<KaliAmbientNpc>();
+                    kidNpc.role = AmbientNpcRole.Kids;
+                    kidNpc.subBehavior = AmbientNpcSubBehavior.KidWader;
+                    kidNpc.anchorWorldPos = Vector3.zero;
+                    kidNpc.anchorWorldRot = Quaternion.identity;
+                    kidNpc.baseUniformScale = 0.65f;
+                    InvokeNonPublic(kidNpc, "Awake");
+
+                    GameObject washerGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
+                    UnityEngine.Object.DestroyImmediate(washerGo.GetComponent<Collider>());
+                    Renderer washerR = washerGo.GetComponent<Renderer>();
+                    KaliAmbientNpc washerNpc = washerGo.AddComponent<KaliAmbientNpc>();
+                    washerNpc.role = AmbientNpcRole.Washer;
+                    washerNpc.subBehavior = AmbientNpcSubBehavior.CrouchedWasher;
+                    washerNpc.anchorWorldPos = Vector3.zero;
+                    washerNpc.anchorWorldRot = Quaternion.identity;
+                    washerNpc.baseUniformScale = 1f;
+                    InvokeNonPublic(washerNpc, "Awake");
+
+                    GameObject fisherGo = ctx.Track(GameObject.CreatePrimitive(PrimitiveType.Capsule));
+                    UnityEngine.Object.DestroyImmediate(fisherGo.GetComponent<Collider>());
+                    Renderer fisherR = fisherGo.GetComponent<Renderer>();
+                    KaliAmbientNpc fisherNpc = fisherGo.AddComponent<KaliAmbientNpc>();
+                    fisherNpc.role = AmbientNpcRole.Fisher;
+                    fisherNpc.subBehavior = AmbientNpcSubBehavior.StandingFisher;
+                    fisherNpc.anchorWorldPos = Vector3.zero;
+                    fisherNpc.anchorWorldRot = Quaternion.identity;
+                    fisherNpc.baseUniformScale = 1f;
+                    InvokeNonPublic(fisherNpc, "Awake");
+
+                    cycle.SetHour(12f);
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(kidR.enabled && washerR.enabled && fisherR.enabled, "Ambient NPCs stay visible at noon");
+
+                    cycle.SetHour(22.5f);
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(!kidR.enabled && !washerR.enabled && !fisherR.enabled, "Ambient NPCs hide/fade out at night (22:30)");
+
+                    cycle.SetHour(12f);
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(kidR.enabled && washerR.enabled && fisherR.enabled, "Ambient NPCs return in daytime");
+
+                    gm.isMonsoonStorm = true;
+                    kidNpc.StepSimulation(2f);
+                    washerNpc.StepSimulation(2f);
+                    fisherNpc.StepSimulation(2f);
+                    Assert(!kidR.enabled && !washerR.enabled, "Kids and washers leave water during monsoon storm");
+                    Assert(fisherR.enabled, "Bank/jetty fisher stays outside monsoon water evacuation rule");
                 }
             }
             finally

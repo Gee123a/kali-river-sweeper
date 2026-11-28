@@ -232,71 +232,6 @@
       "note": "Eddy debris pocket right downstream of Jembatan Utama"
     },
     {
-      "id": "item_19",
-      "type": "rumah",
-      "name": "Rumah Kota Barat 1",
-      "x": 118,
-      "y": 540,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 0,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_20",
-      "type": "warung",
-      "name": "Warung Madura Jembatan Barat",
-      "x": 225,
-      "y": 620,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 0,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam kiosk near West Bridge approach"
-    },
-    {
-      "id": "item_21",
-      "type": "rumah",
-      "name": "Rumah Kota Barat 2",
-      "x": 118,
-      "y": 705,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 0,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_22",
-      "type": "warung",
-      "name": "Warung Madura Tepi Jembatan",
-      "x": 222,
-      "y": 815,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 0,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam kiosk on West riverbank"
-    },
-    {
-      "id": "item_23",
-      "type": "rumah",
-      "name": "Rumah Kota Barat 3",
-      "x": 118,
-      "y": 890,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 0,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
       "id": "item_24",
       "type": "pohon",
       "name": "Pohon Kota Barat 1",
@@ -321,58 +256,6 @@
       "rot": 0,
       "color": "#3f7a4c",
       "note": ""
-    },
-    {
-      "id": "item_26",
-      "type": "rumah",
-      "name": "Rumah Kota Timur 1",
-      "x": 845,
-      "y": 515,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 180,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_27",
-      "type": "warung",
-      "name": "Warung Madura Timur",
-      "x": 928,
-      "y": 615,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 180,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam on East bank near Dermaga Tengah"
-    },
-    {
-      "id": "item_28",
-      "type": "rumah",
-      "name": "Rumah Kota Timur 2",
-      "x": 845,
-      "y": 745,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 180,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_29",
-      "type": "warung",
-      "name": "Warung Madura Seberang",
-      "x": 920,
-      "y": 855,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 180,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam kiosk on East mid-river road"
     },
     {
       "id": "item_30",
@@ -411,7 +294,7 @@
       "elev": 12,
       "rot": 0,
       "color": "#38bdf8",
-      "note": "West Bank Plaza facing North — clear sightline straight to Gunung Sampah"
+      "note": "West Bank Plaza facing North \u2014 clear sightline straight to Gunung Sampah"
     },
     {
       "id": "item_33",
@@ -424,7 +307,7 @@
       "elev": 10,
       "rot": 0,
       "color": "#a17a54",
-      "note": "Zona 1 river port near Spawn & Kopdes — embark/disembark boats to/from the river"
+      "note": "Zona 1 river port near Spawn & Kopdes \u2014 embark/disembark boats to/from the river"
     },
     {
       "id": "item_34",
@@ -479,58 +362,6 @@
       "note": "Koperasi Desa (Kopdes): upgrade kapal, tempat sampah kampung, Trash Boom & peralatan"
     },
     {
-      "id": "item_38",
-      "type": "rumah",
-      "name": "Rumah Pak RT",
-      "x": 92,
-      "y": 1045,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 0,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_39",
-      "type": "warung",
-      "name": "Warung Madura Hulu",
-      "x": 92,
-      "y": 1155,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 0,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam in Zona 1 Kampung Hulu"
-    },
-    {
-      "id": "item_40",
-      "type": "rumah",
-      "name": "Rumah Nelayan 1",
-      "x": 92,
-      "y": 1275,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 0,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_41",
-      "type": "rumah",
-      "name": "Rumah Nelayan 2",
-      "x": 185,
-      "y": 1350,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 0,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
       "id": "item_42",
       "type": "pohon",
       "name": "Pohon Pisang Hulu 1",
@@ -555,71 +386,6 @@
       "rot": 0,
       "color": "#3f7a4c",
       "note": ""
-    },
-    {
-      "id": "item_44",
-      "type": "rumah",
-      "name": "Rumah Hilir Timur 1",
-      "x": 755,
-      "y": 1040,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 180,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_45",
-      "type": "warung",
-      "name": "Warung Madura Kali Timur",
-      "x": 870,
-      "y": 1055,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 180,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam on East lower village bank"
-    },
-    {
-      "id": "item_46",
-      "type": "rumah",
-      "name": "Rumah Hilir Timur 2",
-      "x": 775,
-      "y": 1175,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 180,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_47",
-      "type": "rumah",
-      "name": "Rumah Hilir Timur 3",
-      "x": 890,
-      "y": 1200,
-      "w": 58,
-      "h": 48,
-      "elev": 36,
-      "rot": 180,
-      "color": "#c27852",
-      "note": ""
-    },
-    {
-      "id": "item_48",
-      "type": "warung",
-      "name": "Warung Madura Hilir",
-      "x": 765,
-      "y": 1300,
-      "w": 62,
-      "h": 50,
-      "elev": 32,
-      "rot": 180,
-      "color": "#d99b38",
-      "note": "Warung Madura 24-jam near East Pintu Air road"
     },
     {
       "id": "item_49",
@@ -698,6 +464,302 @@
       "rot": 180,
       "color": "#a855f7",
       "note": "Dedicated Biohazard/Radioactive quarantine bunker on East bank"
+    },
+    {
+      "id": "krow_west_upstream",
+      "type": "kampung_row",
+      "name": "Kampung Hulu Barat",
+      "x1": 428,
+      "y1": 345,
+      "x2": 426,
+      "y2": 425,
+      "spacing": 7.5,
+      "seed": 101,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.85,
+        "warung_madura": 0.15
+      }
+    },
+    {
+      "id": "krow_west_north_river",
+      "type": "kampung_row",
+      "name": "Kampung Utara Sungai Barat",
+      "x1": 428,
+      "y1": 458,
+      "x2": 424,
+      "y2": 622,
+      "spacing": 6.2,
+      "seed": 102,
+      "depth": 2,
+      "mix": {
+        "rumah": 0.65,
+        "warung_madura": 0.35
+      }
+    },
+    {
+      "id": "krow_west_north_inland",
+      "type": "kampung_row",
+      "name": "Kampung Utara Dalam Barat",
+      "x1": 214,
+      "y1": 468,
+      "x2": 210,
+      "y2": 598,
+      "spacing": 6.3,
+      "seed": 105,
+      "depth": 2,
+      "mix": {
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "krow_west_mid_river",
+      "type": "kampung_row",
+      "name": "Kampung Tengah Sungai Barat",
+      "x1": 382,
+      "y1": 852,
+      "x2": 366,
+      "y2": 1028,
+      "spacing": 6.2,
+      "seed": 103,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.65,
+        "warung_madura": 0.35
+      }
+    },
+    {
+      "id": "krow_west_mid_inland",
+      "type": "kampung_row",
+      "name": "Kampung Tengah Dalam Barat",
+      "x1": 242,
+      "y1": 855,
+      "x2": 235,
+      "y2": 918,
+      "spacing": 6.3,
+      "seed": 106,
+      "depth": 2,
+      "mix": {
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "krow_west_sw_corner",
+      "type": "kampung_row",
+      "name": "Kampung Pojok Barat Daya",
+      "x1": 140,
+      "y1": 1335,
+      "x2": 146,
+      "y2": 1355,
+      "spacing": 6.5,
+      "seed": 107,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.75,
+        "warung_madura": 0.25
+      }
+    },
+    {
+      "id": "krow_east_bridge_back",
+      "type": "kampung_row",
+      "name": "Kampung Belakang Jembatan Timur",
+      "x1": 842,
+      "y1": 615,
+      "x2": 862,
+      "y2": 818,
+      "spacing": 6.3,
+      "seed": 202,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.65,
+        "warung_madura": 0.35
+      }
+    },
+    {
+      "id": "krow_east_pasar_south",
+      "type": "kampung_row",
+      "name": "Kampung Pasar Selatan Timur",
+      "x1": 658,
+      "y1": 855,
+      "x2": 636,
+      "y2": 1028,
+      "spacing": 6.2,
+      "seed": 203,
+      "depth": 3,
+      "mix": {
+        "rumah": 0.65,
+        "warung_madura": 0.35
+      }
+    },
+    {
+      "id": "krow_east_kampung_mid",
+      "type": "kampung_row",
+      "name": "Kampung Tengah Timur",
+      "x1": 620,
+      "y1": 1062,
+      "x2": 624,
+      "y2": 1246,
+      "spacing": 6.2,
+      "seed": 204,
+      "depth": 3,
+      "mix": {
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "krow_east_kampung_back",
+      "type": "kampung_row",
+      "name": "Kampung Belakang Timur",
+      "x1": 866,
+      "y1": 1058,
+      "x2": 866,
+      "y2": 1248,
+      "spacing": 6.2,
+      "seed": 205,
+      "depth": 1,
+      "mix": {
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "krow_east_kampung_south",
+      "type": "kampung_row",
+      "name": "Kampung Hilir Selatan Timur",
+      "x1": 696,
+      "y1": 1276,
+      "x2": 698,
+      "y2": 1354,
+      "spacing": 6.3,
+      "seed": 206,
+      "depth": 3,
+      "mix": {
+        "rumah": 0.72,
+        "warung_madura": 0.28
+      }
+    },
+    {
+      "id": "npc_kids_jetty5",
+      "type": "npc_group",
+      "role": "kids",
+      "x": 569,
+      "y": 1161,
+      "count": 2,
+      "radius": 1.0,
+      "seed": 501
+    },
+    {
+      "id": "npc_kids_east_shallow",
+      "type": "npc_group",
+      "role": "kids",
+      "x": 586,
+      "y": 1030,
+      "count": 3,
+      "radius": 1.1,
+      "seed": 502
+    },
+    {
+      "id": "npc_kids_west_jetty3",
+      "type": "npc_group",
+      "role": "kids",
+      "x": 432,
+      "y": 912,
+      "count": 3,
+      "radius": 1.1,
+      "seed": 503
+    },
+    {
+      "id": "npc_fisher_jetty1",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 488,
+      "y": 345,
+      "count": 1,
+      "radius": 0.4,
+      "seed": 511
+    },
+    {
+      "id": "npc_fisher_jetty2",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 492,
+      "y": 561,
+      "count": 2,
+      "radius": 0.6,
+      "seed": 512
+    },
+    {
+      "id": "npc_fisher_jetty4",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 594,
+      "y": 950,
+      "count": 1,
+      "radius": 0.4,
+      "seed": 513
+    },
+    {
+      "id": "npc_fisher_west_bank",
+      "type": "npc_group",
+      "role": "fisher",
+      "x": 374,
+      "y": 1110,
+      "count": 1,
+      "radius": 0.4,
+      "seed": 514
+    },
+    {
+      "id": "npc_washer_west_mid",
+      "type": "npc_group",
+      "role": "washer",
+      "x": 442,
+      "y": 865,
+      "count": 2,
+      "radius": 1.1,
+      "seed": 521
+    },
+    {
+      "id": "npc_washer_east_south",
+      "type": "npc_group",
+      "role": "washer",
+      "x": 571,
+      "y": 1258,
+      "count": 2,
+      "radius": 1.0,
+      "seed": 522
+    },
+    {
+      "id": "npc_washer_west_north",
+      "type": "npc_group",
+      "role": "washer",
+      "x": 485,
+      "y": 440,
+      "count": 1,
+      "radius": 0.5,
+      "seed": 523
+    },
+    {
+      "id": "npc_chatter_west_warung",
+      "type": "npc_group",
+      "role": "chatter",
+      "x": 472,
+      "y": 563,
+      "count": 2,
+      "radius": 0.65,
+      "seed": 531
+    },
+    {
+      "id": "npc_chatter_east_warung",
+      "type": "npc_group",
+      "role": "chatter",
+      "x": 598,
+      "y": 1058,
+      "count": 2,
+      "radius": 0.55,
+      "seed": 532
     }
   ],
   "zones": [
