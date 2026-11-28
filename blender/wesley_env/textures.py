@@ -241,6 +241,62 @@ def ponton_hdpe(seed=121):
     return np.clip(blue * (1 - m) + np.array([0.20, 0.26, 0.14]) * m, 0, 1)
 
 
+def tanah_rumput(seed=131):
+    """Bank-top ground (SM_Env_RiverValleyTerrain, 4 m tile): patchy tropical grass over
+    damp brown kampung soil, worn bare footpath patches and small pebbles. Full colour."""
+    rng = np.random.default_rng(seed)
+    soil_n = _fbm(rng, SIZE, 6, 6)
+    soil = np.stack([0.36, 0.27, 0.18], -1) * (0.82 + (soil_n[..., None] - 0.5) * 0.5)
+    blades = _value_noise(rng, SIZE, 128) * 0.6 + _value_noise(rng, SIZE, 256) * 0.4
+    hue = _fbm(rng, SIZE, 3, 4)[..., None]                               # yellowed vs lush grass
+    lush, dry = np.array([0.24, 0.36, 0.13]), np.array([0.44, 0.44, 0.20])
+    grass = (lush * (1 - hue) + dry * hue) * (0.72 + blades[..., None] * 0.5)
+    cover = np.clip((_fbm(rng, SIZE, 3, 5) - 0.36) * 4.0 + (blades - 0.5) * 1.2, 0, 1)[..., None]
+    out = soil * (1 - cover) + grass * cover
+    peb = np.clip((_value_noise(rng, SIZE, 96) - 0.86) * 12, 0, 1)[..., None] * (1 - cover)   # gravel
+    out = out * (1 - peb) + np.array([0.46, 0.42, 0.36]) * (0.8 + soil_n[..., None] * 0.3) * peb
+    return np.clip(out, 0, 1)
+
+
+def talud_beton(seed=141):
+    """River revetment (talud): 1 m x 0.5 m precast concrete blocks laid in running bond,
+    dark joints, damp algae/silt stains rising from the waterline. Grey, full colour."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE]
+    bw, bh = SIZE // 4, SIZE // 8                                        # 4 m tile -> 1 m x 0.5 m
+    row = yy // bh
+    xs = xx + (row % 2) * (bw // 2)
+    lx, ly = xs % bw, yy % bh
+    joint = np.minimum(np.minimum(lx, bw - lx), np.minimum(ly, bh - ly))
+    block_id = row * 8 + (xs // bw) % 8
+    tone = rng.uniform(0.62, 0.78, 64)[block_id % 64]
+    grain = _fbm(rng, SIZE, 8, 5)
+    lum = tone + (grain - 0.5) * 0.16 - (rng.random((SIZE, SIZE)) > 0.994) * 0.2
+    lum = np.where(joint < 3, 0.26 + grain * 0.06, lum * (0.88 + 0.12 * np.clip(joint / 6, 0, 1)))
+    stain = np.clip((_fbm(rng, SIZE, 4, 5) - 0.45) * 2.5, 0, 1)
+    rgb = np.stack([lum, lum * 1.01, lum * 0.98], -1)
+    algae = np.array([0.30, 0.34, 0.20]) * lum[..., None]
+    m = stain[..., None] * 0.55
+    return np.clip(rgb * (1 - m) + algae * m, 0, 1).transpose(1, 0, 2)   # long side along V = river (+Z)
+
+
+def lumpur_dasar(seed=151):
+    """Riverbed silt: dark wet brown-black mud with ripples along the flow (+Z = V),
+    sunken stones and a few half-buried scraps."""
+    rng = np.random.default_rng(seed)
+    base = 0.62 + (_fbm(rng, SIZE, 5, 6) - 0.5) * 0.5
+    v = np.arange(SIZE)[:, None] / SIZE
+    warp = _fbm(rng, SIZE, 4, 3) * 3.0
+    ripple = np.sin((v * 12 + warp) * 2 * np.pi) * 0.07
+    lum = base + ripple
+    mud = np.stack([0.24, 0.19, 0.13], -1) * lum[..., None]
+    stones = np.clip((_value_noise(rng, SIZE, 48) - 0.85) * 10, 0, 1)[..., None]   # sunken stones
+    mud = mud * (1 - stones * 0.7) + np.array([0.22, 0.21, 0.18]) * stones * 0.7
+    scraps = _clutter(seed + 1, 50, [(0.30, 0.27, 0.22), (0.22, 0.25, 0.28), (0.40, 0.34, 0.20)], [3, 2, 1], 0.5, 0.5)
+    mask = np.clip((_fbm(rng, SIZE, 8, 4) - 0.66) * 6.0, 0, 1)[..., None]
+    return np.clip(mud * (1 - mask) + scraps * 0.5 * mask, 0, 1)
+
+
 GENERATORS = {
     "T_Env_BatuKali": batu_kali,
     "T_Env_BetonKotor": beton_kotor,
@@ -254,6 +310,9 @@ GENERATORS = {
     "T_Env_SengGelombang": seng_gelombang,
     "T_Env_KawatJaring": kawat_jaring,
     "T_Env_PontonHDPE": ponton_hdpe,
+    "T_Env_TanahRumput": tanah_rumput,
+    "T_Env_TaludBeton": talud_beton,
+    "T_Env_LumpurDasar": lumpur_dasar,
 }
 
 
