@@ -94,6 +94,9 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 
 ---
 
+### Priority 0-A: Core Mechanics v2 UI ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §B, C, F)
+- [ ] **Task 7A: Restyle what Ivan ships functional-first**: Accepts card replacing the `[1][2][3]`/DENDA dock sheet (station name, accepted class icon + price, cargo preview from `GetDepositPreview`; pink only for real harm like Pengepul hazards); 4-slot hotbar HUD bound to `OnHotbarChanged` (icon, name, reach/batch, prick %); shop trade-in slot picker + upgrades tab polish; objective pill bound to `OnObjectiveChanged`. Ivan made minimal edits in `KaliHudController.cs` / `KaliShopController.cs` marked `TODO(Niki)` — pull first to avoid conflicts.
+
 ### Priority 0: Progression & Village Life — Dialogue, Quest HUD & Audio
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
 - [ ] **Task 6A: Dialogue UI (`UI/`)**: world-space speech bubble + `[E] Bicara` prompt, 1–2 lines, auto-hide after 4 s; subscribes to Ivan's `KaliNpcInteractable` events (no per-frame polling).

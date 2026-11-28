@@ -78,6 +78,9 @@
 
 ---
 
+### Priority 0-A: Core Mechanics v2 — readable trash bundles ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §D)
+- [ ] **Task 7A: Floating trash bundles**: `PF_Trash_BundleKresek` (tied plastic bag cluster ~0.6 m), `PF_Trash_RaftBotol` (bottle raft ~0.9 m), `PF_Trash_SlabStyrofoam` (~0.8 m), plus medical (`PF_Trash_BundleMedis` syringes in a bag) and biohazard (`PF_Trash_DrumBiohazard` floating drum) variants; buoyant pivot at waterline, high-contrast colors readable on brown water, `RiverTrashItem`-compatible names.
+
 ### Priority 0: Progression & Village Life — NPC Animations & Quest Props
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
 - [ ] **Task 6A: Interaction clips (`SK_VillagerNPC`, Humanoid 30 fps, Root Motion off)**: `Talk_Gesture` (2–3 s loop, hand gestures for `[E] Bicara`), `Wave`, `Point_Forward` (giving quest directions / kid→fisher chain), `Cheer_Clap` (clean-combo reaction), `Head_Look` additive or simple neck rig note for Ivan's look-at, `Call_Out` (washer calling kids in storm), `Kid_Run` + `Kid_Celebrate` (Bola Hanyut).

@@ -81,6 +81,10 @@ Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPrevie
 
 ---
 
+### Priority 0-A: Core Mechanics v2 — readability ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §A, D)
+- [ ] **Step 7A: Trash visibility on turbid water**: make sure floating trash at +0.06 m always reads over `SG_KaliWater` at low `_WaterClarity` (no alpha/fog hiding it); keep the polluted look.
+- [ ] **Step 7B: Service-point decals**: a painted floor mark / small mat + sign in front of each counter (Bank Sampah, Pos Medis B3, Karantina, Gudang Pengepul, Kopdes) where Ivan's `<Station>_ServicePoint` sits, so players know where to stand.
+
 ### Priority 0: Progression & Village Life — Quest Landmarks
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
 - [ ] **Step 6A: Quest landmarks (`Environment/`)**: `PF_Env_TanggaCuci` at Bu Siti's spot (`npc_washer_west_mid`, map 442,865) sized for the Q2 needle cluster; jetty-2 snag area (`npc_fisher_jetty2`, map 492,561) with posts the Kail Kusut prop can wrap around; `PF_Env_WarungStall` (bench + counter + awning) for both warungs (`npc_chatter_west_warung` 472,563, `npc_chatter_east_warung` 598,1058); Pak RT's pos ronda / notice board near spawn (310,1210) for the tutorial.
