@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using KaliRiverSweeper.Core;
 using KaliRiverSweeper.Player;
@@ -34,7 +35,9 @@ namespace KaliRiverSweeper.UI
         private KaliPlayerController player;
         private float mapTimer;
         private float toastTimer;
+        private float alertTimer;
         private float subscribeRetryTimer;
+        private readonly Queue<string> toastQueue = new Queue<string>();
 
         private Image[] rampCells;
         private Image filtrationDot;
@@ -67,10 +70,13 @@ namespace KaliRiverSweeper.UI
         private TMP_Text clockTime;
         private int lastClockMinute = -1;
         private float clockPollTimer;
+        private RectTransform gunungHatchMask;
         private GameObject biohazardStrip;
-        private Image biohazardHatchImage;
+        private RectTransform biohazardHatchMask;
         private TMP_Text biohazardCountdown;
         private GameObject sellLockStrip;
+        private GameObject alertStrip;
+        private TMP_Text alertText;
         private TMP_Text normalCount;
         private TMP_Text medisCount;
         private TMP_Text bioCount;
@@ -117,15 +123,18 @@ namespace KaliRiverSweeper.UI
             hpValue = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_HP/TMP_HPValue");
             siagaLevel = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_SiagaLevel");
             waterMeters = Find<TMP_Text>("TL_SurvivalFloodSheet/Row_SiagaWater/TMP_WaterMeters");
+            gunungHatchMask = Find<RectTransform>("TC_EcologicalHydroRail/Cell_GunungSampah/Mask_Hatch45");
             gunungPercent = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_GunungSampah/TMP_GunungPct");
             clarityPercent = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_Kejernihan/TMP_KejernihanPct");
             monsunTimer = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_MonsunTimer");
             monsunLabel = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_MonsunLabel");
             clockTime = Find<TMP_Text>("TC_EcologicalHydroRail/Cell_MonsunTimer/TMP_ClockTime");
             biohazardStrip = FindGo("TC_ContextualAlertRail/Strip_BiohazardTimer");
-            biohazardHatchImage = Find<Image>("TC_ContextualAlertRail/Strip_BiohazardTimer/Img_CrossHatch90");
+            biohazardHatchMask = Find<RectTransform>("TC_ContextualAlertRail/Strip_BiohazardTimer/Mask_CrossHatch90");
             biohazardCountdown = Find<TMP_Text>("TC_ContextualAlertRail/Strip_BiohazardTimer/TMP_BiohazardCountdown");
             sellLockStrip = FindGo("TC_ContextualAlertRail/Strip_SellLockDump");
+            alertStrip = FindGo("TC_ContextualAlertRail/Strip_HazardAlert");
+            alertText = Find<TMP_Text>("TC_ContextualAlertRail/Strip_HazardAlert/TMP_AlertText");
             normalCount = Find<TMP_Text>("TR_EconomyCargoLedger/Grid_Cargo3Class/Cell_Normal/TMP_NormalCount");
             medisCount = Find<TMP_Text>("TR_EconomyCargoLedger/Grid_Cargo3Class/Cell_MedisB3/TMP_MedisCount");
             bioCount = Find<TMP_Text>("TR_EconomyCargoLedger/Grid_Cargo3Class/Cell_Biohazard/TMP_BioCount");
@@ -206,6 +215,7 @@ namespace KaliRiverSweeper.UI
             }
 
             UpdateToast();
+            UpdateAlert();
             UpdateMap();
         }
 
@@ -248,6 +258,13 @@ namespace KaliRiverSweeper.UI
 
         private void HandleHazardOrAlert(string message, bool isAlert)
         {
+            if (alertStrip != null && alertText != null && !string.IsNullOrEmpty(message))
+            {
+                SetText(alertText, message);
+                alertText.color = isAlert ? Alert : Ink;
+                alertStrip.SetActive(true);
+                alertTimer = 4f;
+            }
             Refresh();
         }
 
@@ -362,10 +379,28 @@ namespace KaliRiverSweeper.UI
 
         private void UpdateToast()
         {
-            if (toast == null || !toast.activeSelf) return;
+            if (toast == null) return;
 
-            toastTimer -= Time.unscaledDeltaTime;
-            if (toastTimer <= 0f) toast.SetActive(false);
+            if (toast.activeSelf)
+            {
+                toastTimer -= Time.unscaledDeltaTime;
+                if (toastTimer <= 0f) toast.SetActive(false);
+            }
+
+            if (!toast.activeSelf && toastQueue.Count > 0 && toastText != null)
+            {
+                SetText(toastText, toastQueue.Dequeue());
+                toast.SetActive(true);
+                toastTimer = 3.5f;
+            }
+        }
+
+        private void UpdateAlert()
+        {
+            if (alertStrip == null || !alertStrip.activeSelf) return;
+
+            alertTimer -= Time.unscaledDeltaTime;
+            if (alertTimer <= 0f) alertStrip.SetActive(false);
         }
 
         // Throttled to MapRefreshHz. The chevron tip points along the player's heading; forward is world +Z,
@@ -432,7 +467,12 @@ namespace KaliRiverSweeper.UI
                 ruler.anchoredPosition = new Vector2(200f + t * 120f, ruler.anchoredPosition.y);
             }
 
-            SetText(gunungPercent, Mathf.RoundToInt(manager.gunungSampahHealth * 100f).ToString(Invariant) + "%");
+            float gunungRatio = Mathf.Clamp01(manager.gunungSampahHealth);
+            SetText(gunungPercent, Mathf.RoundToInt(gunungRatio * 100f).ToString(Invariant) + "%");
+            if (gunungHatchMask != null)
+            {
+                gunungHatchMask.sizeDelta = new Vector2(240f * gunungRatio, gunungHatchMask.sizeDelta.y);
+            }
             SetText(clarityPercent, Mathf.RoundToInt(manager.waterClarity * 100f).ToString(Invariant) + "%");
             if (clarityFill != null)
             {
@@ -442,19 +482,22 @@ namespace KaliRiverSweeper.UI
             SetText(monsunTimer, FormatClock(manager.monsoonCountdownRemaining));
             SetText(monsunLabel, manager.isMonsoonStorm ? "BADAI" : "MONSUN");
             UpdateClock(false);
-            SetText(damLabel, "DAM " + Mathf.RoundToInt(manager.gunungSampahHealth * 100f).ToString(Invariant) + "%");
+            SetText(damLabel, "DAM " + Mathf.RoundToInt(gunungRatio * 100f).ToString(Invariant) + "%");
 
             bool hasBiohazard = manager.biohazardCargo > 0;
             SetActive(biohazardStrip, hasBiohazard);
             if (hasBiohazard)
             {
-                SetText(biohazardCountdown, Mathf.CeilToInt(manager.BiohazardGraceRemaining).ToString(Invariant) + "s");
-                if (biohazardHatchImage != null)
+                string bioLabel = manager.IsBiohazardDotActive
+                    ? "BIOHAZARD · PAPARAN AKTIF! KE KARANTINA (K)"
+                    : "BIOHAZARD · KE KARANTINA (K) · " + Mathf.CeilToInt(manager.BiohazardGraceRemaining).ToString(Invariant) + "s";
+                SetText(biohazardCountdown, bioLabel);
+                if (biohazardHatchMask != null)
                 {
                     float graceRatio = manager.biohazardGraceSeconds > 0f
                         ? Mathf.Clamp01(manager.BiohazardGraceRemaining / manager.biohazardGraceSeconds)
                         : 0f;
-                    biohazardHatchImage.fillAmount = graceRatio;
+                    biohazardHatchMask.sizeDelta = new Vector2(780f * graceRatio, biohazardHatchMask.sizeDelta.y);
                 }
             }
 
@@ -484,9 +527,7 @@ namespace KaliRiverSweeper.UI
             if (tool == null || toast == null || toastText == null) return;
 
             string badge = tool.GunungDamagePerSwing > 0f ? "  · BISA KERUK" : string.Empty;
-            SetText(toastText, "Alat Baru: #" + tool.Index.ToString("00", Invariant) + " " + tool.DisplayName + badge);
-            toast.SetActive(true);
-            toastTimer = 3.5f;
+            toastQueue.Enqueue("Alat Baru: #" + tool.Index.ToString("00", Invariant) + " " + tool.DisplayName + badge);
         }
 
         private static Color SiagaDotColor(int siagaLevel)

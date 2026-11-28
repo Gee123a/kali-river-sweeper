@@ -148,6 +148,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   waterLevelY: 0
+  floatOffsetY: 0.06
   bobAmplitude: 0.08
   bobSpeed: 2
   currentDriftSpeed: 0.75

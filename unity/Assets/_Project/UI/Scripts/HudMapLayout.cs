@@ -21,7 +21,7 @@ namespace KaliRiverSweeper.UI
 
         // Contour art position and size inside the vellum map panel (top-left anchored, 1040:1440 portrait ratio).
         public static readonly Vector2 ContourOrigin = new Vector2(16f, -16f);
-        public static readonly Vector2 ContourArea = new Vector2(192f, 266f);
+        public static readonly Vector2 ContourArea = new Vector2(216f, 298f);
 
         public static Vector2 DamPoint()
         {
