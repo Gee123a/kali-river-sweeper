@@ -262,7 +262,9 @@ namespace KaliRiverSweeper.Core
 
         public void StartRun()
         {
-            if (State == KaliGameState.Title) SetState(KaliGameState.Playing);
+            if (State != KaliGameState.Title) return;
+            if (!startSeeded) SeedStartTrash(FindObjectOfType<RiverTrashSpawner>()); // first Play; ResetRun seeds the rest
+            SetState(KaliGameState.Playing);
         }
 
         public void TogglePause()
@@ -645,6 +647,29 @@ namespace KaliRiverSweeper.Core
             communityTrust = Mathf.Max(0, communityTrust - 15);
             ApplyPlayerDamage(medicalPrickDamage, notifyImmediate: true);
             return false;
+        }
+
+        public const int EsTehPrice = 5000;
+        public const int EsTehHeal = 30;
+
+        public bool TryBuyEsTeh()
+        {
+            if (State != KaliGameState.Playing) return false;
+            if (playerHealth >= maxPlayerHealth)
+            {
+                NotifyInfo("Darah sudah penuh, Es Teh belum perlu.");
+                return false;
+            }
+            if (rupiah < EsTehPrice)
+            {
+                NotifyInfo($"Rupiah kurang untuk Es Teh (Rp {EsTehPrice:N0}).", true);
+                return false;
+            }
+
+            rupiah -= EsTehPrice;
+            playerHealth = Mathf.Min(maxPlayerHealth, playerHealth + EsTehHeal);
+            NotifyInfo($"Es Teh diminum: +{EsTehHeal} HP (Rp {EsTehPrice:N0}).");
+            return true;
         }
 
         public bool TryEmergencyPosMedisTriage()
@@ -1464,6 +1489,7 @@ namespace KaliRiverSweeper.Core
             if (spawner != null) spawner.ResetSpawnerState();
 
             ReseedPiles(spawner);
+            SeedStartTrash(spawner);
 
             KaliRiverSweeper.Player.KaliPlayerController player = FindObjectOfType<KaliRiverSweeper.Player.KaliPlayerController>();
             if (player != null) player.ResetToInitialSpawn();
@@ -1472,6 +1498,13 @@ namespace KaliRiverSweeper.Core
         // Baked map trash_pile items (snagged: buoyancy without drift) are destroyed by a restart, so remember where they were.
         // ponytail: re-seed spot + class through the spawner (prefab may differ from the bake), not a full prefab snapshot.
         private List<(Vector3 pos, WasteClass wc)> seedPiles;
+        private bool startSeeded;
+
+        private void SeedStartTrash(RiverTrashSpawner spawner)
+        {
+            startSeeded = true;
+            if (spawner != null) spawner.SeedDriftingTrash();
+        }
 
         private void CaptureSeedPiles()
         {

@@ -28,7 +28,13 @@ namespace KaliRiverSweeper.Core
         public float upstreamSpawnMinZ = -60f;
         public float upstreamSpawnMaxZ = -46f;
 
+        [Header("Run Start Seeding")]
+        public int startSeedBundles = 10; // 1-unit drifting bundles; the same units are skipped from the upstream spawns
+        public float seedMinZ = -35f;
+        public float seedMaxZ = 55f;
+
         private float spawnTimer;
+        private int suppressUnitsRemaining;
         private Transform trashRoot;
 
         public void SetTrashRoot(Transform root)
@@ -39,6 +45,23 @@ namespace KaliRiverSweeper.Core
         public void ResetSpawnerState()
         {
             spawnTimer = 0f;
+            suppressUnitsRemaining = 0;
+        }
+
+        // Full-size authored props; every other prefab is scaled by bundleVisualScale.
+        public static float VisualScaleFor(string prefabName, float defaultScale)
+        {
+            switch (prefabName)
+            {
+                case "PF_Trash_BundleKresek":
+                case "PF_Trash_RaftBotol":
+                case "PF_Trash_SlabStyrofoam":
+                case "PF_Trash_BundleMedis":
+                case "PF_Trash_DrumBiohazard":
+                    return 1f;
+                default:
+                    return defaultScale;
+            }
         }
 
         private void Update()
@@ -59,29 +82,55 @@ namespace KaliRiverSweeper.Core
             if (spawnTimer < interval) return;
             spawnTimer = 0f;
 
+            int units = TakeSuppressedUnits();
+
             // ponytail: the spawn parent's child count stands in for live visual objects (cheap, no registry).
+            // Decorative clump children live under each bundle, so they never count here.
             Transform parent = trashRoot != null ? trashRoot : transform;
             if (parent.childCount >= maxVisualFloatingTrash)
             {
                 // Cap active visual GameObjects to protect 60+ FPS while still escalating river pileup pressure.
-                gm.AddPiledTrash(Random.Range(minBundleUnits, maxBundleUnits + 1));
+                gm.AddPiledTrash(units > 0 ? units : Random.Range(minBundleUnits, maxBundleUnits + 1));
                 return;
             }
 
-            SpawnRandomTrash();
+            SpawnRandomTrash(units);
         }
 
-        public GameObject SpawnRandomTrash()
+        // Run start: drop drifting 1-unit bundles along the channel and skip the same number of units from upstream spawns.
+        public void SeedDriftingTrash()
+        {
+            for (int i = 0; i < startSeedBundles; i++)
+            {
+                WasteClass wc = RiverGameManager.RollWasteClass(Random.value);
+                SpawnTrashAt(ChannelPositionAt(Random.Range(seedMinZ, seedMaxZ)), wc, 1);
+            }
+            suppressUnitsRemaining += startSeedBundles;
+        }
+
+        // Units of the next upstream bundle that are still owed to the start seed (0 = no suppression).
+        private int TakeSuppressedUnits()
+        {
+            if (suppressUnitsRemaining <= 0) return 0;
+            int u = Mathf.Min(suppressUnitsRemaining, Random.Range(minBundleUnits, maxBundleUnits + 1));
+            suppressUnitsRemaining -= u;
+            return u;
+        }
+
+        public GameObject SpawnRandomTrash(int units = 0)
         {
             WasteClass wc = RiverGameManager.RollWasteClass(Random.value);
-            float z = Random.Range(upstreamSpawnMinZ, upstreamSpawnMaxZ);
+            return SpawnTrashAt(ChannelPositionAt(Random.Range(upstreamSpawnMinZ, upstreamSpawnMaxZ)), wc, units);
+        }
+
+        private Vector3 ChannelPositionAt(float z)
+        {
             float mapY = z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
             float centerX = (RiverMath.RiverCenterMapX(mapY) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
             float halfW = RiverMath.RiverHalfWidthMap(mapY) * RiverMath.MapScale * 0.65f;
             float x = centerX + Random.Range(-halfW, halfW);
             float y = RiverGameManager.Instance != null ? RiverGameManager.Instance.currentWaterLevelY : 0f;
-
-            return SpawnTrashAt(new Vector3(x, y, z), wc);
+            return new Vector3(x, y, z);
         }
 
         // units 0 = random bundle size (minBundleUnits..maxBundleUnits); restart re-seeds map piles with 1.
@@ -94,7 +143,7 @@ namespace KaliRiverSweeper.Core
             if (prefab != null)
             {
                 go = Instantiate(prefab, worldPos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), parent);
-                go.transform.localScale *= bundleVisualScale; // prop scale (7-22 cm) -> readable bundle; colliders scale with it
+                go.transform.localScale *= VisualScaleFor(prefab.name, bundleVisualScale); // prop scale (7-22 cm) -> readable bundle; colliders scale with it
             }
             else
             {
@@ -147,7 +196,36 @@ namespace KaliRiverSweeper.Core
                 }
             }
 
+            // Added after the collider so the box above stays the size of the real bundle.
+            if (prefab != null) AddDecorativeClumps(go, prefab);
+
             return go;
+        }
+
+        // Visual only: copies of the prefab meshes/materials, no RiverTrashItem, collider or buoyancy, so no units register.
+        private static void AddDecorativeClumps(GameObject bundle, GameObject prefab)
+        {
+            MeshRenderer[] sources = prefab.GetComponentsInChildren<MeshRenderer>(true);
+            if (sources.Length == 0) return;
+
+            int count = Random.Range(2, 4);
+            for (int i = 0; i < count; i++)
+            {
+                MeshRenderer src = sources[Random.Range(0, sources.Length)];
+                MeshFilter srcFilter = src.GetComponent<MeshFilter>();
+                if (srcFilter == null || srcFilter.sharedMesh == null) continue;
+
+                float dist = Random.Range(0.4f, 1.0f);
+                float ang = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+                Vector3 worldOffset = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * dist;
+
+                GameObject deco = new GameObject("Deco_" + i);
+                deco.transform.SetParent(bundle.transform, false);
+                deco.transform.localPosition = bundle.transform.InverseTransformVector(worldOffset);
+                deco.transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                deco.AddComponent<MeshFilter>().sharedMesh = srcFilter.sharedMesh;
+                deco.AddComponent<MeshRenderer>().sharedMaterials = src.sharedMaterials;
+            }
         }
 
         private GameObject PickPrefab(WasteClass wasteClass)
