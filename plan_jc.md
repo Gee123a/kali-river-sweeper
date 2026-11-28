@@ -56,17 +56,17 @@
 - [x] **Task 3: Lighting & Base Rigging FBXs (`Assets/_Project/Lighting/`, `Rigging/`)**: procedural skybox & 12-min day/night rig (`KaliSky.shader`, `M_KaliSky.mat`, `VP_KaliSky.asset`, `KaliLightingBuilder.cs`, `PF_LightingRig.prefab`) built by Ivan (`Scripts/Core/KaliDayNightCycle.cs`); `PF_Lantern_Warung`, `PF_WarningBeacon_PintuAir`, `SK_VillagerNPC.fbx` (`Idle` / `ThrowTrash` / `CarryBin`), `SM_Villager_Bin`, `SM_Villager_TrashBag`, and `Anim_PlayerToolSwing.fbx` (`SerokanScoop` / `GancoHookSwing`) landed on `main`.
 
 ### Priority 1: Ambient NPC Animations & Props (Feeds Ivan's NPC System)
-- [ ] **Task 4A: Villager NPC Animations (`SK_VillagerNPC.fbx` in `Assets/_Project/Rigging/`)**: add Humanoid 30 fps clips matching `Rigging/README.md` (`Idle`/`CarryBin` convention, Root Motion off):
-  - [ ] Fishing cast & seated/standing idle loop (`Bapak-bapak` fishers).
-  - [ ] Washing-clothes crouched scrub loop (`Ibu-ibu` washers).
-  - [ ] Kids splash / wade / jetty-jump loops (`Bocah-bocah`).
-  - [ ] Chatting idle loop (`Warung` / house porch villagers).
+- [x] **Task 4A: Villager NPC Animations (`SK_VillagerNPC.fbx` in `Assets/_Project/Rigging/`)** *(all 8 clips present in the FBX; 30 fps and root-motion settings not re-checked)*: add Humanoid 30 fps clips matching `Rigging/README.md` (`Idle`/`CarryBin` convention, Root Motion off):
+  - [x] Fishing cast & seated/standing idle loop (`Bapak-bapak` fishers).
+  - [x] Washing-clothes crouched scrub loop (`Ibu-ibu` washers).
+  - [x] Kids splash / wade / jetty-jump loops (`Bocah-bocah`).
+  - [x] Chatting idle loop (`Warung` / house porch villagers).
   - *Dependency*: Ivan's ambient NPC system (`plan_ivan.md`, `KaliAmbientNpc.cs`) starts with existing `Idle`/`ThrowTrash`/`CarryBin` + procedural fallback, then swaps in these clips once merged.
-- [ ] **Task 4B: Villager Activity Props (`Assets/_Project/Props/Equipment/` or `Rigging/`)**: model/export `PF_Prop_FishingRod` (matching `Socket_RightHand` / `Socket_LeftHand`), `PF_Prop_LaundryBasket` (woven basket for washers/chatters), and `PF_Prop_WaterBucket` (`T_Villager_Palette` or `T_Equipment`).
+- [x] **Task 4B: Villager Activity Props (`Assets/_Project/Props/Equipment/` or `Rigging/`)**: model/export `PF_Prop_FishingRod` (matching `Socket_RightHand` / `Socket_LeftHand`), `PF_Prop_LaundryBasket` (woven basket for washers/chatters), and `PF_Prop_WaterBucket` (`T_Villager_Palette` or `T_Equipment`).
   - *Dependency*: Mounted by Ivan's `KaliAmbientNpc.cs` to replace generated cylinder/line rod stand-ins.
 
 ### Priority 2: Missing World Prop, Branch Sync & First-Person Tool Swing Wiring
-- [ ] **Task 5A: `PF_Prop_SolarInterceptor` (`Assets/_Project/Props/Equipment/`)**: model/export `SM_Prop_SolarInterceptor.fbx` + `PF_Prop_SolarInterceptor.prefab` (`Waterline Y = 0` pivot + collider) to replace the teal primitive placeholder currently mapped to `"interceptor"` in `MapJsonImporter.cs` / `Main.unity`.
+- [x] **Task 5A: `PF_Prop_SolarInterceptor` (`Assets/_Project/Props/Equipment/`)** *(prefab on main; `MapJsonImporter.cs:165` maps `interceptor` to it; `Main.unity` re-bake pending)*: model/export `SM_Prop_SolarInterceptor.fbx` + `PF_Prop_SolarInterceptor.prefab` (`Waterline Y = 0` pivot + collider) to replace the teal primitive placeholder currently mapped to `"interceptor"` in `MapJsonImporter.cs` / `Main.unity`.
   - *Dependency*: Once pushed, Ivan re-runs `KALI > Load Default Purpose-Built Map` to bake the real prefab into `Main.unity`.
 - [ ] **Task 5B: Rebase `jc-products` onto `main`**: resolve merge conflicts against `main` (`KaliPropPrefabBuilder.cs`, `blender/SM_Trash_Pack.blend`, `blender/build_all.py`, and texture atlases — note `PF_Product_*`, `AquaBottle_600ml`, `AquaGalon_19L` are already on `main`), keep only clean non-duplicate Blender/product generator changes, and verify `Build Product Prefabs` compiles cleanly before closing the branch.
 - [ ] **Task 5C: Wire `Anim_PlayerToolSwing` (`Assets/_Project/Rigging/`)**: create the `Generic` Animator Controller + `ToolHolder` rig prefab per `Rigging/README.md` (`SerokanScoop` 0.8s for nets/scoops, `GancoHookSwing` 0.7s for hooks/sickles/rakes, resting at `ToolHolder` `Euler(65, -8, 0)`).
@@ -79,15 +79,22 @@
 ---
 
 ### Priority 0-A: Core Mechanics v2 — readable trash bundles ([docs/MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §D)
-- [ ] **Task 7A: Floating trash bundles**: `PF_Trash_BundleKresek` (tied plastic bag cluster ~0.6 m), `PF_Trash_RaftBotol` (bottle raft ~0.9 m), `PF_Trash_SlabStyrofoam` (~0.8 m), plus medical (`PF_Trash_BundleMedis` syringes in a bag) and biohazard (`PF_Trash_DrumBiohazard` floating drum) variants; buoyant pivot at waterline, high-contrast colors readable on brown water, `RiverTrashItem`-compatible names.
+- [ ] **Task 7A: Floating trash bundles** *(partial: all 5 prefabs on main; readability on turbid water and scale not checked)*: `PF_Trash_BundleKresek` (tied plastic bag cluster ~0.6 m), `PF_Trash_RaftBotol` (bottle raft ~0.9 m), `PF_Trash_SlabStyrofoam` (~0.8 m), plus medical (`PF_Trash_BundleMedis` syringes in a bag) and biohazard (`PF_Trash_DrumBiohazard` floating drum) variants; buoyant pivot at waterline, high-contrast colors readable on brown water, `RiverTrashItem`-compatible names.
 
-- [ ] **Task 7B: Tool role silhouettes ([MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §C2)**: make each role read at a glance in first person — Serok (nets/scoops), Capit (grabbers/gloves), Ganco (hooks), Garuk/Pompa (rakes/pumps). Add a cheap Capit starter (`PF_Tool_SarungTanganKaret` rubber gloves) and a Garuk starter (`PF_Tool_GarukBambu` bamboo rake) if Ivan's role ladders need them; 4 small role icons (`T_Icon_Role_*`) for Niki's hotbar.
+- [ ] **Task 7B: Tool role silhouettes ([MECHANICS_SPEC.md](./docs/MECHANICS_SPEC.md) §C2)** *(not started: no `PF_Tool_SarungTanganKaret` or `PF_Tool_GarukBambu`, no `T_Icon_Role_*` on main)*: make each role read at a glance in first person — Serok (nets/scoops), Capit (grabbers/gloves), Ganco (hooks), Garuk/Pompa (rakes/pumps). Add a cheap Capit starter (`PF_Tool_SarungTanganKaret` rubber gloves) and a Garuk starter (`PF_Tool_GarukBambu` bamboo rake) if Ivan's role ladders need them; 4 small role icons (`T_Icon_Role_*`) for Niki's hotbar.
 
 ### Priority 0: Progression & Village Life — NPC Animations & Quest Props
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
-- [ ] **Task 6A: Interaction clips (`SK_VillagerNPC`, Humanoid 30 fps, Root Motion off)**: `Talk_Gesture` (2–3 s loop, hand gestures for `[E] Bicara`), `Wave`, `Point_Forward` (giving quest directions / kid→fisher chain), `Cheer_Clap` (clean-combo reaction), `Head_Look` additive or simple neck rig note for Ivan's look-at, `Call_Out` (washer calling kids in storm), `Kid_Run` + `Kid_Celebrate` (Bola Hanyut).
-- [ ] **Task 6B: Quest props (`Props/Equipment/` or `Props/Quest/`, `T_Villager_Palette`)**: `PF_Prop_BolaPlastik` (floating ball, buoyant pivot at waterline), `PF_Prop_KailKusut` (tangled fishing line + bag snag cluster for jetty 2), `PF_Prop_KotakJarum` (needle box / medical cluster for Tangga Cuci), `PF_Prop_GelasEsTeh` (warung side quest), `PF_Prop_QuestMarker` (simple "!" billboard mesh, low-poly, emissive-friendly).
-- [ ] **Task 6C: Villager variety**: 3–4 MaterialPropertyBlock-friendly color sets / hat + sarong variants so quest givers (Pak RT, Bu Siti, Pak Darto, Raka, Mbok Nah) are recognisable at 20 m.
+- [ ] **Task 6A: Interaction clips (`SK_VillagerNPC`, Humanoid 30 fps, Root Motion off)** *(partial: `Talk_Gesture`, `Wave`, `Point_Forward`, `Cheer_Clap`, `Call_Out`, `Kid_Run`, `Kid_Celebrate` in the FBX; `Head_Look` missing)*: `Talk_Gesture` (2–3 s loop, hand gestures for `[E] Bicara`), `Wave`, `Point_Forward` (giving quest directions / kid→fisher chain), `Cheer_Clap` (clean-combo reaction), `Head_Look` additive or simple neck rig note for Ivan's look-at, `Call_Out` (washer calling kids in storm), `Kid_Run` + `Kid_Celebrate` (Bola Hanyut).
+- [x] **Task 6B: Quest props (`Props/Equipment/` or `Props/Quest/`, `T_Villager_Palette`)** *(all 5 prefabs on main under `Props/Equipment/Prefabs/`)*: `PF_Prop_BolaPlastik` (floating ball, buoyant pivot at waterline), `PF_Prop_KailKusut` (tangled fishing line + bag snag cluster for jetty 2), `PF_Prop_KotakJarum` (needle box / medical cluster for Tangga Cuci), `PF_Prop_GelasEsTeh` (warung side quest), `PF_Prop_QuestMarker` (simple "!" billboard mesh, low-poly, emissive-friendly).
+- [ ] **Task 6C: Villager variety** *(partial: Bare, Sarung and base bodies with hat meshes exist; 20 m readability not checked)*: 3–4 MaterialPropertyBlock-friendly color sets / hat + sarong variants so quest givers (Pak RT, Bu Siti, Pak Darto, Raka, Mbok Nah) are recognisable at 20 m.
+
+### Open Follow-ups (playtest-2, not Play Mode tested)
+- Do not regenerate the `jc-props-v2` / `jc-npc-v2` prefabs: they are on local `main`; pull after Ivan pushes.
+- Old 2.2× trash props look ~3× smaller than new bundles (JC/Ivan decision).
+- `Anim_Washer_CrouchedScrub` does not read as a squat on the Bare body.
+- `Head_Look` clip missing (Task 6A).
+- Task 5C `ToolHolder` Animator not built (no Animator Controller in `Rigging/`).
 
 ## 3. Blender Export Checklist & Sidang Q&A Proof
 - Keep raw `.blend` files and UV sheets ready to open live during Sidang Q&A (**30% Understanding of the Process**).

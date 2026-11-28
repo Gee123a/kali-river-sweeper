@@ -106,7 +106,7 @@
 
 ### Priority 2: Teammate Deliverable Wiring (`MapJsonImporter.cs`, `Main.unity`)
 - [ ] **Task 5: Integrate Teammate Assets & Resolve Shared Decisions** *(Depends on `plan_jc.md`, `plan_wesley.md`, `plan_niki.md`)*:
-  - [ ] **From JC (`plan_jc.md`)**: wire `PF_Prop_SolarInterceptor` into `MapJsonImporter.cs`; disable `KaliPlayerController.cs`'s own `32°` procedural `ToolSocket` swing once JC wires `Anim_PlayerToolSwing`; integrate new villager NPC clips/props into `KaliAmbientNpc.cs`; confirm clean `jc-products` closure.
+  - [ ] **From JC (`plan_jc.md`)** *(interceptor already mapped at `MapJsonImporter.cs:165`, re-bake pending)*: wire `PF_Prop_SolarInterceptor` into `MapJsonImporter.cs`; disable `KaliPlayerController.cs`'s own `32°` procedural `ToolSocket` swing once JC wires `Anim_PlayerToolSwing`; integrate new villager NPC clips/props into `KaliAmbientNpc.cs`; confirm clean `jc-products` closure.
   - [ ] **From Wesley (`plan_wesley.md`)**: swap procedural tree stand-ins (`CreateLowPolyTree`), `Backdrop_RollingHills` ring, and plank jetties for Wesley's `kelapa`/`pisang` trees, backdrop hills mesh, `tangga cuci` steps (re-snapping washer NPCs), extra jetties, and optional fences/footpaths.
   - [ ] **From Niki (`plan_niki.md`)**: integrate `Canvas_ShopBankSampah` (`OnShopRequested`, optionally retire Kopdes `[1-4]` keyboard fallback), `Audio/`, `Canvas_SDGImpactReport` (`PartialSurvival` + `"Main Lagi"`), and HUD P0 fixes; resolve shared open decisions (Equipped Tool `#XX` pill vs transient toast; 4-pin vs 6-pin minimap legend) and re-bake `Main.unity`.
 
@@ -124,11 +124,29 @@
 
 ### Priority 0: Progression & Village Life Redesign (Core Systems — do first)
 Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
-- [ ] **Task 6A: Playtest P0 fixes**: bake `trash_pile` clusters as live `RiverTrashItem`s in `MapJsonImporter.SpawnTrashCluster` (tutorial piles near spawn first); biohazard grace `10s → 25s` (or timer only on land); stronger storm surge (`5s → 1.5s`).
+- [ ] **Task 6A: Playtest P0 fixes** *(partial: `trash_pile` clusters baked and biohazard grace is 30 s via Task 7B; storm surge still 8 s → 3 s in code, not 5 s → 1.5 s)*: bake `trash_pile` clusters as live `RiverTrashItem`s in `MapJsonImporter.SpawnTrashCluster` (tutorial piles near spawn first); biohazard grace `10s → 25s` (or timer only on land); stronger storm surge (`5s → 1.5s`).
 - [ ] **Task 6B: Earned tier progression (`RiverGameManager`, `ToolCatalog`)**: remove cumulative-Rp auto unlocks; add `GetToolTier(int)`, `IsTierOpen(int)` (trust threshold 30/50/70/85 + quest flags), tier gating in `BuyTool`, one `OnTierOpened` event (replaces 20 tool toasts); trust deltas per action (correct sort +2, quest +10–20, prick -5); "Setoran Bersih" combo streak (+5%/step, cap +25%, reset on mistake). Sampan and Trash Boom become quest rewards; Excavator stays Rp + Tier 3.
 - [ ] **Task 6C: Quest system**: `Scripts/Core/KaliQuestCatalog.cs` (static table: Q1 Belajar Memilah, Q2 Jarum di Tangga Cuci, Q3 Kail Nyangkut, Q4 Bola Hanyut, Q5 Gotong Royong, Q6 Evakuasi, side Es Teh) + `KaliQuestManager.cs` (listens to existing GM events, `ActiveQuest`, `OnQuestStarted/Progress/Completed/Failed`, max 1 active + 1 storm quest). Quest spawn points in `kali-river-map.json` (`quest_marker` items) and the ball/snag spawns.
-- [ ] **Task 6D: NPC interaction (`KaliAmbientNpc`, new `KaliNpcInteractable.cs`, `KaliNpcDialogue.cs`)**: `[E] Bicara` within 2.5 m, state-based line pick (calm/dirty/storm/high-low trust) from Niki's Bahasa table; reactive behaviour (washers leave below clarity 0.25, kids swim only at clarity ≥ 0.4, fishers drop a "sampah nyangkut" pickable every ~20 s while dirty, head-look within 4 m, cheer on a nearby clean combo); NPC↔NPC chains (chatter gossip pairs, kid→fisher point-and-follow every ~45 s, washer calls kids out in storm → Q6).
+- [ ] **Task 6D: NPC interaction (`KaliAmbientNpc`, new `KaliNpcInteractable.cs`, `KaliNpcDialogue.cs`)** *(partial: `[E]` talk with facing and state-based lines in `KaliNpcInteractable.cs` (no `KaliNpcDialogue.cs`), `OnSpoke` event; not built: head-look, reactive behaviours, NPC↔NPC chains)*: `[E] Bicara` within 2.5 m, state-based line pick (calm/dirty/storm/high-low trust) from Niki's Bahasa table; reactive behaviour (washers leave below clarity 0.25, kids swim only at clarity ≥ 0.4, fishers drop a "sampah nyangkut" pickable every ~20 s while dirty, head-look within 4 m, cheer on a nearby clean combo); NPC↔NPC chains (chatter gossip pairs, kid→fisher point-and-follow every ~45 s, washer calls kids out in storm → Q6).
 - [ ] **Task 6E: QA + balance**: `KaliCoreQaTests` suites for tier gating, each quest's complete/fail path, combo reset, NPC talk prompt; re-run `docs/playtest/progression_sim.py` (add tiers + quests) to hit good-Sorter TrueSdgVictory 30–50%, no reward gap > 40 s, Tier 3 by ~150–170 s. *(Depends on 6B–6D; supersedes Task 4K.)*
+
+### Playtest-2 Fixes (merged to `main`, `3b77747`..`6e88c16`; not Play Mode tested)
+- [x] **Waypoint chevrons**: `KaliWaypointChevrons.cs` points at the current objective target; QA token tests in code, one instance in `Main.unity`.
+- [x] **Objective pill under the HUD**: IMGUI in `KaliFieldGuideOverlay.cs`, bound to `CurrentObjective`. Niki's HUD binding is still open (`plan_niki.md` Task 7A).
+- [x] **One end-screen restart**: IMGUI `Main Lagi` shows only when `Canvas_SDGImpactReport` has no `Card/Btn_PlayAgain`.
+- [x] **`[E]` talk needs facing**: `KaliNpcInteractable.FacingDot = 0.5`, QA `VerifyNpcFacingTalkRule`.
+- [x] **Five named villagers** (Pak RT, Bu Siti, Pak Darto, Raka, Mbok Nah) from `KaliNpcBuilder.cs`, with role clips and `Talk_Gesture` (clip names confirmed in `SK_VillagerNPC.fbx`).
+- [x] **Mbok Nah sells Es Teh**: Rp 5.000 for +30 HP (`EsTehPrice`, `EsTehHeal`). Differs from `docs/PROGRESSION_REDESIGN.md` (free, once-per-run side quest): pick one.
+- [x] **Trash bundles in importer lists** at authored scale (`PF_Trash_BundleKresek`, `PF_Trash_RaftBotol`, `PF_Trash_SlabStyrofoam`, `PF_Trash_BundleMedis`).
+- [x] **Visible sampan** (boat stays free), **decorative clusters**, **3 seeded start bundles** (kept; more would change flood difficulty), **tutorial piles near the bank**: per commit `3b77747`, not re-checked in code.
+- [x] **`KaliBillboard`** script exists; not attached until quests.
+- [x] **`Audio_Director`**: referenced by the importer (`Audio_Director.prefab`); drives Geiger.
+
+Open follow-ups:
+- Old 2.2× trash props look ~3× smaller than new bundles (JC/Ivan decision).
+- Es Teh charges full price even for 1 HP.
+- Wash tub may sit slightly under ground.
+- Wesley decals and trash visibility on turbid water still open (`plan_wesley.md`).
 
 ## 3. Verification & Live Sidang Talking Points
 - Explain **Beer-Lambert turbidity interpolation** (`_WaterClarity` global float driving shader opacity/absorption).

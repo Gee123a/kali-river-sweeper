@@ -62,31 +62,31 @@ Your UI & VFX components subscribe cleanly to these public members in `RiverGame
 
 ### Priority 1: MVP Blockers (Selesai di branch Niki — siap push ke `niki-vfx`)
 - [x] **Task 1A: Wire `BC_StationDockSheet`, Minimap `RiverMath` & 720p/TMP Fixes**: subscribed `KaliHudController.cs` to `KaliPlayerController.OnNearbyHubChanged` and `OnNearbyDermagaChanged`, wrapped `DENDA` / `[E] JUAL SEMUA` onto 2 lines (`96x40px`, auto-size) for `1280x720`, wired `BiohazardGraceRemaining` to `Image.Type.Filled`, anchored `UI_Contour.png` to `RiverMath` with solid `B/M/K/P` + outline `KD` (Kopdes) pin & `DAM` at `y = 237.5`, regenerated 8.4 MB SDF fonts (`BarlowCondensed-Bold` & `IBMPlexMono-SemiBold`), and imported `Assets/TextMesh Pro/` (TMP Essentials). *(Run `Build HUD Sprites` + `Build Canvas_HUD` in Unity before final push.)*
-- [x] **Task 1B: Build `Canvas_SDGImpactReport` (`SdgImpactReportController.cs`, `Canvas_SDGImpactReport.prefab`)**: initial ending/victory modal covering core 4 endings (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`; `PartialSurvival` pending UI Task 2/4F sync), summarizing recycled vs flushed kg, Medical/Biohazard secured, wrong-station fines, Pengepul hazard dumps, and **SDG 6.3 / 11.5 / 14.1** educational verdict.
+- [x] **Task 1B: Build `Canvas_SDGImpactReport` (`SdgImpactReportController.cs`, `Canvas_SDGImpactReport.prefab`)**: initial ending/victory modal covering core 4 endings (`TrueSdgVictory`, `CompromisedOceanFlush`, `FloodFail`, `HealthFail`; `PartialSurvival` added in Task 4A), summarizing recycled vs flushed kg, Medical/Biohazard secured, wrong-station fines, Pengepul hazard dumps, and **SDG 6.3 / 11.5 / 14.1** educational verdict.
 
 ### Priority 2: Economy Shop, Audio & End-Run SDG Parity
-- [ ] **Task 2: `Canvas_ShopBankSampah` + `KaliShopController` (`Assets/_Project/UI/`)**: build `KaliShopController.cs` + `Canvas_ShopBankSampah.prefab` (`Sort Order = 20`, with `GraphicRaycaster`) for `Koperasi Desa (Kopdes)` & stations:
+- [ ] **Task 2: `Canvas_ShopBankSampah` + `KaliShopController` (`Assets/_Project/UI/`)** *(partial: prefab, controller, `GraphicRaycaster` and `OnShopRequested` subscription on main; rest unverified)*: build `KaliShopController.cs` + `Canvas_ShopBankSampah.prefab` (`Sort Order = 20`, with `GraphicRaycaster`) for `Koperasi Desa (Kopdes)` & stations:
   - [ ] Subscribe to `KaliPlayerController.OnShopRequested` (`[E]` at `Koperasi Desa / Kopdes`), replacing the temporary `[1-4]` Kopdes keyboard fallback in `KaliPlayerController.cs`.
   - [ ] Wire 20-tool shop (`BuyTool(int)`, `SelectTool(int)`, `IsToolUnlocked(int)`, `IsToolOwned(int)`, reading `ToolDefinition.UnlockRupiah`), `BuyKampungBins()` (`RiverGameManager.KampungBinsCost`), `BuyUpgrade(UpgradeTier)` (`RiverGameManager.GetUpgradeCost(UpgradeTier)`), and Choice A/C `TriggerEmergencyFlush()`.
   - *Dependency*: Uses Ivan's `RiverGameManager` & `KaliPlayerController.OnShopRequested` already in `main`; notify Ivan once merged so `Main.unity` is re-baked and the fallback notice can retire.
-- [ ] **Task 3: Audio (`Assets/_Project/Audio/`)**: create/wire ambient & SFX clips with clean event subscriptions (zero per-frame polling):
+- [ ] **Task 3: Audio (`Assets/_Project/Audio/`)** *(partial: clips and `Audio_Director` on main; kids laughter bank missing; event wiring not re-checked)*: create/wire ambient & SFX clips with clean event subscriptions (zero per-frame polling):
   - [ ] Calm river ambience loop vs heavy monsoon rain loop (`OnWeatherChanged`).
   - [ ] Kids laughter ambient bank SFX (for `Bocah-bocah` `npc_group` river zones).
   - [ ] Medical needle-prick warning SFX (`OnHazardOrAlert` / prick), Biohazard Geiger warning ticks (`IsBiohazardDotActive` / `BiohazardGraceRemaining`), and `Siaga 2 / 1` flood siren.
   - [ ] Wet scoop splashes (`OnWaterSplash`), wrong-station fine buzzer (`OnStationAuditReceipt`), and tool unlock chime (`OnToolUnlocked`).
   - *Dependency*: Subscribes to Ivan's `RiverGameManager` events + optional kid-zone anchors from Ivan's Ambient NPC system (`plan_ivan.md`).
-- [ ] **Task 4A: `Canvas_SDGImpactReport` — `PartialSurvival` + `"Main Lagi"` Button (`UI/Scripts/SdgImpactReportController.cs`, `UI/Prefabs/Canvas_SDGImpactReport.prefab`)**:
-  - [ ] Add `GameEnding.PartialSurvival` headline/body/SDG verdict in `FillCopy()` (currently handles only 4 endings).
-  - [ ] Add `GraphicRaycaster` + `"Main Lagi"` button wired to `RiverGameManager.Instance.RestartRun()`, and auto-hide modal when `activeEnding == GameEnding.None` (fixes stuck overlay on `[R]` / retry).
+- [ ] **Task 4A: `Canvas_SDGImpactReport` — `PartialSurvival` + `"Main Lagi"` Button (`UI/Scripts/SdgImpactReportController.cs`, `UI/Prefabs/Canvas_SDGImpactReport.prefab`)** *(partial: `PartialSurvival` copy, `Card/Btn_PlayAgain` → `RestartRun()`, auto-hide and `GraphicRaycaster` done; scorecard rank and layout fixes not checked)*:
+  - [x] Add `GameEnding.PartialSurvival` headline/body/SDG verdict in `FillCopy()` (currently handles only 4 endings).
+  - [x] Add `GraphicRaycaster` + `"Main Lagi"` button wired to `RiverGameManager.Instance.RestartRun()`, and auto-hide modal when `activeEnding == GameEnding.None` (fixes stuck overlay on `[R]` / retry).
   - [ ] Fix `TMP_EndingBody` word wrap and `Row_6` / `TMP_Sdg63` `2px` overlap; surface `ComputeSdgScorecard()` rank (`S/A/B/C/F`), `Rupiah`, `Tools Unlocked / 20`, and `infectionIncidents` parity.
   - *Dependency*: Consumes Ivan's `RestartRun()` & `ComputeSdgScorecard()` (already on `main`).
 
 ### Priority 3: HUD P0 Fixes & Sidang Demo Flow
-- [ ] **Task 4B: HUD P0 Fixes (`UI/Scripts/KaliHudController.cs`, `HudMapLayout.cs`, `KaliHudPrefabBuilder.cs`)**:
+- [ ] **Task 4B: HUD P0 Fixes (`UI/Scripts/KaliHudController.cs`, `HudMapLayout.cs`, `KaliHudPrefabBuilder.cs`)** *(partial: code side of most items on main, Play Mode not tested; minimap alignment and toast wrap not checked)*:
   - [ ] Wire `Img_Hatch45Fill` (`Gunung Sampah`) via `RectMask2D` over tiled `RawImage` driven by `gunungSampahHealth`, and widen `Box_Cleared` so `"GUNUNG SAMPAH"` never spills onto hatch.
   - [ ] Fix `Strip_BiohazardTimer`: replace stretched `Image.Type.Filled` with tiled `RawImage` + `RectMask2D`, add `"BIOHAZARD · KE KARANTINA (K)"` label, and keep bar visible in `"PAPARAN AKTIF!"` state when `IsBiohazardDotActive == true` (instead of hiding at `0s`).
   - [ ] Wire `OnHazardOrAlert(string msg, bool isDanger)` into a visible contextual alert strip (stop dropping medical pricks, wrong-station fines, Sell-Lock, and `#13` dredge blocks).
-  - [ ] Fix `BC_StationDockSheet`: hide `[1][2][3]` discard keys at `Kopdes` & `Dermaga` (`[E] Buka Kopdes`, `[E] Turun/Naik Sungai`), add clear `#F4F2EC` vellum box behind `DENDA` (`#B50E6F`), and sync `player.HasNearbyHub` immediately inside `TrySubscribePlayer()`.
+  - [x] Fix `BC_StationDockSheet`: hide `[1][2][3]` discard keys at `Kopdes` & `Dermaga` (`[E] Buka Kopdes`, `[E] Turun/Naik Sungai`), add clear `#F4F2EC` vellum box behind `DENDA` (`#B50E6F`), and sync `player.HasNearbyHub` immediately inside `TrySubscribePlayer()`.
   - [ ] Fix minimap coordinate alignment (`HudMapLayout.cs` matching `MapJsonImporter.cs` `(item.x, item.y)` origins) and add FIFO queue + word-wrap/ellipsis for `OnToolUnlocked` toasts.
   - *Dependency / Coordination*: Resolve open spec decisions with Ivan (Equipped Tool `#XX` pill vs transient toast, 4-pin vs 6-pin minimap legend) and apply P1/P2 uGUI hygiene (`raycastTarget = false` on non-interactive graphics, `Layer 5 (UI)`, zero-alloc `TMP_Text.SetText`, safe-area fitter) if time permits.
 - [ ] **Task 5: 3-Minute Sidang Script with `T` Time-of-Day Demo (`docs/SIDANG_DEMO_SCRIPT.md`)**: finalize/sync the Bahasa Indonesia 3-minute live Sidang presentation script covering cleanup -> Kopdes -> **`T`** time-of-day cycling (`Golden Hour 17:24 -> Dusk 18:40 -> Night 22:00 -> Dawn 05:50 -> Noon 12:00`) -> `Siaga` HUD warnings -> `Canvas_SDGImpactReport` (`PartialSurvival` vs `TrueSdgVictory`).
@@ -106,6 +106,12 @@ Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: 
 - [ ] **Task 6C: Bahasa script (`KaliNpcDialogue` line table, deliver as text/CSV for Ivan)**: 5 named villagers (Pak RT, Bu Siti, Pak Darto, Raka, Mbok Nah) × states (calm, dirty, storm, high trust, low trust) × quest offer/progress/done lines + chatter gossip pairs; short, natural kampung Bahasa.
 - [ ] **Task 6D: Village audio**: talk blips / short voice barks per villager, kids cheer + splash, quest accept/complete stingers, combo tick, tier-open fanfare, evacuation shout in storm.
 - [ ] **Task 6E: SDG report**: add "Misi Warga" section (quests done, trust tier reached, best combo) to `Canvas_SDGImpactReport`.
+
+### Status After Playtest-2 Sync (not Play Mode tested)
+- Done in code: Task 1B (report `PartialSurvival`), Task 4A (copy, Main Lagi, auto-hide, raycaster), HUD dock keys (4B), shop prefab rebuilt with `GraphicRaycaster`.
+- Partial: Task 2 (shop wiring and `[1-4]` fallback retirement unverified), Task 3 (no kids laughter SFX), Task 4B (minimap alignment, `Box_Cleared`, toast wrap unverified), Tasks 6C and 6D (line table and village SFX partial).
+- Not started: Task 5 Sidang script (`docs/SIDANG_DEMO_SCRIPT.md` absent), Task 6A dialogue bubble on `KaliNpcInteractable.OnSpoke`, Task 6B quest HUD (needs `KaliQuestManager`), Task 6E "Misi Warga", Task 7A restyle, Task 7B Start/Pause menus. Ivan's IMGUI fallbacks stay active until these land.
+- Open: tier-open fanfare and evacuation shout SFX missing.
 
 ## 4. Verification & Live Sidang Talking Points
 - Test every UI panel at `1920x1080` and `1280x720` with zero overlapping text.
