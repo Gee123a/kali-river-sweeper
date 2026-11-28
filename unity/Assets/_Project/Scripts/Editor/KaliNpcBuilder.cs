@@ -294,7 +294,7 @@ namespace KaliRiverSweeper.Editor
             Material rodBobberMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.86f, 0.24f, 0.18f));
             Material standInMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.75f, 0.42f, 0.34f));
 
-            float initialWaterY = RiverGameManager.BaseWaterLevelY + 4 * RiverGameManager.WaterRisePerTrashUnit;
+            float initialWaterY = RiverGameManager.BaseWaterLevelY + 4 * RiverGameManager.WaterRisePerPiledUnit;
 
             int spawned = 0;
             for (int i = 0; i < npcs.Count; i++)

@@ -100,7 +100,8 @@ namespace KaliRiverSweeper.Editor
                 VerifySwimmingStaminaAndDrowning,
                 VerifyDayNightCycle,
                 VerifyKampungRowsAndMapEdge,
-                VerifyAmbientRiverNpcs
+                VerifyAmbientRiverNpcs,
+                VerifyObjectiveChainAndSeededTrash
             };
 
             assertCount = 0;
@@ -118,21 +119,28 @@ namespace KaliRiverSweeper.Editor
             {
                 RiverGameManager gm = ctx.Manager;
                 AssertApprox(-0.25f, RiverGameManager.BaseWaterLevelY, 0.0001f, "BaseWaterLevelY");
-                AssertApprox(0.020f, RiverGameManager.WaterRisePerTrashUnit, 0.0001f, "WaterRisePerTrashUnit");
-                Assert(gm.TotalTrashInRiver == 4, "Initial TotalTrashInRiver should be 4");
-                AssertApprox(-0.17f, gm.currentWaterLevelY, 0.001f, "Initial water level");
+                // Spec D: waterY = base + piled x 0.022 + floating x 0.004 + rainRise (0 -> 0.55 m across the storm).
+                AssertApprox(0.022f, RiverGameManager.WaterRisePerPiledUnit, 0.0001f, "WaterRisePerPiledUnit");
+                AssertApprox(0.004f, RiverGameManager.WaterRisePerFloatingUnit, 0.0001f, "WaterRisePerFloatingUnit");
+                AssertApprox(0.55f, RiverGameManager.MaxRainRiseY, 0.0001f, "MaxRainRiseY");
+                Assert(gm.TotalTrashInRiver == 4 && gm.piledRiverTrashCount == 4, "Initial barrier pile is 4");
+                AssertApprox(-0.162f, gm.currentWaterLevelY, 0.001f, "Initial water level (4 piled)");
                 Assert(!gm.IsBankOverflowing && !gm.IsSellLocked, "Initial water must not overflow or lock sell");
 
-                gm.RegisterActiveTrash(78); // 4 + 78 = 82 -> 1.39f
-                AssertApprox(1.39f, gm.currentWaterLevelY, 0.001f, "82 trash water level");
-                Assert(!gm.IsBankOverflowing, "82 trash must not overflow (< 1.40f)");
+                gm.RegisterActiveTrash(100); // floating trash barely raises the river: +0.40 m
+                AssertApprox(0.238f, gm.currentWaterLevelY, 0.001f, "100 floating units -> +0.40 m");
+                gm.UnregisterActiveTrash(100);
 
-                gm.RegisterActiveTrash(1); // 83 -> 1.41f
-                AssertApprox(1.41f, gm.currentWaterLevelY, 0.001f, "83 trash water level");
-                Assert(gm.IsBankOverflowing && !gm.IsSellLocked, "83 trash must trigger IsBankOverflowing only");
+                gm.AddPiledTrash(70); // 74 piled -> 1.378
+                AssertApprox(1.378f, gm.currentWaterLevelY, 0.001f, "74 piled water level");
+                Assert(!gm.IsBankOverflowing, "74 piled must not overflow (< 1.40f)");
 
-                gm.RegisterActiveTrash(23); // 106 -> 1.87f >= 1.85f
-                Assert(gm.IsSellLocked, "106 trash (>= 1.85f) must trigger IsSellLocked");
+                gm.AddPiledTrash(2); // 76 piled -> 1.422
+                AssertApprox(1.422f, gm.currentWaterLevelY, 0.001f, "76 piled water level");
+                Assert(gm.IsBankOverflowing && !gm.IsSellLocked, "76 piled must trigger IsBankOverflowing only");
+
+                gm.AddPiledTrash(20); // 96 piled -> 1.862 >= 1.85f
+                Assert(gm.IsSellLocked, "96 piled (>= 1.85f) must trigger IsSellLocked");
 
                 Assert(gm.TryPickupWaste(WasteClass.Normal, 1), "Pickup normal under capacity");
                 Assert(gm.TryPickupWaste(WasteClass.Biohazard, 1), "Pickup biohazard under capacity");
@@ -146,8 +154,8 @@ namespace KaliRiverSweeper.Editor
                 AssertApprox(0f, gm.biohazardExposureTimer, 0.001f, "Dump resets biohazard timer");
                 Assert(gm.communityTrust == trustBeforeDump, "Emergency dump during Sell-Lock has zero trust penalty");
 
-                gm.UnregisterActiveTrash(102); // Drop back to 4 -> safe water level
-                Assert(!gm.IsSellLocked, "Water level drops below sell lock");
+                gm.RemovePiledTrash(92); // Clearing the barrier pile is what lowers the river
+                Assert(!gm.IsSellLocked && !gm.IsBankOverflowing, "Water level drops below sell lock after clearing the pile");
                 gm.TryPickupWaste(WasteClass.Biohazard, 2);
                 int trustBeforePenaltyDump = gm.communityTrust;
                 gm.DumpCargoOnHighGround();
@@ -155,10 +163,30 @@ namespace KaliRiverSweeper.Editor
 
                 GameEnding firedEnding = GameEnding.None;
                 gm.OnEndingTriggered += e => firedEnding = e;
-                gm.AddPiledTrash(131); // 4 + 131 = 135 -> 2.45000005f >= 2.45f
-                Assert(gm.currentWaterLevelY >= gm.fatalFloodWaterY, "135 trash reaches fatalFloodWaterY (2.45f)");
+                gm.AddPiledTrash(127); // 4 + 127 = 131 piled -> 2.632 >= 2.45f
+                Assert(gm.currentWaterLevelY >= gm.fatalFloodWaterY, "131 piled reaches fatalFloodWaterY (2.45f)");
                 InvokeNonPublic(gm, "Update");
                 Assert(gm.activeEnding == GameEnding.FloodFail && firedEnding == GameEnding.FloodFail, "FloodFail triggered at >= 2.45f");
+            }
+
+            // Rain: ramps 0 -> 0.55 m across the storm window, decays after.
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining;
+                InvokeNonPublic(gm, "Tick", 0.01f);
+                Assert(gm.isMonsoonStorm && gm.rainRiseY < 0.01f, "Rain starts near 0 when the storm begins");
+                float stormStartWater = gm.currentWaterLevelY - gm.rainRiseY;
+                gm.monsoonCountdownRemaining = gm.monsoonStormTriggerRemaining * 0.5f;
+                gm.piledRiverTrashCount = 4;
+                InvokeNonPublic(gm, "Tick", 0.0001f);
+                AssertApprox(0.275f, gm.rainRiseY, 0.005f, "Rain is half of 0.55 m halfway through the storm");
+                AssertApprox(-0.162f + 0.275f, gm.currentWaterLevelY, 0.006f, "Water includes rainRise");
+                gm.monsoonCountdownRemaining = 200f; // outside the storm window so Tick does not restart the storm
+                gm.SetWeather(false);
+                InvokeNonPublic(gm, "Tick", 1f);
+                Assert(gm.rainRiseY < 0.275f && gm.rainRiseY > 0f, "Rain decays after the storm");
+                Assert(stormStartWater < gm.currentWaterLevelY, "Water stays above the pre-rain level while rain decays");
             }
         }
 
@@ -248,15 +276,28 @@ namespace KaliRiverSweeper.Editor
                 Assert(gm.SecureMedicalWaste(true) && gm.medicalWasteSecured == 1 && gm.communityTrust == trustBefore + 12, "SecureMedicalWaste(true)");
                 Assert(!gm.SecureMedicalWaste(false) && gm.infectionIncidents == 1, "SecureMedicalWaste(false) causes prick");
 
-                // Biohazard DoT grace timer & HealthFail ending
+                // Spec E: prick 10 HP; biohazard 30 s grace, DoT 1.5 + 0.5 per extra drum (cap 4), paused in the boat.
+                AssertApprox(10f, gm.medicalPrickDamage, 0.001f, "medicalPrickDamage = 10");
+                AssertApprox(30f, gm.biohazardGraceSeconds, 0.001f, "biohazardGraceSeconds = 30");
+                AssertApprox(1.5f, RiverGameManager.BiohazardDotPerSecond(1), 0.001f, "DoT 1 drum = 1.5 HP/s");
+                AssertApprox(2.5f, RiverGameManager.BiohazardDotPerSecond(3), 0.001f, "DoT 3 drums = 2.5 HP/s");
+                AssertApprox(4f, RiverGameManager.BiohazardDotPerSecond(12), 0.001f, "DoT capped at 4 HP/s");
                 gm.TryPickupWaste(WasteClass.Biohazard, 2);
-                gm.biohazardExposureTimer = 9.5f;
-                Assert(!gm.IsBiohazardDotActive, "DoT inactive before 10s grace");
+                gm.biohazardExposureTimer = 29.5f;
+                Assert(!gm.IsBiohazardDotActive, "DoT inactive before 30s grace");
                 AssertApprox(0.5f, gm.BiohazardGraceRemaining, 0.001f, "BiohazardGraceRemaining = 0.5s");
 
-                gm.biohazardExposureTimer = 10.0f;
-                Assert(gm.IsBiohazardDotActive, "DoT active at >= 10s grace");
+                gm.isPlayerInBoat = true;
+                InvokeNonPublic(gm, "Tick", 5f);
+                AssertApprox(29.5f, gm.biohazardExposureTimer, 0.001f, "Grace timer paused in the boat (sealed hold)");
+                gm.isPlayerInBoat = false;
+
+                gm.biohazardExposureTimer = 30.0f;
+                Assert(gm.IsBiohazardDotActive, "DoT active at >= 30s grace");
                 AssertApprox(0f, gm.BiohazardGraceRemaining, 0.001f, "BiohazardGraceRemaining = 0s");
+                float hpBeforeDot = gm.playerHealth;
+                InvokeNonPublic(gm, "Tick", 1f);
+                AssertApprox(hpBeforeDot - RiverGameManager.BiohazardDotPerSecond(2), gm.playerHealth, 0.01f, "2 drums deal 2.0 HP/s after the grace");
 
                 GameEnding healthEnding = GameEnding.None;
                 gm.OnEndingTriggered += e => healthEnding = e;
@@ -460,7 +501,7 @@ namespace KaliRiverSweeper.Editor
                 RiverGameManager gm = ctx.Manager;
                 GameEnding flushEnding = GameEnding.None;
                 gm.OnEndingTriggered += e => flushEnding = e;
-                gm.RegisterActiveTrash(120);
+                gm.AddPiledTrash(100); // 104 piled -> 2.04 m (Sell-Lock)
                 gm.TriggerEmergencyFlush(confirmed: true);
                 Assert(gm.activeEnding == GameEnding.CompromisedOceanFlush && flushEnding == GameEnding.CompromisedOceanFlush, "CompromisedOceanFlush ending");
                 Assert(gm.flushedKg > 0 && gm.TotalTrashInRiver == 0 && gm.gunungSampahHealth == 0f, "Emergency flush clears river and records flushedKg");
@@ -510,7 +551,18 @@ namespace KaliRiverSweeper.Editor
                 RiverTrashItem item = spawned.GetComponent<RiverTrashItem>();
                 Assert(item != null && item.wasteClass == WasteClass.Biohazard, "SpawnTrashAt sets WasteClass");
                 Assert(spawned.GetComponent<RiverFlowBuoyancy>() != null && spawned.GetComponent<Collider>() != null, "Spawned trash has buoyancy + collider");
-                Assert(gm.activeRiverTrashCount == beforeActive + 1, "Spawned trash registers active count");
+                Assert(item.trashUnits >= 2 && item.trashUnits <= 4, $"Spawned bundle carries 2-4 trashUnits (got {item.trashUnits})");
+                AssertApprox(spawner.bundleVisualScale, spawned.transform.localScale.x, 0.001f, "Spawned bundle is scaled x2.2");
+                Assert(gm.activeRiverTrashCount == beforeActive + item.trashUnits, "Spawned trash registers its trashUnits");
+                AssertApprox(4.0f, spawner.baseSpawnInterval, 0.001f, "Spawn interval 4.0 s (2.0 s in the storm)");
+                AssertApprox(0.5f, spawner.monsoonIntervalMultiplier, 0.001f, "Storm interval x0.5");
+                Assert(spawner.maxVisualFloatingTrash == 120, "Visual trash cap 120");
+
+                // Spec E spawn mix 80/14/6 via the shared roll (river spawns and barrier piles).
+                Assert(RiverGameManager.RollWasteClass(0.799f) == WasteClass.Normal && RiverGameManager.RollWasteClass(0.80f) == WasteClass.Medical, "Normal share = 80%");
+                Assert(RiverGameManager.RollWasteClass(0.939f) == WasteClass.Medical && RiverGameManager.RollWasteClass(0.94f) == WasteClass.Biohazard, "Medical share = 14%, Biohazard = 6%");
+                AssertApprox(0.5f, ToolCatalog.PrickChanceScale, 0.0001f, "Prick chance halved");
+                AssertApprox(0.30f, ToolCatalog.GetTool(1).MedicalPrickChance, 0.0001f, "#1 Sendok prick 60% -> 30%");
 
                 item.TryUnregister();
                 Assert(gm.activeRiverTrashCount == beforeActive, "TryUnregister decrements active count");
@@ -527,8 +579,8 @@ namespace KaliRiverSweeper.Editor
                 int piledBeforePile = gm.piledRiverTrashCount;
                 barrierItem.MarkPiledAtBarrier();
                 Assert(barrierItem.isPiledAtBarrier, "MarkPiledAtBarrier sets flag");
-                Assert(gm.activeRiverTrashCount == activeBeforePile - 1, "MarkPiledAtBarrier decrements active count");
-                Assert(gm.piledRiverTrashCount == piledBeforePile + 1, "MarkPiledAtBarrier increments piled count");
+                Assert(gm.activeRiverTrashCount == activeBeforePile - barrierItem.trashUnits, "MarkPiledAtBarrier decrements active count by bundle units");
+                Assert(gm.piledRiverTrashCount == piledBeforePile + barrierItem.trashUnits, "MarkPiledAtBarrier increments piled count by bundle units");
             }
         }
 
@@ -867,7 +919,7 @@ namespace KaliRiverSweeper.Editor
 
                 // 4. EmergencyFlush Sell-Lock + confirm guard
                 Assert(!gm.TriggerEmergencyFlush(confirmed: true), "EmergencyFlush blocked when not Sell-Locked");
-                gm.RegisterActiveTrash(120); // >= 1.85m
+                gm.AddPiledTrash(100); // 104 piled -> 2.04 m >= 1.85m
                 Assert(gm.IsSellLocked, "120+ trash triggers Sell-Lock");
                 Assert(!gm.TriggerEmergencyFlush(confirmed: false), "EmergencyFlush blocked without confirmation");
 
@@ -1410,6 +1462,92 @@ namespace KaliRiverSweeper.Editor
             playerGo.transform.position = stationPos + new Vector3(5f, 1f, 0f);
             playerGo.transform.rotation = Quaternion.LookRotation(Vector3.left);
             Physics.SyncTransforms();
+        }
+
+        private static void VerifyObjectiveChainAndSeededTrash()
+        {
+            // Spec F: the objective chain advances on real events; the storm overrides; restart resets it.
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                string[] steps = RiverGameManager.ObjectiveSteps;
+                string lastEvent = null;
+                gm.OnObjectiveChanged += o => lastEvent = o;
+                Assert(steps.Length == 5 && gm.CurrentObjective == steps[0], "Objective starts at step 1 (pick up trash)");
+
+                Assert(gm.TryPickupWaste(WasteClass.Normal, 1), "Objective pickup");
+                Assert(gm.CurrentObjective == steps[1] && lastEvent == steps[1], "First pickup -> step 2 (Bank Sampah)");
+
+                gm.DiscardWasteAtStation(DiscardStationType.BankSampah, WasteClass.Normal);
+                Assert(gm.CurrentObjective == steps[2], "First correct deposit -> step 3 (medis / biohazard)");
+
+                InvokeNonPublic(gm, "Tick", 60f);
+                Assert(gm.CurrentObjective == steps[2], "Step 3 holds before 90 s");
+                InvokeNonPublic(gm, "Tick", 31f);
+                Assert(gm.CurrentObjective == steps[3], "Step 3 times out after 90 s -> step 4 (Kopdes)");
+
+                InvokeNonPublic(gm, "AddEarnings", 10000);
+                Assert(gm.BuyTool(2), "Objective tool purchase");
+                Assert(gm.CurrentObjective == RiverGameManager.ObjectiveBeforeStorm, "First tool bought -> pre-storm filler");
+
+                gm.SetWeather(true);
+                Assert(gm.CurrentObjective == steps[4] && lastEvent == steps[4], "Storm -> step 5 (Pintu Air)");
+
+                gm.RestartRun();
+                Assert(gm.CurrentObjective == steps[0], "RestartRun resets the objective chain");
+
+                gm.TryPickupWaste(WasteClass.Normal, 1);
+                gm.TryPickupWaste(WasteClass.Medical, 1);
+                gm.DiscardWasteAtStation(DiscardStationType.PosMedisB3, WasteClass.Medical);
+                Assert(gm.CurrentObjective == steps[3], "A correct medical deposit completes steps 2 and 3 at once");
+            }
+
+            // Spec D: the map trash_pile clusters bake as live, registered, readable items (30-40 units at t=0).
+            using (QaContext ctx = new QaContext())
+            {
+                RiverGameManager gm = ctx.Manager;
+                Type importer = typeof(MapJsonImporter);
+                const BindingFlags Any = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
+                string raw = System.IO.File.ReadAllText("Assets/_Project/Data/kali-river-map.json");
+                object data = JsonUtility.FromJson(raw, importer.GetNestedType("MapData", Any));
+                Array items = (Array)data.GetType().GetField("items").GetValue(data);
+                MethodInfo spawnCluster = importer.GetMethod("SpawnTrashCluster", Any);
+                Assert(spawnCluster != null, "MapJsonImporter.SpawnTrashCluster exists");
+
+                GameObject root = ctx.Track(new GameObject("QA_SeedTrash"));
+                Vector3 spawn = RiverMath.ToWorld3D(310f, 1210f, 0f);
+                int piles = 0;
+                foreach (object it in items)
+                {
+                    if ((string)it.GetType().GetField("type").GetValue(it) != "trash_pile") continue;
+                    piles++;
+                    GameObject pile = new GameObject((string)it.GetType().GetField("name").GetValue(it));
+                    pile.transform.SetParent(root.transform);
+                    spawnCluster.Invoke(null, new object[] { it, pile.transform });
+                }
+                Assert(piles == 8, $"Map has 8 trash_pile clusters (got {piles})");
+
+                int units = 0, normal = 0, medical = 0, bio = 0, tutorialNormal = 0;
+                foreach (RiverTrashItem item in root.GetComponentsInChildren<RiverTrashItem>(true))
+                {
+                    RiverFlowBuoyancy buoy = item.GetComponent<RiverFlowBuoyancy>();
+                    Assert(buoy != null && !buoy.driftDownstream, $"{item.name}: snagged buoyancy (bobs, no drift)");
+                    Assert(item.GetComponentInChildren<Collider>(true) != null, $"{item.name}: has a collider");
+                    item.TryRegister();
+                    units += item.trashUnits;
+                    if (item.wasteClass == WasteClass.Normal) normal++; else if (item.wasteClass == WasteClass.Medical) medical++; else bio++;
+                    if (item.transform.parent.name.Contains("Tutorial"))
+                    {
+                        Assert(item.wasteClass == WasteClass.Normal, "Tutorial piles are all Normal");
+                        Assert(Vector3.Distance(item.transform.position, spawn) < 35f, "Tutorial pile items are within 35 m of spawn");
+                        tutorialNormal++;
+                    }
+                }
+                Assert(units >= 30 && units <= 40, $"Seeded trash is 30-40 units (got {units})");
+                Assert(gm.activeRiverTrashCount == units, "Seeded items register as live river trash");
+                Assert(tutorialNormal == 10, $"Both Sampah Tutorial piles are pickable (got {tutorialNormal} items)");
+                Assert(medical > 0 && bio > 0 && normal >= 0.75f * (normal + medical + bio), $"Seed mix ~80/14/6 (N{normal} M{medical} B{bio})");
+            }
         }
 
         private static void InvokeNonPublic(object target, string methodName, params object[] args)

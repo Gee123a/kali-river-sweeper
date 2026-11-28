@@ -13,7 +13,10 @@ namespace KaliRiverSweeper.Player
     /// </summary>
     public class KaliFieldGuideOverlay : MonoBehaviour
     {
-        private bool showGuide;
+        // Spec F: the controls panel is open for the first 15 s, then folds into the [H] pill (unless toggled).
+        private const float AutoGuideSeconds = 15f;
+        private bool showGuide = true;
+        private bool autoGuide = true;
         private string toastMessage = string.Empty;
         private bool toastIsDanger;
         private float toastExpiresAt;
@@ -27,6 +30,7 @@ namespace KaliRiverSweeper.Player
         private GUIStyle infoStyle;
         private GUIStyle activeSlotStyle;
         private GUIStyle activeSlotTextStyle;
+        private GUIStyle objectiveStyle;
 
         private void OnEnable()
         {
@@ -49,6 +53,12 @@ namespace KaliRiverSweeper.Player
             if (WasHelpPressed())
             {
                 showGuide = !showGuide;
+                autoGuide = false;
+            }
+            else if (autoGuide && Time.timeSinceLevelLoad >= AutoGuideSeconds)
+            {
+                showGuide = false;
+                autoGuide = false;
             }
         }
 
@@ -116,11 +126,19 @@ namespace KaliRiverSweeper.Player
             // 1c. Minimal 4-slot hotbar (bottom-centre, above the dock sheet). Niki restyles later.
             if (gm != null) DrawHotbar(gm);
 
+            // 1d. Objective pill (top-left, always visible). ponytail: IMGUI polls CurrentObjective, no event needed here.
+            if (gm != null && !string.IsNullOrEmpty(gm.CurrentObjective))
+            {
+                float ow = Mathf.Min(520f, Screen.width - 36f);
+                GUI.Box(new Rect(18f, 18f, ow, 34f), "TUJUAN: " + gm.CurrentObjective, objectiveStyle);
+            }
+
             // 2. Compact [H] hint pill (bottom-left)
             Rect pillRect = new Rect(18f, Screen.height - 44f, 228f, 28f);
             if (GUI.Button(pillRect, showGuide ? "[H] Tutup Panduan Kontrol" : "[H] Kontrol & Pemilahan", pillStyle))
             {
                 showGuide = !showGuide;
+                autoGuide = false;
             }
 
             if (!showGuide) return;
@@ -232,6 +250,17 @@ namespace KaliRiverSweeper.Player
             activeSlotStyle.normal.background = MakeTex(new Color(0.067f, 0.071f, 0.067f, 0.95f));
             activeSlotTextStyle = new GUIStyle(bodyStyle);
             activeSlotTextStyle.normal.textColor = new Color(0.957f, 0.949f, 0.925f, 1f);
+
+            objectiveStyle = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft,
+                wordWrap = true,
+                padding = new RectOffset(10, 10, 4, 4)
+            };
+            objectiveStyle.normal.background = vellumTex;
+            objectiveStyle.normal.textColor = ink;
         }
 
         private static Texture2D MakeTex(Color c)

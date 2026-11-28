@@ -58,7 +58,7 @@ namespace KaliRiverSweeper.Core
             Reach = reach;
             BatchCount = batchCount;
             Cooldown = cooldown;
-            MedicalPrickChance = medicalPrickChance;
+            MedicalPrickChance = medicalPrickChance * ToolCatalog.PrickChanceScale;
             GunungDamagePerSwing = gunungDamagePerSwing;
             HeadDir = headDir;
             RoleSummary = roleSummary;
@@ -72,6 +72,8 @@ namespace KaliRiverSweeper.Core
     public static class ToolCatalog
     {
         public const int SnakeGrabberIndex = 10;
+        // Spec E: every tool's medical prick chance is halved from the table values below (#10 stays 0).
+        public const float PrickChanceScale = 0.5f;
 
         private static readonly ToolDefinition[] Tools = new[]
         {

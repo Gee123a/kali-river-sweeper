@@ -1055,10 +1055,13 @@ namespace KaliRiverSweeper.Editor
             float spread = Mathf.Clamp(Mathf.Max(item.w, item.h) * RiverMath.MapScale * 0.5f, 1.5f, 6f);
             float Jitter() => (float)(rng.NextDouble() * 2.0 * spread - spread);
 
+            bool tutorial = (item.name ?? string.Empty).Contains("Tutorial");
             for (int i = 0; i < count; i++)
             {
-                // Ensure each cluster guarantees Normal + Medical + Biohazard variety
-                WasteClass wc = i == 3 ? WasteClass.Medical : (i == 4 ? WasteClass.Biohazard : WasteClass.Normal);
+                // Spec E mix over the 8 map piles (40 items): 32 Normal / 6 Medical / 2 Biohazard. Tutorial piles near
+                // spawn are all Normal so step 1 -> step 2 (Bank Sampah) works; drums only in the upstream muara piles.
+                WasteClass wc = tutorial || i < 3 ? WasteClass.Normal
+                    : (i == 3 && item.y < 350f ? WasteClass.Biohazard : (i == 4 ? WasteClass.Medical : WasteClass.Normal));
                 GameObject[] pool = LoadTrashPrefabPool(wc switch
                 {
                     WasteClass.Medical => MedicalTrashNames,
@@ -1073,6 +1076,7 @@ namespace KaliRiverSweeper.Editor
                 {
                     trashObj = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
                     trashObj.transform.SetPositionAndRotation(center + offset, Quaternion.Euler(0f, (float)(rng.NextDouble() * 360.0), 0f));
+                    trashObj.transform.localScale *= 2.2f; // same readable bundle scale as RiverTrashSpawner.bundleVisualScale
                 }
                 else
                 {
@@ -1093,9 +1097,13 @@ namespace KaliRiverSweeper.Editor
                 RiverTrashItem trashItem = trashObj.GetComponent<RiverTrashItem>();
                 if (trashItem == null) trashItem = trashObj.AddComponent<RiverTrashItem>();
                 trashItem.wasteClass = wc;
+                trashItem.trashUnits = 1; // 8 piles x 5 = 40 units seeded at t=0 (spec D: 30-40)
 
-                if (trashObj.GetComponent<RiverFlowBuoyancy>() == null) trashObj.AddComponent<RiverFlowBuoyancy>();
-                if (trashObj.GetComponent<Collider>() == null) trashObj.AddComponent<BoxCollider>();
+                RiverFlowBuoyancy buoy = trashObj.GetComponent<RiverFlowBuoyancy>();
+                if (buoy == null) buoy = trashObj.AddComponent<RiverFlowBuoyancy>();
+                // ponytail: map piles are snagged (bob in place, no drift) so the tutorial piles stay in front of spawn.
+                buoy.driftDownstream = false;
+                if (trashObj.GetComponentInChildren<Collider>(true) == null) trashObj.AddComponent<BoxCollider>();
             }
         }
 

@@ -14,10 +14,17 @@ namespace KaliRiverSweeper.Core
         public GameObject[] biohazardPrefabs;
 
         [Header("Spawn Tuning")]
-        public float baseSpawnInterval = 4.2f;
-        public float monsoonIntervalMultiplier = 0.42f;
+        // Spec said ~2.0 s; progression_sim.py shows 2-4 unit bundles every 2.0 s flood every archetype by ~200 s
+        // (cargo 8 can't keep up). 4.0 s (2.0 s in the storm) hits idle flood ~235 s and keeps an active sweeper alive.
+        public float baseSpawnInterval = 4.0f;
+        public float monsoonIntervalMultiplier = 0.5f;
         public float kampungBinsSlowdownMultiplier = 2.5f;
-        public int maxVisualFloatingTrash = 72;
+        public int maxVisualFloatingTrash = 120;
+
+        [Header("Readable Bundles (spec D)")]
+        public float bundleVisualScale = 2.2f;
+        public int minBundleUnits = 2;
+        public int maxBundleUnits = 4;
         public float upstreamSpawnMinZ = -60f;
         public float upstreamSpawnMaxZ = -46f;
 
@@ -52,10 +59,12 @@ namespace KaliRiverSweeper.Core
             if (spawnTimer < interval) return;
             spawnTimer = 0f;
 
-            if (gm.activeRiverTrashCount >= maxVisualFloatingTrash)
+            // ponytail: the spawn parent's child count stands in for live visual objects (cheap, no registry).
+            Transform parent = trashRoot != null ? trashRoot : transform;
+            if (parent.childCount >= maxVisualFloatingTrash)
             {
                 // Cap active visual GameObjects to protect 60+ FPS while still escalating river pileup pressure.
-                gm.AddPiledTrash(1);
+                gm.AddPiledTrash(Random.Range(minBundleUnits, maxBundleUnits + 1));
                 return;
             }
 
@@ -64,8 +73,7 @@ namespace KaliRiverSweeper.Core
 
         public GameObject SpawnRandomTrash()
         {
-            float roll = Random.value;
-            WasteClass wc = roll < 0.62f ? WasteClass.Normal : (roll < 0.85f ? WasteClass.Medical : WasteClass.Biohazard);
+            WasteClass wc = RiverGameManager.RollWasteClass(Random.value);
             float z = Random.Range(upstreamSpawnMinZ, upstreamSpawnMaxZ);
             float mapY = z / RiverMath.MapScale + RiverMath.WorldH * 0.5f;
             float centerX = (RiverMath.RiverCenterMapX(mapY) - RiverMath.WorldW * 0.5f) * RiverMath.MapScale;
@@ -85,6 +93,7 @@ namespace KaliRiverSweeper.Core
             if (prefab != null)
             {
                 go = Instantiate(prefab, worldPos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), parent);
+                go.transform.localScale *= bundleVisualScale; // prop scale (7-22 cm) -> readable bundle; colliders scale with it
             }
             else
             {
@@ -93,7 +102,9 @@ namespace KaliRiverSweeper.Core
 
             RiverTrashItem item = go.GetComponent<RiverTrashItem>();
             if (item == null) item = go.AddComponent<RiverTrashItem>();
+            item.TryUnregister(); // prefab instances register 1 unit in OnEnable; re-register with the bundle size
             item.wasteClass = wasteClass;
+            item.trashUnits = Random.Range(minBundleUnits, maxBundleUnits + 1);
             item.TryRegister();
 
             if (go.GetComponent<RiverFlowBuoyancy>() == null)

@@ -233,6 +233,7 @@ namespace KaliRiverSweeper.Player
 
             float waterY = gm != null ? gm.currentWaterLevelY : 0f;
             float stormMult = gm != null && gm.isMonsoonStorm ? 2.2f : 1f;
+            if (gm != null) gm.isPlayerInBoat = isInBoat; // ponytail: mirrored per frame, like the swim state
 
             if (isInBoat)
             {

@@ -52,6 +52,7 @@ namespace KaliRiverSweeper.Core
     {
         [Header("Buoyancy & +Z Downstream Current")]
         public float waterLevelY = 0.0f;
+        public float floatOffsetY = 0.06f; // spec D: sits on top of the surface, never hidden by turbid water
         public float bobAmplitude = 0.08f;
         public float bobSpeed = 2.0f;
         public float currentDriftSpeed = 0.75f;
@@ -78,13 +79,14 @@ namespace KaliRiverSweeper.Core
             }
 
             Vector3 pos = transform.position;
-            pos.y = waterLevelY + Mathf.Sin(Time.time * bobSpeed + phaseOffset) * bobAmplitude;
+            pos.y = waterLevelY + floatOffsetY + Mathf.Sin(Time.time * bobSpeed + phaseOffset) * bobAmplitude;
 
             if (driftDownstream)
             {
                 if (!settledAtBarrier && pos.z < downstreamBarrierZ)
                 {
-                    float stormMult = gm != null && gm.isMonsoonStorm ? 2.2f : 1f;
+                    // Storm current x1.5 (was x2.2, which flushed the whole pre-storm backlog into Pintu Air in ~60 s).
+                    float stormMult = gm != null && gm.isMonsoonStorm ? 1.5f : 1f;
                     float boomSlow = (gm != null && gm.trashBoomActive && Mathf.Abs(pos.z - trashBoomZ) < 4.5f) ? 0.35f : 1f;
                     pos.z += currentDriftSpeed * stormMult * boomSlow * Time.deltaTime;
 

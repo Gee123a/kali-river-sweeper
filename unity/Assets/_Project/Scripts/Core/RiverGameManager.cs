@@ -84,9 +84,10 @@ namespace KaliRiverSweeper.Core
         [Header("Player Health & Hazards")]
         public float playerHealth = 100f;
         public float maxPlayerHealth = 100f;
-        public float medicalPrickDamage = 18f;
-        public float biohazardGraceSeconds = 10f;
+        public float medicalPrickDamage = 10f;
+        public float biohazardGraceSeconds = 30f;
         public float biohazardExposureTimer;
+        public bool isPlayerInBoat; // set by KaliPlayerController; a sealed boat hold pauses biohazard exposure
 
         [Header("Swim Stamina & Drowning")]
         public float swimStamina = 100f;
@@ -106,7 +107,12 @@ namespace KaliRiverSweeper.Core
 
         [Header("Linear River Water & Flood State")]
         public const float BaseWaterLevelY = -0.25f;
-        public const float WaterRisePerTrashUnit = 0.020f;
+        // Spec D: water rises from blockage (barrier pile), barely from floating trash, plus storm rain.
+        public const float WaterRisePerPiledUnit = 0.022f;
+        public const float WaterRisePerFloatingUnit = 0.004f;
+        public const float MaxRainRiseY = 0.55f;
+        public const float RainDecayPerSecond = 0.05f;
+        public float rainRiseY;
         public float bankOverflowWaterY = 1.40f;
         public float sellLockWaterY = 1.85f;
         public float fatalFloodWaterY = 2.45f;
@@ -137,7 +143,7 @@ namespace KaliRiverSweeper.Core
         public int TotalTrashInRiver => Mathf.Max(0, activeRiverTrashCount) + Mathf.Max(0, piledRiverTrashCount);
         public bool IsBankOverflowing => currentWaterLevelY >= bankOverflowWaterY;
         public bool IsSellLocked => currentWaterLevelY >= sellLockWaterY;
-        public bool IsBiohazardDotActive => biohazardCargo > 0 && biohazardExposureTimer >= biohazardGraceSeconds;
+        public bool IsBiohazardDotActive => biohazardCargo > 0 && !isPlayerInBoat && biohazardExposureTimer >= biohazardGraceSeconds;
         public float BiohazardGraceRemaining => biohazardCargo > 0 ? Mathf.Max(0f, biohazardGraceSeconds - biohazardExposureTimer) : biohazardGraceSeconds;
         public float SwimStaminaNormalized => maxSwimStamina > 0f ? Mathf.Clamp01(swimStamina / maxSwimStamina) : 0f;
         public bool IsSwimming => isPlayerSwimming;
@@ -161,6 +167,32 @@ namespace KaliRiverSweeper.Core
         public event Action<string, bool> OnHazardOrAlert;
         public event Action<StationAuditReceipt> OnStationAuditReceipt;
         public event Action<GameEnding, string> OnEndingWithDiagnosisTriggered;
+        public event Action<string> OnObjectiveChanged;
+
+        // Spec E: household plastic dominates (Normal 80 / Medical 14 / Biohazard 6), river spawns and barrier piles alike.
+        public const float NormalWasteShare = 0.80f;
+        public const float MedicalWasteShare = 0.14f;
+        public static WasteClass RollWasteClass(float r01) =>
+            r01 < NormalWasteShare ? WasteClass.Normal : (r01 < NormalWasteShare + MedicalWasteShare ? WasteClass.Medical : WasteClass.Biohazard);
+
+        // Spec E: after the grace, 1.5 HP/s + 0.5 per extra drum, capped at 4 HP/s.
+        public static float BiohazardDotPerSecond(int drums) => Mathf.Min(4f, 1.5f + 0.5f * Mathf.Max(0, drums - 1));
+
+        // Spec F: first-run objective chain. Each step completes on a real event; the storm overrides.
+        public static readonly string[] ObjectiveSteps =
+        {
+            "Ambil sampah di sungai — klik kiri saat dekat (lihat tumpukan di depan)",
+            "Bawa ke Bank Sampah — berdiri di depan loket, tekan [E]",
+            "Sampah medis → Pos Medis, biohazard → Karantina (ikuti papan arah)",
+            "Beli alat lebih baik di Kopdes [E] — pilih slot 1–4",
+            "Badai datang! Bersihkan tumpukan di Pintu Air agar air turun"
+        };
+        // ponytail: one static filler between "tool bought" and the storm, until Pak RT quests take over.
+        public const string ObjectiveBeforeStorm = "Terus bersihkan sungai — jaga air tetap rendah sebelum badai";
+        public const float HazardObjectiveTimeoutSeconds = 90f;
+        public string CurrentObjective { get; private set; } = ObjectiveSteps[0];
+        private bool objPickup, objDeposit, objHazard, objTool;
+        private float objHazardTimer;
 
         public const float BoomIntervalSeconds = 5f;
         public const int BoomPayoutRupiah = 1500;
@@ -228,6 +260,8 @@ namespace KaliRiverSweeper.Core
                     float progress = monsoonStormTriggerRemaining > 0f
                         ? Mathf.Clamp01(1f - monsoonCountdownRemaining / monsoonStormTriggerRemaining)
                         : 1f;
+                    rainRiseY = MaxRainRiseY * progress;
+                    RecalculateWaterMetrics();
                     stormSurgeTimer += dt;
                     if (stormSurgeTimer >= Mathf.Lerp(StormSurgeStartInterval, StormSurgeEndInterval, progress))
                     {
@@ -236,7 +270,18 @@ namespace KaliRiverSweeper.Core
                         RecalculateWaterMetrics();
                     }
                 }
+                else if (rainRiseY > 0f)
+                {
+                    rainRiseY = Mathf.Max(0f, rainRiseY - RainDecayPerSecond * dt);
+                    RecalculateWaterMetrics();
+                }
                 MarkStateDirty();
+
+                if (objDeposit && !objHazard)
+                {
+                    objHazardTimer += dt;
+                    if (objHazardTimer >= HazardObjectiveTimeoutSeconds) { objHazard = true; RefreshObjective(); }
+                }
 
                 if (monsoonCountdownRemaining <= 0f)
                 {
@@ -272,12 +317,15 @@ namespace KaliRiverSweeper.Core
             // 3. Biohazard cargo Damage Over Time (DoT) & passive safe recovery
             if (biohazardCargo > 0)
             {
-                biohazardExposureTimer += dt;
-                if (biohazardExposureTimer >= biohazardGraceSeconds)
+                // ponytail: the sealed boat hold pauses both the grace timer and the DoT.
+                if (!isPlayerInBoat)
                 {
-                    float dotRate = Mathf.Min(12f, 2.5f + 1.5f * biohazardCargo);
-                    ApplyPlayerDamage(dotRate * dt, notifyImmediate: false);
-                    if (activeEnding != GameEnding.None) return;
+                    biohazardExposureTimer += dt;
+                    if (biohazardExposureTimer >= biohazardGraceSeconds)
+                    {
+                        ApplyPlayerDamage(BiohazardDotPerSecond(biohazardCargo) * dt, notifyImmediate: false);
+                        if (activeEnding != GameEnding.None) return;
+                    }
                 }
                 MarkStateDirty();
             }
@@ -408,9 +456,7 @@ namespace KaliRiverSweeper.Core
             // Barrier piles are mixed Normal/Medical/Biohazard
             for (int i = 0; i < take; i++)
             {
-                float r = UnityEngine.Random.value;
-                WasteClass wc = r < 0.70f ? WasteClass.Normal : (r < 0.88f ? WasteClass.Medical : WasteClass.Biohazard);
-                ApplyCargoGainAndMedicalCheck(wc, 1);
+                ApplyCargoGainAndMedicalCheck(RollWasteClass(UnityEngine.Random.value), 1);
             }
 
             RecalculateWaterMetrics();
@@ -463,6 +509,7 @@ namespace KaliRiverSweeper.Core
             // Update cargo counts BEFORE firing alerts/damage so HUD never sees stale totals
             totalScooped += added;
             SyncCargoTotal();
+            if (!objPickup) { objPickup = true; RefreshObjective(); }
 
             if (wasteClass == WasteClass.Medical)
             {
@@ -691,6 +738,9 @@ namespace KaliRiverSweeper.Core
                     biohazardWasteSecured += qty;
                     biohazardExposureTimer = 0f;
                 }
+                objDeposit = true;
+                if (wasteClass != WasteClass.Normal) objHazard = true;
+                RefreshObjective();
 
                 string modTag = debtPaid > 0 ? $" (potong utang denda Rp {debtPaid:N0})" :
                     (trustMult > 1.01f ? " (Bonus Terpercaya +15%)" : (trustMult < 0.99f ? " (Penalti Sidak DLH -25%)" : string.Empty));
@@ -949,6 +999,8 @@ namespace KaliRiverSweeper.Core
 
             activeSlot = slot;
             equippedToolIndex = toolIndex;
+            objTool = true;
+            RefreshObjective();
             OnHotbarChanged?.Invoke();
             OnEquippedToolChanged?.Invoke(EquippedTool);
             string tradeNote = oldTool > 0 ? $" (tukar #{oldTool:00}, kredit Rp {GetCreditFor(oldTool):N0})" : string.Empty;
@@ -1099,6 +1151,7 @@ namespace KaliRiverSweeper.Core
             gunungSampahHealth = 0f;
             activeRiverTrashCount = 0;
             piledRiverTrashCount = 0;
+            rainRiseY = 0f;
             RecalculateWaterMetrics();
             TriggerEnding(GameEnding.CompromisedOceanFlush);
             return true;
@@ -1110,6 +1163,7 @@ namespace KaliRiverSweeper.Core
             gunungSampahHealth = 0f;
             activeRiverTrashCount = 0;
             piledRiverTrashCount = 0;
+            rainRiseY = 0f;
             waterClarity = 1f;
             floodPressure = 0.05f;
             currentWaterLevelY = BaseWaterLevelY;
@@ -1125,7 +1179,21 @@ namespace KaliRiverSweeper.Core
             if (isMonsoonStorm == monsoon) return;
             isMonsoonStorm = monsoon;
             OnWeatherChanged?.Invoke(isMonsoonStorm);
+            RefreshObjective();
             NotifyState();
+        }
+
+        private void RefreshObjective()
+        {
+            string next = isMonsoonStorm ? ObjectiveSteps[4]
+                : !objPickup ? ObjectiveSteps[0]
+                : !objDeposit ? ObjectiveSteps[1]
+                : !objHazard ? ObjectiveSteps[2]
+                : !objTool ? ObjectiveSteps[3]
+                : ObjectiveBeforeStorm;
+            if (next == CurrentObjective) return;
+            CurrentObjective = next;
+            OnObjectiveChanged?.Invoke(next);
         }
 
         public void UnlockSandboxDemo()
@@ -1201,7 +1269,10 @@ namespace KaliRiverSweeper.Core
         private void RecalculateWaterMetrics()
         {
             int totalTrash = TotalTrashInRiver;
-            currentWaterLevelY = BaseWaterLevelY + totalTrash * WaterRisePerTrashUnit;
+            currentWaterLevelY = BaseWaterLevelY
+                + Mathf.Max(0, piledRiverTrashCount) * WaterRisePerPiledUnit
+                + Mathf.Max(0, activeRiverTrashCount) * WaterRisePerFloatingUnit
+                + rainRiseY;
             floodPressure = Mathf.Clamp01(Mathf.Max(0f, currentWaterLevelY) / fatalFloodWaterY);
 
             float trashClarity = Mathf.Clamp01(1f - (totalTrash / 95f));
@@ -1250,7 +1321,7 @@ namespace KaliRiverSweeper.Core
             GameEnding.FloodFail => "Tinggi air sungai melampaui +2.45m karena penumpukan sampah. Pasang Trash Boom / Kampung Bins dan tahan [Q] saat Sell-Lock!",
             GameEnding.HealthFail => lastDamageWasDrowning
                 ? "HP habis karena tenggelam setelah kehabisan stamina renang! Naik ke Dermaga, daratan, atau gunakan perahu untuk beristirahat."
-                : "HP habis akibat tusukan limbah medis atau paparan Biohazard >10 detik. Buka #10 Capitan Ular (Rp 80rb) & segera setor ke Pos Medis B3 / Karantina!",
+                : "HP habis akibat tusukan limbah medis atau paparan Biohazard >30 detik. Buka #10 Capitan Ular (Rp 80rb) & segera setor ke Pos Medis B3 / Karantina!",
             _ => string.Empty
         };
 
@@ -1364,6 +1435,10 @@ namespace KaliRiverSweeper.Core
             biohazardCargo = 0;
             biohazardExposureTimer = 0f;
             SyncCargoTotal();
+            rainRiseY = 0f;
+            objPickup = objDeposit = objHazard = objTool = false;
+            objHazardTimer = 0f;
+            RefreshObjective();
 
             totalScooped = 0;
             recycledKg = 0;
