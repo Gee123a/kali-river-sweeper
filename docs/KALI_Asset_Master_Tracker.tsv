@@ -143,3 +143,4 @@ KaliAmbientNpc.cs	Core Code	KaliAmbientNpc	Ivan (Lead)	Assets/_Project/Scripts/C
 KaliKampungBuilder.cs	Core Code	KaliKampungBuilder	Ivan (Lead)	Assets/_Project/Scripts/Editor/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Editor/KaliKampungBuilder.cs
 KaliMapBackdropBuilder.cs	Core Code	KaliMapBackdropBuilder	Ivan (Lead)	Assets/_Project/Scripts/Editor/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Editor/KaliMapBackdropBuilder.cs
 KaliNpcBuilder.cs	Core Code	KaliNpcBuilder	Ivan (Lead)	Assets/_Project/Scripts/Editor/	CS	Auto	DONE (In main)	Auto-Discovered	Detected at unity/Assets/_Project/Scripts/Editor/KaliNpcBuilder.cs
+KaliShopController.cs	UI & Audio	KaliShopController	Niki	Assets/_Project/UI/Scripts/	CS	Auto	In Branch (niki-shop) - Scripted Ready	Auto-Discovered	Detected at unity/Assets/_Project/UI/Scripts/KaliShopController.cs
