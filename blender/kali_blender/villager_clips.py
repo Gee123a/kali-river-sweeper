@@ -27,6 +27,14 @@ TAKES = {
     "Anim_Kid_Splash": 40,              # 1.33 s loop, 2 splashes
     "Anim_Kid_JettyJump": 60,           # 2.0 s one-shot, frames 48..60 = holdable surface pose
     "Anim_Chatter_TalkingIdle": 120,    # 4.0 s loop
+    # interaction clips (plan_jc Task 6A: quests, [E] Bicara, combo cheer, storm call)
+    "Talk_Gesture": 75,                 # 2.5 s loop, both hands
+    "Wave": 45,                         # 1.5 s loop, 3 waves
+    "Point_Forward": 60,                # 2.0 s loop: raise, point + 2 beats, lower
+    "Cheer_Clap": 40,                   # 1.33 s loop, 4 claps
+    "Call_Out": 60,                     # 2.0 s loop, cupped hands, 2 calls
+    "Kid_Run": 20,                      # 0.67 s loop, run in place
+    "Kid_Celebrate": 45,                # 1.5 s loop, 2 hops with arms up
 }
 ALL_TAKES = {**V.TAKES, **TAKES}
 SEAT_HIP_DROP = -0.025          # thigh underside at ~0.42 m = KaliAmbientNpc SeatedFisher pos.y -= 0.42
@@ -395,3 +403,148 @@ def build_rod(material):
     mb.loft(rings, [{}] * len(rows), ["straw_dark", "bag_knot", "straw", "straw_dark", "straw"],
             cap0="straw_dark", cap1="straw_dark")
     return mb.build(V.PROP_ROD, material, None)
+
+
+# ---------------------------------------------------------------- interaction clips (Task 6A)
+def _standing(r, ph, amt=1.0):
+    s = math.sin(ph)
+    r["Hips"] = (0, 1.5 * s * amt, 1.5 * math.sin(ph + 0.4) * amt)
+    for S in ("Left", "Right"):
+        r[S + "UpperLeg"] = (0, -1.5 * s * amt, -1.5 * math.sin(ph + 0.4) * amt)
+
+
+def talk_gesture(arm, f):
+    n = TAKES["Talk_Gesture"]
+    ph = _cyc(f, n)
+    r = V._relaxed()
+    _standing(r, ph)
+    span = TALK_KEYS[-1][0]
+    keys = [(t, ua + la + h) for t, ua, la, h in TALK_KEYS]
+    v = rc.hermite_keys(keys, f * span / n)
+    w = rc.hermite_keys(keys, (f * span / n + span / 2) % span)     # left hand half a cycle behind
+    r["RightUpperArm"], r["RightLowerArm"], r["RightHand"] = v[0:3], v[3:6], v[6:9]
+    r["LeftUpperArm"], r["LeftLowerArm"], r["LeftHand"] = V._mirror(w[0:3]), V._mirror(w[3:6]), V._mirror(w[6:9])
+    r["Spine"] = (2, 0, 2 * math.sin(ph))
+    r["Chest"] = (-1 + 1.5 * math.sin(2 * ph), 0, 3 * math.sin(ph))
+    r["Head"] = (3 + 4 * math.sin(6 * ph), 2 * math.sin(2 * ph), 5 * math.sin(ph + 0.8))
+    return _pose(arm, r, 0.0)
+
+
+def wave(arm, f):
+    n = TAKES["Wave"]
+    ph = _cyc(f, n)
+    r = V._relaxed()
+    _standing(r, ph, 0.6)
+    osc = math.sin(3 * ph)
+    r["RightUpperArm"] = (0, 38, -25)                # raised high to the side (right arm: +Y lifts)
+    r["RightLowerArm"] = (0, 0, 40 + 22 * osc)        # forearm swings side to side
+    r["RightHand"] = (0, 0, 10 * osc)
+    r["Chest"] = (-2, 3, 2 * osc)
+    r["Head"] = (-4, 3, -6)
+    return _pose(arm, r, 0.0)
+
+
+POINT_KEYS = [  # frame, RightUpperArm, RightLowerArm, chest yaw, head yaw
+    (0, (-4, -68, 0), (0, 0, 12), 0, 0),
+    (12, (-88, -82, -10), (0, 0, 4), -10, -12),
+    (24, (-84, -82, -12), (0, 0, 2), -11, -13),
+    (30, (-90, -82, -10), (0, 0, 8), -10, -12),        # beat: "di sana"
+    (38, (-86, -82, -12), (0, 0, 2), -11, -13),
+    (44, (-90, -82, -10), (0, 0, 8), -10, -12),
+    (60, (-4, -68, 0), (0, 0, 12), 0, 0),
+]
+
+
+def point_forward(arm, f):
+    n = TAKES["Point_Forward"]
+    r = V._relaxed()
+    _standing(r, _cyc(f, n), 0.5)
+    v = rc.hermite_keys([(t, ua + la + (cy, hy)) for t, ua, la, cy, hy in POINT_KEYS], f)
+    r["RightUpperArm"], r["RightLowerArm"] = v[0:3], v[3:6]
+    r["RightHand"] = (0, 0, 0)
+    r["Chest"] = (0, 0, v[6])
+    r["Head"] = (2, 0, v[7])
+    r["LeftUpperArm"] = (6, 70, 0)                   # free arm eases back
+    return _pose(arm, r, 0.0)
+
+
+def cheer_clap(arm, f):
+    n = TAKES["Cheer_Clap"]
+    ph = _cyc(f, n)
+    open_ = 0.5 + 0.5 * math.cos(4 * ph)             # 1 = apart, 0 = clap
+    r = V._relaxed()
+    r["Spine"] = (-3, 0, 0)
+    r["Chest"] = (-4 + 1.5 * open_, 0, 3 * math.sin(ph))
+    r["Head"] = (-8, 3 * math.sin(2 * ph), 4 * math.sin(ph))
+    _legs(r, -6 * (1 - open_), 12 * (1 - open_), -6 * (1 - open_))
+    dz = _squat_dz(6 * (1 - open_))                  # little knee dip on each clap
+    hd = _unit(0, -0.45, 0.9)
+    ik = [(S, (s * (0.035 + 0.075 * open_), -0.24, 0.82), hd, (-s, 0, 0), (s * 0.30, 0.10, -0.15))
+          for S, s in V.SIDES]
+    return _pose(arm, r, dz, ik)
+
+
+def call_out(arm, f):
+    n = TAKES["Call_Out"]
+    ph = _cyc(f, n)
+    call = max(0.0, math.sin(2 * ph)) ** 1.5         # 2 calls per loop
+    r = V._relaxed()
+    _standing(r, ph, 0.5)
+    r["Spine"] = (4 - 6 * call, 0, 0)
+    r["Chest"] = (2 - 8 * call, 0, 0)
+    r["Head"] = (-6 - 10 * call, 0, 4 * math.sin(ph))
+    hd = _unit(0, -0.25, 1.0)
+    ik = [(S, (s * 0.075, -0.20, 1.06 + 0.01 * call), hd, (-s, -0.3, 0), (s * 0.30, 0.0, -0.20))
+          for S, s in V.SIDES]
+    return _pose(arm, r, 0.0, ik)
+
+
+def kid_run(arm, f):
+    n = TAKES["Kid_Run"]
+    ph = _cyc(f, n)
+    s, c = math.sin(ph), math.cos(ph)
+    r = {}
+    ext = []
+    for S, sgn in (("Left", 1.0), ("Right", -1.0)):
+        th = -40 * s * sgn
+        knee = 15 + 80 * max(0.0, c * sgn) ** 1.2
+        r[S + "UpperLeg"] = (th, 0, 0)
+        r[S + "LowerLeg"] = (knee, 0, 0)
+        r[S + "Foot"] = (-(th + knee) * 0.6, 0, 0)
+        a1 = math.radians(th)
+        ext.append(L1 * math.cos(a1) + L2 * math.cos(a1 + math.radians(knee)))
+    dz = max(ext) - (L1 + L2) + 0.035 * abs(math.sin(2 * ph))     # flight-phase bounce
+    r["Hips"] = (0, 2 * c, -6 * s)
+    r["Spine"] = (12, 0, 4 * s)
+    r["Chest"] = (2, 0, 4 * s)
+    r["Head"] = (-10, 0, -4 * s)
+    for S, sgn in (("Left", 1.0), ("Right", -1.0)):
+        left = (45 * s * sgn - 5, 66, 0)             # arms pump against the legs
+        r[S + "UpperArm"] = left if S == "Left" else V._mirror(left)
+        r[S + "LowerArm"] = (0, 0, -85) if S == "Left" else (0, 0, 85)
+    return _pose(arm, r, dz)
+
+
+def kid_celebrate(arm, f):
+    n = TAKES["Kid_Celebrate"]
+    ph = _cyc(f, n)
+    hop = max(0.0, math.sin(2 * ph))                 # 2 hops
+    land = max(0.0, -math.sin(2 * ph))
+    a = 22 * land
+    r = {}
+    _legs(r, -a, 2 * a, -a + 15 * hop)
+    dz = _squat_dz(a) + 0.10 * hop
+    r["Spine"] = (-4 + 8 * land, 0, 0)
+    r["Chest"] = (-6, 0, 4 * math.sin(ph))
+    r["Head"] = (-12, 0, 6 * math.sin(ph))
+    for S, s in V.SIDES:
+        left = (-10, -62 - 12 * hop + 8 * land, 10 * math.sin(4 * ph))      # arms up, pumping
+        r[S + "UpperArm"] = left if S == "Left" else V._mirror(left)
+        r[S + "LowerArm"] = (0, 0, -25 - 20 * land) if S == "Left" else (0, 0, 25 + 20 * land)
+    return _pose(arm, r, dz)
+
+
+POSE_FNS.update({
+    "Talk_Gesture": talk_gesture, "Wave": wave, "Point_Forward": point_forward, "Cheer_Clap": cheer_clap,
+    "Call_Out": call_out, "Kid_Run": kid_run, "Kid_Celebrate": kid_celebrate,
+})

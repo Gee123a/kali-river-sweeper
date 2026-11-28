@@ -306,6 +306,13 @@ def export_animated(arm_obj, mesh_objs, filepath, apply_transforms=True):
     return _fbx_export(filepath, **ANIM_FBX_OVERRIDES)
 
 
+def export_skinned_static(arm_obj, mesh_objs, filepath):
+    """Rig + skinned mesh(es) with no takes (body variants play the clips of another Humanoid FBX)."""
+    from .export_fbx import _fbx_export
+    _select_only([arm_obj] + list(mesh_objs))
+    return _fbx_export(filepath, **{**ANIM_FBX_OVERRIDES, "bake_anim": False})
+
+
 def take_names_in_fbx(filepath):
     """AnimStack names written in a binary FBX (read straight from the file, no importer naming)."""
     import re

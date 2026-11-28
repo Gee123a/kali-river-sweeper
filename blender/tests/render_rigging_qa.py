@@ -5,7 +5,8 @@
 Writes villager_front/side/34/tpose.png, villager_strip_<Take>.png (4 frames each, the thrown bag
 follows a ballistic arc after RELEASE_FRAME) and toolswing_strip_<Take>.png (real SM_Tool_* meshes on
 ToolHolder, placed like KaliPlayerController does). Nothing in the repo is written.
-Optional second dir: npc_strip_<Take>.png for the 8 ambient NPC takes (villager_clips) go there.
+Optional second dir: npc_strip_<Take>.png for every villager_clips take, variants_lineup.png (Task 6C
+quest givers) and fparms_<Take>.png (SK_PlayerArms seen from the player camera) go there.
 """
 import math
 import os
@@ -21,6 +22,8 @@ from kali_blender import rigging_common as rc  # noqa: E402
 from kali_blender import tool_swing as T  # noqa: E402
 from kali_blender import villager as V  # noqa: E402
 from kali_blender import villager_clips as C  # noqa: E402
+from kali_blender import villager_variants as VV  # noqa: E402
+from kali_blender import player_arms as PA  # noqa: E402
 
 OUT = os.path.abspath(sys.argv[sys.argv.index("--") + 1]) if "--" in sys.argv else os.path.join(REPO, "qa_out")
 os.makedirs(OUT, exist_ok=True)
@@ -209,7 +212,16 @@ clip_shots = {  # take: frames, camera, show rod, stage (boxes), ground visible
     "Anim_Kid_Splash": ([0, 7, 11, 31], near, False, [("Water", -4, 4, -4, 4, 0.0, 0.30, WATER)], True),
     "Anim_Kid_JettyJump": ([8, 21, 33, 50], side, False, [], True),
     "Anim_Chatter_TalkingIdle": ([0, 20, 40, 75], near, False, [], True),
+    "Talk_Gesture": ([0, 18, 37, 56], near, False, [], True),
+    "Wave": ([0, 4, 11, 19], near, False, [], True),
+    "Point_Forward": ([0, 12, 30, 52], near, False, [], True),
+    "Cheer_Clap": ([0, 3, 5, 8], near, False, [], True),
+    "Call_Out": ([0, 7, 15, 45], near, False, [], True),
+    "Kid_Run": ([0, 5, 10, 15], side, False, [], True),
+    "Kid_Celebrate": ([0, 6, 11, 17], near, False, [], True),
 }
+for name in list(VV.BODIES) + list(VV.ACCESSORIES):     # base villager only for the clip strips
+    bpy.data.objects[name].hide_render = True
 for take, (fl, cam, with_rod, stage, ground_on) in clip_shots.items():
     rest(rig)
     show(rod) if with_rod else show()
@@ -225,6 +237,70 @@ for take, (fl, cam, with_rod, stage, ground_on) in clip_shots.items():
     for o in made:
         bpy.data.objects.remove(o)
 ground.hide_render = False
+
+# quest-giver lineup: body variant + accessory + per-NPC palette, Idle frame 0
+rest(rig)
+show()
+rc.set_take(rig, "Idle")
+sc.frame_set(0)
+main_body = bpy.data.objects[V.NAME]
+bodies = [main_body] + [bpy.data.objects[n] for n in VV.BODIES]
+accs = [bpy.data.objects[n] for n in VV.ACCESSORIES]
+camera((-1.7, -3.6, 1.2), (0, 0, 0.72), lens=50)
+paths = []
+for npc, (body_name, acc_name, _over, scale) in VV.RECIPES.items():
+    img = bpy.data.images.load(os.path.join(REPO, VV.png_path(npc)))
+    mat = bpy.data.materials[V.MATERIAL].copy()
+    next(n for n in mat.node_tree.nodes if n.type == "TEX_IMAGE").image = img
+    for o in bodies + accs:
+        o.hide_render = o.name not in (body_name, acc_name)
+        o.hide_set(False)
+        o.data.materials[0] = mat
+    rig.scale = (scale,) * 3
+    sc.frame_set(0)
+    paths.append(render(os.path.join(CLIPS_OUT, f"_tmp_variant_{npc}.png")))
+strip(paths, os.path.join(CLIPS_OUT, "variants_lineup.png"))
+
+# ------------------------------------------------------------------ first-person arms
+bpy.ops.wm.open_mainfile(filepath=os.path.join(REPO, PA.BLEND_PATH))
+setup_render(640, 400)
+add_plane(0.35, 40, (0.16, 0.36, 0.34, 1))
+sc = bpy.context.scene
+rig = bpy.data.objects[PA.RIG_NAME]
+eye = Vector((0, 0, 1.6))
+rig.matrix_world = Matrix.Translation(eye + rc.unity_to_blender_vec(T.SOCKET_IN_CAMERA)) @ T.RIG_MATRIX
+cam = bpy.data.objects.new("FPCam", bpy.data.cameras.new("FPCam"))
+sc.collection.objects.link(cam)
+cam.location = eye
+cam.rotation_euler = (math.radians(90), 0, math.radians(180))      # looks along -Y (Unity +Z), up +Z
+cam.data.sensor_fit = "VERTICAL"
+cam.data.angle = math.radians(60)                                  # Unity Main Camera fov 60 (vertical)
+sc.camera = cam
+fp_shots = {"Idle_Hold": ("SM_Tool_SerokanWaring3m", [0, 15, 30, 45]),
+            "SerokanScoop": ("SM_Tool_SerokanWaring3m", [0, 5, 12, 20]),
+            "GancoHookSwing": ("SM_Tool_GancoBesi1Mata", [0, 6, 10, 17])}
+for take, (tool_name, fl) in fp_shots.items():
+    rest(rig)
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=os.path.join(REPO, "unity/Assets/_Project/Props/Tools/Meshes", tool_name + ".fbx"))
+    tool = next(o for o in bpy.data.objects if o not in before and o.type == "MESH")
+    bpy.ops.object.select_all(action="DESELECT")
+    tool.select_set(True)
+    bpy.context.view_layer.objects.active = tool
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    holder = rig.data.bones["ToolHolder"]
+    holder_rest = rig.matrix_world @ holder.matrix_local
+    tool.parent = rig
+    tool.parent_type = "BONE"
+    tool.parent_bone = "ToolHolder"
+    tool.matrix_world = T.tool_world(holder_rest)
+    rc.set_take(rig, take)
+    paths = []
+    for f in fl:
+        sc.frame_set(f)
+        paths.append(render(os.path.join(CLIPS_OUT, f"_tmp_fp_{take}_{f}.png")))
+    strip(paths, os.path.join(CLIPS_OUT, f"fparms_{take}.png"))
+    bpy.data.objects.remove(tool)
 
 # ------------------------------------------------------------------ tool swing
 bpy.ops.wm.open_mainfile(filepath=os.path.join(REPO, T.BLEND_PATH))

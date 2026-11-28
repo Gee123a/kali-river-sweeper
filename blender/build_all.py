@@ -11,7 +11,8 @@ Outputs (paths relative to the repo root):
     products:  products_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures, products_common.BLEND_PATH
     equipment: equipment_common.FBX_DIR/<SPEC name>.fbx, TEX_DIR textures (+ Emission), equipment_common.BLEND_PATH
     rigging:   unity/Assets/_Project/Rigging/{SK_VillagerNPC,SM_Villager_TrashBag,SM_Villager_Bin,SM_Villager_FishingRod,
-               Anim_PlayerToolSwing}.fbx, Rigging/Textures/T_Villager_Palette.png,
+               Anim_PlayerToolSwing,SK_PlayerArms,SK_VillagerNPC_{Bare,Sarung},SM_Villager_Hat_*,SM_Villager_Hair_Konde}.fbx,
+               Rigging/Textures/T_Villager_Palette[_<Npc>].png, T_PlayerArms_Palette.png, blender/SK_PlayerArms.blend,
                blender/SK_VillagerNPC.blend, blender/Anim_PlayerToolSwing.blend
     report:    blender/build_report.json (repo-relative paths only)
 Exit code 1 if any asset failed.
@@ -100,6 +101,8 @@ def build_rigging(root, report):
     from kali_blender import tool_swing as T
     from kali_blender import villager as V
     from kali_blender import villager_clips as C
+    from kali_blender import villager_variants as VV
+    from kali_blender import player_arms as PA
 
     entry = _rig_entry(report, root, V.NAME, V.FBX_PATH, V.BLEND_PATH)
     try:
@@ -128,7 +131,33 @@ def build_rigging(root, report):
             entry["issues"].append(f"tris {entry['tris']} outside budget {lo}-{hi}")
         if entry["takes"] != sorted(C.ALL_TAKES):
             entry["issues"].append(f"takes {entry['takes']} != {sorted(C.ALL_TAKES)}")
+        # Task 6C variety: body variants (same rig, no takes), head accessories, per-NPC palettes
+        bodies = VV.build_bodies(mat, rig)
+        for name, body in bodies.items():
+            path = os.path.join(root, rc.FBX_DIR, name + ".fbx")
+            rc.export_skinned_static(rig, [body], path)
+            verify_fbx(path, expected_bones=[b[0] for b in V.BONES], expected_meshes=[name])
+        accs = {}
+        for name in VV.ACCESSORIES:
+            acc = VV.build_accessory(name, mat)
+            path = os.path.join(root, rc.FBX_DIR, name + ".fbx")
+            export_tool(acc, path)
+            verify_fbx(path, expected_meshes=[name])
+            accs[name] = acc
+        for npc in VV.RECIPES:
+            VV.palette_for(npc).write_png(os.path.join(root, VV.png_path(npc)))
+        tris = {**{n: tc.tri_count(o) for n, o in {**bodies, **accs}.items()}, V.NAME: entry["tris"]}
+        for npc in VV.RECIPES:
+            t = VV.assembled_tris(npc, tris.get)
+            entry.setdefault("variants", {})[npc] = t
+            if not lo <= t <= hi:
+                entry["issues"].append(f"{npc} assembled tris {t} outside {lo}-{hi}")
         V.attach_props(rig, bag, bin_obj, rod)
+        for acc in accs.values():
+            VV.attach_accessory(rig, acc)
+            acc.hide_set(True)
+        for body in bodies.values():
+            body.hide_set(True)
         rc.set_take(rig, "Idle")
         _save_blend(os.path.join(root, V.BLEND_PATH))
         entry["status"] = "FAIL" if entry["issues"] else "PASS"
@@ -154,6 +183,32 @@ def build_rigging(root, report):
         _save_blend(os.path.join(root, T.BLEND_PATH))
         entry["status"] = "FAIL" if entry["issues"] else "PASS"
         print(f"tool swing: takes {entry['takes']}")
+    except Exception as exc:
+        traceback.print_exc()
+        entry["error"] = f"{type(exc).__name__}: {exc}"
+
+    entry = _rig_entry(report, root, PA.NAME, PA.FBX_PATH, PA.BLEND_PATH)
+    try:
+        _reset()
+        bpy.context.scene.render.fps = rc.FPS
+        img = PA.PALETTE.write_png(os.path.join(root, PA.PALETTE_PNG))
+        mat = PA.PALETTE.material(PA.MATERIAL, img)
+        rig, mesh = PA.build(mat)
+        PA.build_actions(rig)
+        fbx_abs = os.path.join(root, PA.FBX_PATH)
+        rc.export_animated(rig, [mesh], fbx_abs, apply_transforms=False)
+        info = verify_fbx(fbx_abs, expected_meshes=[PA.NAME])
+        entry["bones"], entry["takes"] = info["bones"], rc.take_names_in_fbx(fbx_abs)
+        entry["tris"] = tc.tri_count(mesh)
+        lo, hi = PA.TRI_BUDGET
+        if not lo <= entry["tris"] <= hi:
+            entry["issues"].append(f"tris {entry['tris']} outside budget {lo}-{hi}")
+        if entry["takes"] != sorted(PA.TAKES):
+            entry["issues"].append(f"takes {entry['takes']} != {sorted(PA.TAKES)}")
+        rc.set_take(rig, "Idle_Hold")
+        _save_blend(os.path.join(root, PA.BLEND_PATH))
+        entry["status"] = "FAIL" if entry["issues"] else "PASS"
+        print(f"player arms: {entry['tris']} tris, bones {info['bones']}, takes {entry['takes']}")
     except Exception as exc:
         traceback.print_exc()
         entry["error"] = f"{type(exc).__name__}: {exc}"

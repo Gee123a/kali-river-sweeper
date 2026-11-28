@@ -51,6 +51,49 @@ Props (separate FBX, same palette):
 
 All sockets have an identity rest frame in Unity, so props need no rotation offset.
 
+### Interaction clips (plan_jc Task 6A, same FBX)
+| Clip | Frames (s) | Loop | Use |
+|---|---|---|---|
+| `Talk_Gesture` | 75 (2.5) | yes | `[E] Bicara`: both hands gesture, head nods |
+| `Wave` | 45 (1.5) | yes | greeting, right hand raised, 3 waves |
+| `Point_Forward` | 60 (2.0) | yes | quest directions: raise (0-0.4 s), point straight ahead (+Z) with 2 beats, lower. Turn the NPC to face the target first |
+| `Cheer_Clap` | 40 (1.33) | yes | clean-combo reaction, 4 claps with a knee dip |
+| `Call_Out` | 60 (2.0) | yes | washer calling kids in the storm: cupped hands at the mouth, 2 calls |
+| `Kid_Run` | 20 (0.67) | yes | run in place (Bola Hanyut chase); paced for ~3 m/s at full size, ~2 m/s at kid scale 0.64 |
+| `Kid_Celebrate` | 45 (1.5) | yes | 2 hops with both arms up (hops lift the hips up to +0.10 m) |
+
+**Head look (no clip):** drive the bones in `LateUpdate` after the Animator. Path
+`VillagerRig/Hips/Spine/Chest/Neck/Head`; `Neck` and `Head` both point straight up with roll 0, so their
+rest localRotation is **identity** and their local axes equal the character's at rest: +Y up (yaw),
++X to the character's right (pitch, + = look down), +Z forward. Split the look rotation ~35 % `Neck`,
+~65 % `Head`; keep yaw within about +-70 deg and pitch within -30..+40 deg.
+
+### Villager variety (plan_jc Task 6C)
+Same rig and UV layout everywhere, so any recipe is: body FBX + optional accessory + palette texture.
+- Bodies: `SK_VillagerNPC.fbx` (caping + shorts, has all the clips), `SK_VillagerNPC_Bare.fbx` (no hat,
+  hair shows, shorts; 1172 tris), `SK_VillagerNPC_Sarung.fbx` (no hat, ankle-length striped sarung; 1350 tris).
+  The two variants carry no takes: import them as **Humanoid** too and play the clips from
+  `SK_VillagerNPC.fbx` (Humanoid retargeting, identical skeleton). Load them like `LoadVillagerClips`, by path.
+- Accessories (rigid, origin = `Head` bone): `SM_Villager_Hat_Peci`, `SM_Villager_Hat_Kerudung`,
+  `SM_Villager_Hat_Topi`, `SM_Villager_Hair_Konde`. Parent under `.../Neck/Head` with localPosition 0,
+  localRotation 0, localScale 1 (the NPC root scale still applies).
+- Colours: one `T_Villager_Palette_<Npc>.png` per quest giver (64x64, same swatch layout as
+  `T_Villager_Palette.png`). Per renderer: `block.SetTexture("_BaseMap", tex)` on the body
+  SkinnedMeshRenderer **and** on its accessory renderer (keep `clothingTint` white for these NPCs, since it
+  multiplies the whole texture). In the NPC palettes swatches 11-12 (`bin`, `bin_dark`) are the accessory
+  colour and `bag` is the sarung stripe.
+
+| NPC | Body | Accessory | Palette | Scale | Tris | Read at 20 m |
+|---|---|---|---|---|---|---|
+| Pak RT | `SK_VillagerNPC_Sarung` | `SM_Villager_Hat_Peci` | `T_Villager_Palette_PakRT` | 1.0 | 1394 | black peci, cream shirt, green sarung with maroon stripes |
+| Bu Siti | `SK_VillagerNPC_Bare` | `SM_Villager_Hat_Kerudung` | `T_Villager_Palette_BuSiti` | 1.0 | 1324 | pink kerudung, teal shirt, plum trousers |
+| Pak Darto | `SK_VillagerNPC` | (caping built in) | `T_Villager_Palette_PakDarto` | 1.0 | 1292 | caping, faded blue shirt, khaki shorts |
+| Raka | `SK_VillagerNPC_Bare` | `SM_Villager_Hat_Topi` | `T_Villager_Palette_Raka` | 0.64 | 1248 | blue cap, yellow shirt, red shorts |
+| Mbok Nah | `SK_VillagerNPC_Sarung` | `SM_Villager_Hair_Konde` | `T_Villager_Palette_MbokNah` | 0.97 | 1398 | hair bun, orange kebaya, brown sarung with gold stripes |
+
+The sarung is skinned to the hips and legs, so walking or running clips are fine, but deep poses
+(`Anim_Washer_CrouchedScrub`, `Anim_Fisher_Sitting*`) stretch it; that is why Bu Siti (a washer) wears trousers.
+
 ## Anim_PlayerToolSwing.fbx
 First-person swing clips. Hierarchy: `ToolSwingRig` (root) > `ToolHolder`, both identity at rest
 (no -90 deg X: the rig is pre-rotated in Blender). No mesh.
@@ -71,3 +114,31 @@ Use:
    The clips start and end at rest, so they can cut back to the empty state.
 4. `KaliPlayerController` currently also rocks `ToolSocket.localRotation` (procedural 32 deg swing); disable
    that when the Animator drives the swing, or the two motions add up.
+
+## SK_PlayerArms.fbx (first-person hands)
+Low-poly forearms with fists (1064 tris, `T_PlayerArms_Palette.png`: skin + KALI orange `#F97316` rolled
+sleeves). It supersedes `Anim_PlayerToolSwing` for the player: same `ToolHolder` bone, same frame, same two
+swing takes, plus the hands.
+
+Hierarchy (all rest transforms identity in Unity): `SK_PlayerArms` > `PlayerArmsRig` > `ToolHolder` >
+`R_Hand`, `L_Hand`; `PlayerArmsRig` > `R_Arm`, `L_Arm`; skinned mesh `SK_PlayerArms`.
+Import: **Generic**, Avatar Create From This Model, Root node None. Clips:
+
+| Clip | Frames (s) | Loop | Notes |
+|---|---|---|---|
+| `Idle_Hold` | 60 (2.0) | yes | slight breathing sway of the held tool |
+| `SerokanScoop` | 24 (0.8) | no | identical ToolHolder motion to `Anim_PlayerToolSwing` |
+| `GancoHookSwing` | 21 (0.7) | no | identical ToolHolder motion to `Anim_PlayerToolSwing` |
+
+Camera setup:
+1. Put the `SK_PlayerArms` model under `Main Camera/ToolSocket` with localPosition 0, localRotation 0
+   (`ToolSocket` stays at camera-local `(0.38, -0.32, 0.65)` as in `MapJsonImporter`). Add an `Animator`
+   on the model root: default state `Idle_Hold`, the two swings as one-shots returning to it.
+2. Instantiate the equipped `PF_Tool_*` under `SK_PlayerArms/PlayerArmsRig/ToolHolder` with
+   localPosition 0, localRotation `Euler(65, -8, 0)` (the current +Z-head tool rotation). The right fist sits
+   on the tool grip (origin), the left fist 0.42 m up the shaft.
+3. For hanging `-Z` tools (buckets) the left fist does not land on a shaft: set `L_Hand` and `L_Arm`
+   localScale to 0 to hide the left side (both are skinned only to those bones).
+4. Set the arms renderer to `ShadowCastingMode.Off`, and disable `KaliPlayerController`'s procedural
+   `ToolSocket` swing, as for `Anim_PlayerToolSwing`.
+The arm meshes run 0.9 m back toward points under the camera, so their ends stay outside a 60 deg field of view.

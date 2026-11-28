@@ -253,15 +253,45 @@ def _caping(mb):
     mb.fan(ids[-1], tilt @ Vector((0, 0, 1.470)), _w(Head=1.0), "straw_dark")
 
 
-def build_mesh(material):
+def _sarung(mb):
+    """Ankle-length sarung over the (hidden) shorts and thighs, with woven stripes ('bag' swatch)."""
+    n, p = 12, 2.2
+    rows = [  # z, half-width, half-depth, colour of the band below this ring
+        (0.600, 0.150, 0.106, "shorts"), (0.500, 0.168, 0.118, "bag"), (0.470, 0.169, 0.118, "shorts"),
+        (0.400, 0.168, 0.116, "bag"), (0.385, 0.167, 0.116, "shorts"), (0.300, 0.160, 0.110, "bag"),
+        (0.270, 0.158, 0.108, "shorts"), (0.120, 0.150, 0.104, None),
+    ]
+
+    def w(z):
+        def f(co):
+            if z >= 0.55:
+                return {"Hips": 1.0}
+            side = "Left" if co.x > 0 else "Right"
+            k = min(1.0, abs(co.x) / 0.10)                  # centre front / back follows the hips more
+            leg = {side + "UpperLeg": 1.0} if z > 0.31 else                 {side + "UpperLeg": 0.5, side + "LowerLeg": 0.5} if z > 0.25 else {side + "LowerLeg": 1.0}
+            hips = 0.6 if z >= 0.45 else 0.3 * (1 - k)
+            out = {b: v * (1 - hips) for b, v in leg.items()}
+            out["Hips"] = out.get("Hips", 0) + hips
+            return out
+        return f
+    rings = [rc.ring((0, 0, z), -Z, X, a, Y, b, n, p) for z, a, b, _c in rows]
+    mb.loft(rings, [w(r[0]) for r in rows], [r[3] for r in rows[:-1]], cap0="shorts")
+
+
+def build_mesh(material, name=NAME, hat=True, lower="shorts"):
+    """Body mesh. Variants (villager_variants.py): hat=False leaves the hair visible for hat accessories,
+    lower="sarung" adds an ankle-length sarung over the legs."""
     mb = rc.MeshBuilder(PALETTE)
     _torso(mb)
     for S, s in SIDES:
         _leg(mb, S, s)
         _arm(mb, S, s)
     _head(mb)
-    _caping(mb)
-    return mb.build(NAME, material, DEFORM_BONES)
+    if hat:
+        _caping(mb)
+    if lower == "sarung":
+        _sarung(mb)
+    return mb.build(name, material, DEFORM_BONES)
 
 
 def build_props(material):
