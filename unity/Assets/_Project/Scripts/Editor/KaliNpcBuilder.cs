@@ -12,6 +12,15 @@ namespace KaliRiverSweeper.Editor
         private const string VillagerFbxPath = "Assets/_Project/Rigging/SK_VillagerNPC.fbx";
         private const string VillagerBinFbxPath = "Assets/_Project/Rigging/SM_Villager_Bin.fbx";
         private const float ShallowEdgeMarginMapUnits = 14f; // 1.75m from river edge stays out of boat lane
+        private const string RiggingDir = "Assets/_Project/Rigging/";
+        private const string RodFbxPath = RiggingDir + "SM_Villager_FishingRod.fbx";
+        private const string BareFbxPath = RiggingDir + "SK_VillagerNPC_Bare.fbx";
+        private const string SarungFbxPath = RiggingDir + "SK_VillagerNPC_Sarung.fbx";
+        private const float RodTipLocalZ = 1.75f; // tip of SM_Villager_FishingRod.fbx (grip at origin)
+        private const string PakRtGroupId = "npc_pak_rt_spawn";
+        // Map points from kali-river-map.json: item_32 Player Spawn, item_33 Dermaga Awal, item_36 Bank Sampah.
+        private static readonly Vector2 PlayerSpawnMap = new Vector2(310f, 1210f);
+        private static readonly Vector2[] PakRtKeepClearMap = { new Vector2(378f, 1210f), new Vector2(195f, 1185f) };
 
         public struct NpcGroupSpec
         {
@@ -57,15 +66,25 @@ namespace KaliRiverSweeper.Editor
             new Color(0.82f, 0.74f, 0.64f, 1f)
         };
 
-        // ponytail: one named villager per group (first spawned member); other members keep default "Warga".
-        private static readonly Dictionary<string, (string name, bool isEsTehSeller)> NamedVillagerByGroup =
-            new Dictionary<string, (string, bool)>
-            {
-                { "npc_washer_west_mid", ("Bu Siti", false) },
-                { "npc_fisher_jetty2", ("Pak Darto", false) },
-                { "npc_kids_west_jetty3", ("Raka", false) },
-                { "npc_chatter_west_warung", ("Mbok Nah", true) }
-            };
+        private struct NamedVillager
+        {
+            public string name;
+            public bool isEsTehSeller;
+            public string body;
+            public string accessory;
+            public string palette;
+            public float scale;
+        }
+
+        // ponytail: one named villager per group (first spawned member); other members keep the default look.
+        private static readonly Dictionary<string, NamedVillager> NamedVillagerByGroup = new Dictionary<string, NamedVillager>
+        {
+            { "npc_washer_west_mid", new NamedVillager { name = "Bu Siti", body = BareFbxPath, accessory = "SM_Villager_Hat_Kerudung.fbx", palette = "T_Villager_Palette_BuSiti.png", scale = 1.0f } },
+            { "npc_fisher_jetty2", new NamedVillager { name = "Pak Darto", body = VillagerFbxPath, accessory = null, palette = "T_Villager_Palette_PakDarto.png", scale = 1.0f } },
+            { "npc_kids_west_jetty3", new NamedVillager { name = "Raka", body = BareFbxPath, accessory = "SM_Villager_Hat_Topi.fbx", palette = "T_Villager_Palette_Raka.png", scale = 0.64f } },
+            { "npc_chatter_west_warung", new NamedVillager { name = "Mbok Nah", isEsTehSeller = true, body = SarungFbxPath, accessory = "SM_Villager_Hair_Konde.fbx", palette = "T_Villager_Palette_MbokNah.png", scale = 0.97f } },
+            { PakRtGroupId, new NamedVillager { name = "Pak RT", body = SarungFbxPath, accessory = "SM_Villager_Hat_Peci.fbx", palette = "T_Villager_Palette_PakRT.png", scale = 1.0f } }
+        };
 
         public static bool IsInBoatLane(Vector3 worldPos)
         {
@@ -279,7 +298,54 @@ namespace KaliRiverSweeper.Editor
                 }
             }
 
+            AddPakRtSpawnNpc(result, avoidZones, footpaths);
             return result;
+        }
+
+        // Pak RT: one extra standing villager 4.5 m from the player spawn. First of 8 compass candidates that is
+        // on land, off footpaths/avoid zones, and away from the spawn->Dermaga and spawn->Bank Sampah lines.
+        private static void AddPakRtSpawnNpc(
+            List<ExpandedNpc> result,
+            IReadOnlyList<KaliKampungBuilder.AvoidanceZone> avoidZones,
+            IReadOnlyList<KaliKampungBuilder.PathSegment> footpaths)
+        {
+            Vector3 spawn = RiverMath.ToWorld3D(PlayerSpawnMap.x, PlayerSpawnMap.y, 0f);
+            Vector2 spawnXZ = new Vector2(spawn.x, spawn.z);
+            for (int k = 0; k < 8; k++)
+            {
+                float ang = k * Mathf.PI * 0.25f;
+                Vector3 p = spawn + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * 4.5f;
+                Vector2 xz = new Vector2(p.x, p.z);
+                if (RiverMath.IsInRiver(p) || !IsClearOfAvoidZones(xz, avoidZones, 2.0f) || !IsClearOfFootpaths(xz, footpaths, 2.0f))
+                {
+                    continue;
+                }
+
+                bool blocksKeepClear = false;
+                for (int m = 0; m < PakRtKeepClearMap.Length; m++)
+                {
+                    Vector3 keep = RiverMath.ToWorld3D(PakRtKeepClearMap[m].x, PakRtKeepClearMap[m].y, 0f);
+                    Vector2 keepXZ = new Vector2(keep.x, keep.z);
+                    Vector2 ab = keepXZ - spawnXZ;
+                    float t = Mathf.Clamp01(Vector2.Dot(xz - spawnXZ, ab) / ab.sqrMagnitude);
+                    if (Vector2.Distance(xz, spawnXZ + t * ab) < 2.5f) blocksKeepClear = true;
+                }
+                if (blocksKeepClear) continue;
+
+                Vector3 toSpawn = spawn - p;
+                result.Add(new ExpandedNpc
+                {
+                    groupId = PakRtGroupId,
+                    role = AmbientNpcRole.Chatter,
+                    subBehavior = AmbientNpcSubBehavior.Standard,
+                    worldPos = p,
+                    yawDeg = Mathf.Atan2(toSpawn.x, toSpawn.z) * Mathf.Rad2Deg,
+                    uniformScale = 1f,
+                    phaseOffset = 0f,
+                    clothingTint = Color.white
+                });
+                return;
+            }
         }
 
         internal static int SpawnNpcGroups(
@@ -289,8 +355,11 @@ namespace KaliRiverSweeper.Editor
         {
             if (npcs == null || parent == null) return 0;
 
+            EnsureHumanoid(BareFbxPath);
+            EnsureHumanoid(SarungFbxPath);
             GameObject villagerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(VillagerFbxPath);
             GameObject binPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(VillagerBinFbxPath);
+            GameObject rodPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RodFbxPath);
             LoadVillagerClips(out AnimationClip idleClip, out AnimationClip carryBinClip, out AnimationClip throwTrashClip);
 
             bool fallbackMode = villagerPrefab == null;
@@ -299,7 +368,8 @@ namespace KaliRiverSweeper.Editor
                 Debug.LogWarning("[KALI] SK_VillagerNPC.fbx not found; spawning low-poly ambient NPC stand-ins.");
             }
 
-            Material rodBambooMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.55f, 0.43f, 0.22f));
+            var paletteMaterials = new Dictionary<string, Material>();
+            var namedGroups = new HashSet<string>();
             Material rodLineMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.14f, 0.14f, 0.16f));
             Material rodBobberMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.86f, 0.24f, 0.18f));
             Material standInMat = KaliMapBackdropBuilder.GetSharedTintMaterial(assetCache, new Color(0.75f, 0.42f, 0.34f));
@@ -307,15 +377,22 @@ namespace KaliRiverSweeper.Editor
             float initialWaterY = RiverGameManager.BaseWaterLevelY + 4 * RiverGameManager.WaterRisePerPiledUnit;
 
             int spawned = 0;
-            var namedGroups = new HashSet<string>();
             for (int i = 0; i < npcs.Count; i++)
             {
                 ExpandedNpc spec = npcs[i];
+                bool named = NamedVillagerByGroup.TryGetValue(spec.groupId, out NamedVillager look) && namedGroups.Add(spec.groupId);
+                GameObject bodyPrefab = named ? (AssetDatabase.LoadAssetAtPath<GameObject>(look.body) ?? villagerPrefab) : villagerPrefab;
                 GameObject npcGo = fallbackMode
                     ? CreateStandInVillager(parent, standInMat)
-                    : (GameObject)PrefabUtility.InstantiatePrefab(villagerPrefab, parent);
+                    : (GameObject)PrefabUtility.InstantiatePrefab(bodyPrefab, parent);
 
                 npcGo.name = $"NPC_{spec.role}_{i + 1:00}_{spec.groupId}";
+                if (named)
+                {
+                    spec.uniformScale = look.scale;
+                    spec.clothingTint = Color.white; // palette texture carries the colours
+                    if (!fallbackMode) ApplyNamedLook(npcGo, look, paletteMaterials);
+                }
                 StripAllColliders(npcGo);
 
                 Vector3 groundedPos = ResolveGroundedPosition(spec);
@@ -392,24 +469,21 @@ namespace KaliRiverSweeper.Editor
                 npc.ApplyEditorPreviewPose();
 
                 KaliNpcInteractable talk = npcGo.AddComponent<KaliNpcInteractable>();
-                if (NamedVillagerByGroup.TryGetValue(spec.groupId, out (string name, bool isEsTehSeller) named) &&
-                    namedGroups.Add(spec.groupId))
+                if (named)
                 {
-                    talk.npcName = named.name;
-                    talk.isEsTehSeller = named.isEsTehSeller;
+                    talk.npcName = look.name;
+                    talk.isEsTehSeller = look.isEsTehSeller;
                 }
 
-                if (spec.role == AmbientNpcRole.Fisher)
+                if (spec.role == AmbientNpcRole.Fisher && rodPrefab != null)
                 {
                     Transform socket = npcGo.transform.Find("VillagerRig/Hips/Spine/Chest/RightShoulder/RightUpperArm/RightLowerArm/RightHand/Socket_RightHand");
-                    float rodLen = spec.onJetty ? 2.25f : 2.75f;
                     AttachFishingRod(
                         socket != null ? socket : npcGo.transform,
                         npcGo.transform,
                         socket != null,
-                        rodLen,
                         initialWaterY,
-                        rodBambooMat,
+                        rodPrefab,
                         rodLineMat,
                         rodBobberMat,
                         out Transform rodPivot,
@@ -466,9 +540,8 @@ namespace KaliRiverSweeper.Editor
             Transform parent,
             Transform npcRoot,
             bool useSocketTransform,
-            float rodLen,
             float waterTargetY,
-            Material bambooMat,
+            GameObject rodPrefab,
             Material lineMat,
             Material bobberMat,
             out Transform rodPivot,
@@ -482,19 +555,16 @@ namespace KaliRiverSweeper.Editor
             // Align pivot gently angled forward over water with NPC forward (+Z).
             pivot.transform.rotation = npcRoot.rotation * Quaternion.Euler(-8f, 0f, 0f);
 
-            // Bamboo pole pointing forward (+Z) from hand
-            GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            // Rod FBX is built for Socket_RightHand: grip at origin, tip at local +Z. Zero local transform under the pivot.
+            GameObject pole = (GameObject)PrefabUtility.InstantiatePrefab(rodPrefab, pivot.transform);
             pole.name = "Rod_Bamboo";
-            pole.transform.SetParent(pivot.transform, worldPositionStays: false);
-            pole.transform.localPosition = new Vector3(0f, 0f, rodLen * 0.45f);
-            pole.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            pole.transform.localScale = new Vector3(0.032f, rodLen * 0.5f, 0.032f);
-            pole.GetComponent<Renderer>().sharedMaterial = bambooMat;
+            pole.transform.localPosition = Vector3.zero;
+            pole.transform.localRotation = Quaternion.identity;
             StripAllColliders(pole);
 
             GameObject tipGo = new GameObject("Rod_Tip");
             tipGo.transform.SetParent(pivot.transform, worldPositionStays: false);
-            tipGo.transform.localPosition = new Vector3(0f, 0f, rodLen * 0.94f);
+            tipGo.transform.localPosition = new Vector3(0f, 0f, RodTipLocalZ);
 
             Vector3 tipWorld = tipGo.transform.position;
             float clampedBobberY = Mathf.Min(waterTargetY, tipWorld.y - 0.35f);
@@ -537,6 +607,54 @@ namespace KaliRiverSweeper.Editor
             float safeOffset = Mathf.Max(2f, hw - ShallowEdgeMarginMapUnits + 2.5f);
             float clampedMapX = mapX >= cx ? (cx + safeOffset) : (cx - safeOffset);
             return RiverMath.ToWorld3D(clampedMapX, mapY, worldPos.y);
+        }
+
+        // Variant bodies carry no animation takes, so they must be Humanoid to retarget the SK_VillagerNPC clips.
+        private static void EnsureHumanoid(string path)
+        {
+            ModelImporter importer = AssetImporter.GetAtPath(path) as ModelImporter;
+            if (importer == null || importer.animationType == ModelImporterAnimationType.Human) return;
+            importer.animationType = ModelImporterAnimationType.Human;
+            importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            importer.SaveAndReimport();
+        }
+
+        private static void ApplyNamedLook(GameObject npcGo, NamedVillager look, Dictionary<string, Material> materials)
+        {
+            if (look.accessory != null)
+            {
+                GameObject accPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(RiggingDir + look.accessory);
+                Transform head = npcGo.transform.Find("VillagerRig/Hips/Spine/Chest/Neck/Head");
+                if (accPrefab != null && head != null)
+                {
+                    GameObject acc = (GameObject)PrefabUtility.InstantiatePrefab(accPrefab, head);
+                    acc.transform.localPosition = Vector3.zero;
+                    acc.transform.localRotation = Quaternion.identity;
+                    acc.transform.localScale = Vector3.one;
+                }
+            }
+
+            Texture2D palette = AssetDatabase.LoadAssetAtPath<Texture2D>(RiggingDir + "Textures/" + look.palette);
+            if (palette == null) return;
+            Renderer[] renderers = npcGo.GetComponentsInChildren<Renderer>(true);
+            for (int r = 0; r < renderers.Length; r++)
+            {
+                renderers[r].sharedMaterial = PaletteMaterial(materials, renderers[r].sharedMaterial, palette);
+            }
+        }
+
+        // One material per (palette, source material); a copy keeps the source asset untouched.
+        private static Material PaletteMaterial(Dictionary<string, Material> cache, Material source, Texture2D palette)
+        {
+            if (source == null) return null;
+            string key = palette.name + "|" + source.name;
+            if (!cache.TryGetValue(key, out Material mat))
+            {
+                mat = new Material(source) { name = "M_" + palette.name };
+                mat.SetTexture("_BaseMap", palette);
+                cache[key] = mat;
+            }
+            return mat;
         }
 
         private static GameObject CreateStandInVillager(Transform parent, Material mat)
