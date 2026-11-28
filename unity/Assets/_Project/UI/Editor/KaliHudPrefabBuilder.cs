@@ -67,7 +67,7 @@ namespace KaliRiverSweeper.UI.Editor
         {
             EnsureFolder("Assets/_Project/UI", "Prefabs");
 
-            GameObject root = new GameObject("Canvas_SDGImpactReport", typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup), typeof(SdgImpactReportController));
+            GameObject root = new GameObject("Canvas_SDGImpactReport", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup), typeof(SdgImpactReportController));
             Canvas canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 30;
@@ -90,10 +90,13 @@ namespace KaliRiverSweeper.UI.Editor
             dimRect.offsetMin = Vector2.zero;
             dimRect.offsetMax = Vector2.zero;
 
-            GameObject card = Panel(root.transform, "Card", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880f, 600f), Vellum);
-            Text(card.transform, "TMP_Title", "LAPORAN DAMPAK SDG", 30f, Ink, new Vector2(40f, -30f), new Vector2(800f, 40f), new Vector2(0f, 1f));
-            Text(card.transform, "TMP_EndingHeadline", string.Empty, 26f, Ink, new Vector2(40f, -84f), new Vector2(800f, 36f), new Vector2(0f, 1f));
-            Text(card.transform, "TMP_EndingBody", string.Empty, 18f, InkSecondary, new Vector2(40f, -124f), new Vector2(800f, 60f), new Vector2(0f, 1f));
+            GameObject card = Panel(root.transform, "Card", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(880f, 700f), Vellum);
+            Text(card.transform, "TMP_Title", "LAPORAN DAMPAK SDG", 30f, Ink, new Vector2(40f, -28f), new Vector2(620f, 40f), new Vector2(0f, 1f));
+            GameObject rankGo = Text(card.transform, "TMP_ScoreRank", "RANK B", 26f, Teal, new Vector2(680f, -28f), new Vector2(160f, 40f), new Vector2(0f, 1f));
+            rankGo.GetComponent<TextMeshProUGUI>().alignment = TextAlignmentOptions.Right;
+            Text(card.transform, "TMP_EndingHeadline", string.Empty, 24f, Ink, new Vector2(40f, -78f), new Vector2(800f, 32f), new Vector2(0f, 1f));
+            GameObject bodyGo = Text(card.transform, "TMP_EndingBody", string.Empty, 17f, InkSecondary, new Vector2(40f, -114f), new Vector2(800f, 52f), new Vector2(0f, 1f));
+            bodyGo.GetComponent<TextMeshProUGUI>().enableWordWrapping = true;
 
             string[] labels = {
                 "Sampah didaur ulang",
@@ -103,18 +106,25 @@ namespace KaliRiverSweeper.UI.Editor
                 "Denda salah stasiun",
                 "Limbah berbahaya dibuang di Pengepul",
                 "Kepercayaan warga",
+                "Kas akhir",
+                "Alat dimiliki",
+                "Insiden infeksi",
             };
             for (int i = 0; i < labels.Length; i++)
             {
-                float y = -200f - i * 36f;
-                Text(card.transform, "Stats/Row_" + i + "/TMP_Label", labels[i], 18f, InkSecondary, new Vector2(40f, y), new Vector2(420f, 28f), new Vector2(0f, 1f));
-                Text(card.transform, "Stats/Row_" + i + "/TMP_Value", "0", 20f, Ink, new Vector2(460f, y), new Vector2(380f, 28f), new Vector2(0f, 1f));
+                float y = -176f - i * 32f;
+                Text(card.transform, "Stats/Row_" + i + "/TMP_Label", labels[i], 17f, InkSecondary, new Vector2(40f, y), new Vector2(440f, 26f), new Vector2(0f, 1f));
+                GameObject valGo = Text(card.transform, "Stats/Row_" + i + "/TMP_Value", "0", 18f, Ink, new Vector2(490f, y), new Vector2(350f, 26f), new Vector2(0f, 1f));
+                valGo.GetComponent<TextMeshProUGUI>().alignment = TextAlignmentOptions.Right;
             }
 
-            Text(card.transform, "TMP_Sdg63", string.Empty, 16f, Ink, new Vector2(40f, -446f), new Vector2(800f, 24f), new Vector2(0f, 1f));
-            Text(card.transform, "TMP_Sdg115", string.Empty, 16f, Ink, new Vector2(40f, -474f), new Vector2(800f, 24f), new Vector2(0f, 1f));
-            Text(card.transform, "TMP_Sdg141", string.Empty, 16f, Ink, new Vector2(40f, -502f), new Vector2(800f, 24f), new Vector2(0f, 1f));
-            Text(card.transform, "TMP_Footer", "Permainan selesai. Terima kasih sudah menjaga sungai.", 16f, InkSecondary, new Vector2(40f, -548f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_Sdg63", string.Empty, 16f, Ink, new Vector2(40f, -514f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_Sdg115", string.Empty, 16f, Ink, new Vector2(40f, -542f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+            Text(card.transform, "TMP_Sdg141", string.Empty, 16f, Ink, new Vector2(40f, -570f), new Vector2(800f, 24f), new Vector2(0f, 1f));
+
+            ButtonPanel(card.transform, "Btn_PlayAgain", new Vector2(40f, -616f), new Vector2(240f, 52f), Zone0);
+            ShopLabel(card.transform, "Btn_PlayAgain/TMP_Label", "MAIN LAGI", 18f, VellumSolid, Vector2.zero, new Vector2(240f, 52f), TextAlignmentOptions.Center);
+            Text(card.transform, "TMP_Footer", "Permainan selesai. Terima kasih sudah menjaga sungai.", 15f, InkSecondary, new Vector2(300f, -630f), new Vector2(540f, 24f), new Vector2(0f, 1f));
 
             PrefabUtility.SaveAsPrefabAsset(root, PrefabFolder + "/Canvas_SDGImpactReport.prefab");
             Object.DestroyImmediate(root);
@@ -132,7 +142,7 @@ namespace KaliRiverSweeper.UI.Editor
         {
             EnsureFolder("Assets/_Project/UI", "Prefabs");
 
-            GameObject root = new GameObject("Canvas_ShopBankSampah", typeof(Canvas), typeof(CanvasScaler), typeof(CanvasGroup), typeof(KaliShopController));
+            GameObject root = new GameObject("Canvas_ShopBankSampah", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(CanvasGroup), typeof(KaliShopController));
             Canvas canvas = root.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 20;
@@ -159,8 +169,8 @@ namespace KaliRiverSweeper.UI.Editor
             Transform c = card.transform;
 
             // Header: title, subtitle, and the Rupiah and trust box on the right.
-            Text(c, "Header/TMP_Title", "TOKO ALAT", 32f, Ink, new Vector2(40f, -28f), new Vector2(600f, 40f), new Vector2(0f, 1f));
-            Text(c, "Header/TMP_Subtitle", "Kampung Hulu · belanja alat dan armada", 16f, InkSecondary, new Vector2(40f, -68f), new Vector2(600f, 24f), new Vector2(0f, 1f));
+            Text(c, "Header/TMP_Title", "KOPERASI DESA (KOPDES)", 32f, Ink, new Vector2(40f, -28f), new Vector2(600f, 40f), new Vector2(0f, 1f));
+            Text(c, "Header/TMP_Subtitle", "Kampung Hulu · upgrade kapal, tempat sampah & alat", 16f, InkSecondary, new Vector2(40f, -68f), new Vector2(600f, 24f), new Vector2(0f, 1f));
             Panel(c, "RupiahBox", new Vector2(1f, 1f), new Vector2(-40f, -24f), new Vector2(300f, 76f), VellumSolid);
             Text(c, "Header/TMP_RupiahValue", "Rp 0", 30f, Ink, new Vector2(-340f, -32f), new Vector2(284f, 40f), new Vector2(1f, 1f));
             Text(c, "Header/TMP_TrustValue", "Kepercayaan warga 0", 14f, InkSecondary, new Vector2(-340f, -70f), new Vector2(284f, 22f), new Vector2(1f, 1f));
@@ -267,8 +277,9 @@ namespace KaliRiverSweeper.UI.Editor
 
         private static void BuildToolToast(Transform parent)
         {
-            GameObject toast = Panel(parent, "TL_ToolUnlockToast", new Vector2(0f, 1f), new Vector2(36f, -184f), new Vector2(342f, 58f), Vellum);
-            Text(toast.transform, "TMP_ToastText", string.Empty, 16f, Ink, new Vector2(12f, -10f), new Vector2(318f, 40f), new Vector2(0f, 1f));
+            GameObject toast = Panel(parent, "TL_ToolUnlockToast", new Vector2(0f, 1f), new Vector2(36f, -184f), new Vector2(342f, 64f), Vellum);
+            GameObject toastGo = Text(toast.transform, "TMP_ToastText", string.Empty, 15f, Ink, new Vector2(12f, -10f), new Vector2(318f, 44f), new Vector2(0f, 1f));
+            toastGo.GetComponent<TextMeshProUGUI>().enableWordWrapping = true;
             toast.SetActive(false);
         }
 
@@ -277,9 +288,17 @@ namespace KaliRiverSweeper.UI.Editor
             GameObject rail = Panel(parent, "TC_EcologicalHydroRail", new Vector2(0.5f, 1f), new Vector2(0f, -32f), new Vector2(780f, 76f), Vellum);
 
             GameObject gunung = Panel(rail.transform, "Cell_GunungSampah", new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(240f, 56f), VellumSolid);
-            Texture(gunung.transform, "Img_Hatch45Fill", "UI_Hatch45_Tile.png", new Vector2(240f, 56f), Vector2.zero, new Vector2(0f, 0f), 1f);
+            GameObject hatchMask = new GameObject("Mask_Hatch45", typeof(RectTransform), typeof(RectMask2D));
+            hatchMask.transform.SetParent(gunung.transform, false);
+            RectTransform hatchMaskRt = (RectTransform)hatchMask.transform;
+            hatchMaskRt.anchorMin = new Vector2(0f, 0f);
+            hatchMaskRt.anchorMax = new Vector2(0f, 0f);
+            hatchMaskRt.pivot = new Vector2(0f, 0f);
+            hatchMaskRt.anchoredPosition = Vector2.zero;
+            hatchMaskRt.sizeDelta = new Vector2(240f, 56f);
+            Texture(hatchMask.transform, "Img_Hatch45Fill", "UI_Hatch45_Tile.png", new Vector2(240f, 56f), Vector2.zero, new Vector2(0f, 0f), 1f);
             // Solid cleared box so the labels stay sharp over the hatch (spec section 1, rule 3).
-            Panel(gunung.transform, "Box_Cleared", new Vector2(0f, 1f), new Vector2(4f, -3f), new Vector2(132f, 50f), VellumSolid);
+            Panel(gunung.transform, "Box_Cleared", new Vector2(0f, 1f), new Vector2(4f, -3f), new Vector2(156f, 50f), VellumSolid);
             Text(gunung.transform, "TMP_GunungLabel", "GUNUNG SAMPAH", 14f, InkSecondary, new Vector2(8f, -6f), new Vector2(220f, 20f), new Vector2(0f, 1f));
             Text(gunung.transform, "TMP_GunungPct", "100%", 28f, Ink, new Vector2(8f, -26f), new Vector2(220f, 34f), new Vector2(0f, 1f));
 
@@ -297,25 +316,20 @@ namespace KaliRiverSweeper.UI.Editor
 
         private static void BuildContextualRail(Transform parent)
         {
-            GameObject rail = Panel(parent, "TC_ContextualAlertRail", new Vector2(0.5f, 1f), new Vector2(0f, -118f), new Vector2(780f, 60f), Clear);
+            GameObject rail = Panel(parent, "TC_ContextualAlertRail", new Vector2(0.5f, 1f), new Vector2(0f, -118f), new Vector2(780f, 92f), Clear);
 
             GameObject bio = Panel(rail.transform, "Strip_BiohazardTimer", new Vector2(0f, 1f), new Vector2(0f, 0f), new Vector2(780f, 28f), Clear);
-            GameObject bioHatchGo = new GameObject("Img_CrossHatch90", typeof(RectTransform), typeof(Image));
-            bioHatchGo.transform.SetParent(bio.transform, false);
-            RectTransform bioHatchRt = (RectTransform)bioHatchGo.transform;
-            bioHatchRt.anchorMin = new Vector2(0f, 1f);
-            bioHatchRt.anchorMax = new Vector2(0f, 1f);
-            bioHatchRt.pivot = new Vector2(0f, 1f);
-            bioHatchRt.anchoredPosition = Vector2.zero;
-            bioHatchRt.sizeDelta = new Vector2(780f, 28f);
-            Image hatchImage = bioHatchGo.GetComponent<Image>();
-            hatchImage.sprite = LoadSprite("UI_CrossHatch90_Magenta.png");
-            hatchImage.type = Image.Type.Filled;
-            hatchImage.fillMethod = Image.FillMethod.Horizontal;
-            hatchImage.fillOrigin = (int)Image.OriginHorizontal.Left;
-            hatchImage.fillAmount = 1f;
-            Panel(bio.transform, "Box_Cleared", new Vector2(0f, 1f), new Vector2(8f, -4f), new Vector2(180f, 20f), VellumSolid);
-            Text(bio.transform, "TMP_BiohazardCountdown", "10s", 18f, Ink, new Vector2(12f, -4f), new Vector2(170f, 22f), new Vector2(0f, 1f));
+            GameObject bioMask = new GameObject("Mask_CrossHatch90", typeof(RectTransform), typeof(RectMask2D));
+            bioMask.transform.SetParent(bio.transform, false);
+            RectTransform bioMaskRt = (RectTransform)bioMask.transform;
+            bioMaskRt.anchorMin = new Vector2(0f, 1f);
+            bioMaskRt.anchorMax = new Vector2(0f, 1f);
+            bioMaskRt.pivot = new Vector2(0f, 1f);
+            bioMaskRt.anchoredPosition = Vector2.zero;
+            bioMaskRt.sizeDelta = new Vector2(780f, 28f);
+            Texture(bioMask.transform, "Img_CrossHatch90", "UI_CrossHatch90_Magenta.png", new Vector2(780f, 28f), Vector2.zero, new Vector2(0f, 1f), 1f);
+            Panel(bio.transform, "Box_Cleared", new Vector2(0f, 1f), new Vector2(8f, -4f), new Vector2(440f, 20f), VellumSolid);
+            Text(bio.transform, "TMP_BiohazardCountdown", "BIOHAZARD · KE KARANTINA (K) · 10s", 16f, Ink, new Vector2(12f, -4f), new Vector2(432f, 22f), new Vector2(0f, 1f));
             bio.SetActive(false);
 
             GameObject sell = Panel(rail.transform, "Strip_SellLockDump", new Vector2(0f, 1f), new Vector2(0f, -32f), new Vector2(780f, 28f), Clear);
@@ -323,6 +337,10 @@ namespace KaliRiverSweeper.UI.Editor
             Panel(sell.transform, "Box_Cleared", new Vector2(0f, 1f), new Vector2(8f, -4f), new Vector2(500f, 20f), VellumSolid);
             Text(sell.transform, "TMP_SellLockText", "JUAL DIKUNCI · AIR >= +1.85m · [Q] BUANG", 18f, Ink, new Vector2(12f, -4f), new Vector2(490f, 22f), new Vector2(0f, 1f));
             sell.SetActive(false);
+
+            GameObject alert = Panel(rail.transform, "Strip_HazardAlert", new Vector2(0f, 1f), new Vector2(0f, -64f), new Vector2(780f, 28f), Vellum);
+            Text(alert.transform, "TMP_AlertText", string.Empty, 15f, Ink, new Vector2(12f, -4f), new Vector2(756f, 22f), new Vector2(0f, 1f));
+            alert.SetActive(false);
         }
 
         private static void BuildEconomyLedger(Transform parent)
@@ -385,24 +403,24 @@ namespace KaliRiverSweeper.UI.Editor
 
         private static void BuildHydroMap(Transform parent)
         {
-            GameObject map = Panel(parent, "BR_VellumHydroMap", new Vector2(1f, 0f), new Vector2(-36f, 32f), new Vector2(360f, 298f), Vellum);
+            GameObject map = Panel(parent, "BR_VellumHydroMap", new Vector2(1f, 0f), new Vector2(-36f, 32f), new Vector2(396f, 330f), Vellum);
             map.transform.localRotation = Quaternion.Euler(0f, 0f, 2.5f);
 
             Texture(map.transform, "Img_ContourCanalBase", "UI_Contour.png", HudMapLayout.ContourArea, HudMapLayout.ContourOrigin, new Vector2(0f, 1f), 1f);
             // Dam marker is centered on Gunung Sampah upstream basin; the controller updates DAM %.
-            GameObject dam = Texture(map.transform, "Img_DamChokeCrossHatch", "UI_CrossHatch90_Magenta.png", new Vector2(64f, 32f), new Vector2(96f, -44f), new Vector2(0f, 1f), 1f);
+            GameObject dam = Texture(map.transform, "Img_DamChokeCrossHatch", "UI_CrossHatch90_Magenta.png", new Vector2(68f, 34f), new Vector2(108f, -49f), new Vector2(0f, 1f), 1f);
             ((RectTransform)dam.transform).pivot = new Vector2(0.5f, 0.5f);
-            Text(map.transform, "TMP_DamLabel", "DAM 0%", 12f, Ink, new Vector2(64f, -68f), new Vector2(72f, 16f), new Vector2(0f, 1f));
+            Text(map.transform, "TMP_DamLabel", "DAM 0%", 13f, Ink, new Vector2(76f, -75f), new Vector2(76f, 18f), new Vector2(0f, 1f));
 
             // Chevron centered on its own position, so it rotates around its middle.
-            GameObject chevron = Texture(map.transform, "Icon_PlayerSampan", "UI_Chevron.png", new Vector2(20f, 20f), new Vector2(96f, -150f), new Vector2(0f, 1f), 1f);
+            GameObject chevron = Texture(map.transform, "Icon_PlayerSampan", "UI_Chevron.png", new Vector2(20f, 20f), new Vector2(108f, -165f), new Vector2(0f, 1f), 1f);
             RectTransform chevronRect = (RectTransform)chevron.transform;
             chevronRect.pivot = new Vector2(0.5f, 0.5f);
 
             Panel(map.transform, "TapePin_TL", new Vector2(0f, 1f), new Vector2(8f, -6f), new Vector2(50f, 14f), TapeTint).transform.localRotation = Quaternion.Euler(0f, 0f, 38f);
-            Panel(map.transform, "TapePin_BR", new Vector2(0f, 1f), new Vector2(302f, -274f), new Vector2(50f, 14f), TapeTint).transform.localRotation = Quaternion.Euler(0f, 0f, 38f);
+            Panel(map.transform, "TapePin_BR", new Vector2(0f, 1f), new Vector2(338f, -306f), new Vector2(50f, 14f), TapeTint).transform.localRotation = Quaternion.Euler(0f, 0f, 38f);
 
-            // 4 discard hubs: solid colored badges; 1 utility hub (KD = Kopdes): outline badge.
+            // 4 discard hubs: solid colored badges; 1 utility hub (KD = Kopdes): outline badge (18x18 so pins never overlap).
             CreateMapPin(map.transform, "Pin_B", "B", new Color32(0x22, 0xC5, 0x5E, 255), VellumSolid, solid: true);
             CreateMapPin(map.transform, "Pin_M", "M", new Color32(0xEA, 0xB3, 0x08, 255), Ink, solid: true);
             CreateMapPin(map.transform, "Pin_K", "K", new Color32(0xA8, 0x55, 0xF7, 255), VellumSolid, solid: true);
@@ -422,26 +440,26 @@ namespace KaliRiverSweeper.UI.Editor
             HudMapLayout.PlaceAt((RectTransform)dam.transform, damCenter);
             ((RectTransform)map.transform.Find("TMP_DamLabel")).anchoredPosition = damCenter + new Vector2(-32f, -26f);
 
-            // Compact legend on the right side of the portrait river map.
+            // Compact legend on the right side of the portrait river map (sized for 720p readability).
             BuildMapLegend(map.transform);
         }
 
         private static void CreateMapPin(Transform parent, string name, string letter, Color badgeColor, Color textColor, bool solid)
         {
-            GameObject pin = Panel(parent, name, new Vector2(0f, 1f), Vector2.zero, new Vector2(22f, 22f), badgeColor);
+            GameObject pin = Panel(parent, name, new Vector2(0f, 1f), Vector2.zero, new Vector2(18f, 18f), badgeColor);
             ((RectTransform)pin.transform).pivot = new Vector2(0.5f, 0.5f);
             if (!solid)
             {
-                Panel(pin.transform, "InnerFill", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f), VellumSolid);
+                Panel(pin.transform, "InnerFill", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f), VellumSolid);
             }
-            GameObject letterGo = Text(pin.transform, "TMP_PinLetter", letter, letter.Length > 1 ? 10.5f : 13f, textColor, Vector2.zero, new Vector2(22f, 22f), new Vector2(0.5f, 0.5f));
+            GameObject letterGo = Text(pin.transform, "TMP_PinLetter", letter, letter.Length > 1 ? 9.5f : 12f, textColor, Vector2.zero, new Vector2(18f, 18f), new Vector2(0.5f, 0.5f));
             letterGo.GetComponent<TextMeshProUGUI>().alignment = TextAlignmentOptions.Center;
         }
 
         private static void BuildMapLegend(Transform parent)
         {
-            float lx = 220f;
-            Text(parent, "Legend/TMP_Title", "PETA SUNGAI", 13f, Ink, new Vector2(lx, -16f), new Vector2(128f, 18f), new Vector2(0f, 1f));
+            float lx = 244f;
+            Text(parent, "Legend/TMP_Title", "PETA SUNGAI", 15f, Ink, new Vector2(lx, -16f), new Vector2(140f, 20f), new Vector2(0f, 1f));
             (string code, string label, Color color, bool solid)[] rows = {
                 ("B", "Bank Sampah", new Color32(0x22, 0xC5, 0x5E, 255), true),
                 ("M", "Medis B3", new Color32(0xEA, 0xB3, 0x08, 255), true),
@@ -451,17 +469,17 @@ namespace KaliRiverSweeper.UI.Editor
             };
             for (int i = 0; i < rows.Length; i++)
             {
-                float y = -44f - i * 26f;
-                GameObject swatch = Panel(parent, "Legend/Swatch_" + rows[i].code, new Vector2(0f, 1f), new Vector2(lx, y - 2f), new Vector2(14f, 14f), rows[i].color);
+                float y = -48f - i * 31f;
+                GameObject swatch = Panel(parent, "Legend/Swatch_" + rows[i].code, new Vector2(0f, 1f), new Vector2(lx, y - 3f), new Vector2(14f, 14f), rows[i].color);
                 if (!rows[i].solid)
                 {
                     Panel(swatch.transform, "Inner", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(8f, 8f), VellumSolid);
                 }
-                Text(parent, "Legend/Label_" + rows[i].code, rows[i].code + " · " + rows[i].label, 12f, InkSecondary, new Vector2(lx + 20f, y), new Vector2(110f, 18f), new Vector2(0f, 1f));
+                Text(parent, "Legend/Label_" + rows[i].code, rows[i].code + " · " + rows[i].label, 14f, InkSecondary, new Vector2(lx + 20f, y), new Vector2(124f, 20f), new Vector2(0f, 1f));
             }
-            Text(parent, "Legend/Label_Bridge", "— Jembatan", 11f, InkSecondary, new Vector2(lx, -212f), new Vector2(128f, 16f), new Vector2(0f, 1f));
-            Text(parent, "Legend/Label_Sluice", "— Pintu Air", 11f, new Color32(0xE1, 0x1D, 0x8F, 255), new Vector2(lx, -230f), new Vector2(128f, 16f), new Vector2(0f, 1f));
-            Text(parent, "Legend/Label_Dam", "# Gunung Sampah", 11f, new Color32(0xE1, 0x1D, 0x8F, 255), new Vector2(lx, -248f), new Vector2(128f, 16f), new Vector2(0f, 1f));
+            Text(parent, "Legend/Label_Bridge", "— Jembatan", 13f, InkSecondary, new Vector2(lx, -216f), new Vector2(140f, 18f), new Vector2(0f, 1f));
+            Text(parent, "Legend/Label_Sluice", "— Pintu Air", 13f, new Color32(0xE1, 0x1D, 0x8F, 255), new Vector2(lx, -238f), new Vector2(140f, 18f), new Vector2(0f, 1f));
+            Text(parent, "Legend/Label_Dam", "# Gunung Sampah", 13f, new Color32(0xE1, 0x1D, 0x8F, 255), new Vector2(lx, -260f), new Vector2(140f, 18f), new Vector2(0f, 1f));
         }
 
         private static GameObject Panel(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size, Color color)
