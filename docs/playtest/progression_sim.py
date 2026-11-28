@@ -20,6 +20,7 @@ UNITS = (2, 4)                            # trashUnits per spawned bundle
 NORMAL_SHARE, MEDICAL_SHARE = 0.80, 0.14  # spec E mix (river spawns and barrier piles)
 PRICK_DMG, PRICK_SCALE = 10, 0.5          # medicalPrickDamage, ToolCatalog.PrickChanceScale
 BIO_GRACE = 30.0
+SEED_BUNDLES, SEED_Z = 10, (-35.0, 55.0)  # RiverTrashSpawner.SeedDriftingTrash: 1-unit drifting bundles at run start
 def bio_dot(n): return min(4.0, 1.5 + 0.5 * max(0, n - 1))
 # map trash_pile clusters baked as snagged live items (1 unit each): (map y, tutorial?)
 PILES = [(325, False), (345, False), (395, False), (515, False), (632, False), (820, False), (1190, True), (1295, True)]
@@ -64,6 +65,9 @@ class Run:
             for i in range(5):
                 c = "N" if tut or i < 3 else ("B" if i == 3 and y < 350 else ("M" if i == 4 else "N"))
                 s.items.append([(y - 720) * .125, c, 1, False])
+        # Run start seed: drifting 1-unit bundles; the same units are skipped from the earliest upstream spawns.
+        for _ in range(SEED_BUNDLES): s.items.append([s.r.uniform(*SEED_Z), s.cls(), 1, True])
+        s.suppress = SEED_BUNDLES
         s.spawn_t = s.surge_t = s.boom_t = 0.0
         s.z = 61.25; s.busy = 0.0
         s.ev = []; s.unlock_t = {}; s.buy_t = {}; s.pay_t = []; s.water_max = 0; s.siaga1 = None; s.siaga2 = None
@@ -110,6 +114,7 @@ class Run:
         if s.spawn_t >= iv and s.gh > .01:
             s.spawn_t = 0
             u = s.r.randint(*UNITS)
+            if s.suppress > 0: u = min(u, s.suppress); s.suppress -= u
             visual = sum(1 for i in s.items if i[3]) + min(s.piled, MAX_BARRIER_PROPS)
             if visual >= VISUAL_CAP: s.piled += u   # over the visual cap the bundle goes straight to the pile
             else: s.items.append([s.r.uniform(-60, -46), s.cls(), u, True])
@@ -333,13 +338,14 @@ class Defender(Sorter):
 
 
 class Optimizer(Arch):
-    """Knows the game: sorts, buys Garuk/Ganco/Capit starters, saves for #13 then #10, sampan, rushes the Gunung."""
+    """Knows the game: sorts, buys the Garuk/Ganco/Capit tier-0 starters, saves for Ganco #13 (Gunung dredge), then sampan/boom and cheapest ladder rungs."""
     name = "Optimizer (save for #13, rush Gunung)"; aim_time = .8; dredges = True; pile_at = 12; storm_pile_at = 6; bio_patience = 25
     route = Sorter.route
     def shopping(s, r):
-        for t in (11, 8, 3, 13, 10):
+        for t in (11, 8, 3):   # ToolCatalog tier-0 role starters
             if t not in r.owned: return [t]
-        return [u for u in ("sampan", "excavator", "boom") if u not in r.upg]
+        if 13 not in r.owned: return [13]   # Ganco ladder #8 -> #13 unlocks Gunung dredge
+        return [u for u in ("sampan", "excavator", "boom") if u not in r.upg] + cheapest_next(r)[:1]
 
 
 def summarize(arch, seeds):
