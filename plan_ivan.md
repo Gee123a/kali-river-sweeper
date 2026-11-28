@@ -116,6 +116,14 @@
 
 ---
 
+### Priority 0: Progression & Village Life Redesign (Core Systems — do first)
+Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
+- [ ] **Task 6A: Playtest P0 fixes**: bake `trash_pile` clusters as live `RiverTrashItem`s in `MapJsonImporter.SpawnTrashCluster` (tutorial piles near spawn first); biohazard grace `10s → 25s` (or timer only on land); stronger storm surge (`5s → 1.5s`).
+- [ ] **Task 6B: Earned tier progression (`RiverGameManager`, `ToolCatalog`)**: remove cumulative-Rp auto unlocks; add `GetToolTier(int)`, `IsTierOpen(int)` (trust threshold 30/50/70/85 + quest flags), tier gating in `BuyTool`, one `OnTierOpened` event (replaces 20 tool toasts); trust deltas per action (correct sort +2, quest +10–20, prick -5); "Setoran Bersih" combo streak (+5%/step, cap +25%, reset on mistake). Sampan and Trash Boom become quest rewards; Excavator stays Rp + Tier 3.
+- [ ] **Task 6C: Quest system**: `Scripts/Core/KaliQuestCatalog.cs` (static table: Q1 Belajar Memilah, Q2 Jarum di Tangga Cuci, Q3 Kail Nyangkut, Q4 Bola Hanyut, Q5 Gotong Royong, Q6 Evakuasi, side Es Teh) + `KaliQuestManager.cs` (listens to existing GM events, `ActiveQuest`, `OnQuestStarted/Progress/Completed/Failed`, max 1 active + 1 storm quest). Quest spawn points in `kali-river-map.json` (`quest_marker` items) and the ball/snag spawns.
+- [ ] **Task 6D: NPC interaction (`KaliAmbientNpc`, new `KaliNpcInteractable.cs`, `KaliNpcDialogue.cs`)**: `[E] Bicara` within 2.5 m, state-based line pick (calm/dirty/storm/high-low trust) from Niki's Bahasa table; reactive behaviour (washers leave below clarity 0.25, kids swim only at clarity ≥ 0.4, fishers drop a "sampah nyangkut" pickable every ~20 s while dirty, head-look within 4 m, cheer on a nearby clean combo); NPC↔NPC chains (chatter gossip pairs, kid→fisher point-and-follow every ~45 s, washer calls kids out in storm → Q6).
+- [ ] **Task 6E: QA + balance**: `KaliCoreQaTests` suites for tier gating, each quest's complete/fail path, combo reset, NPC talk prompt; re-run `docs/playtest/progression_sim.py` (add tiers + quests) to hit good-Sorter TrueSdgVictory 30–50%, no reward gap > 40 s, Tier 3 by ~150–170 s. *(Depends on 6B–6D; supersedes Task 4K.)*
+
 ## 3. Verification & Live Sidang Talking Points
 - Explain **Beer-Lambert turbidity interpolation** (`_WaterClarity` global float driving shader opacity/absorption).
 - Explain **`RiverMath` spline projection** (`CenterX` sinusoid, bridge chokepoint compression, `2.2x` monsoon current multiplier).

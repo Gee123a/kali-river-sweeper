@@ -81,6 +81,12 @@ Previous commit `7509ca6` (`SM_Env_RiverValleyTerrain` & `KaliWaterClarityPrevie
 
 ---
 
+### Priority 0: Progression & Village Life — Quest Landmarks
+Spec: [docs/PROGRESSION_REDESIGN.md](./docs/PROGRESSION_REDESIGN.md) (evidence: [docs/PLAYTEST_PROGRESSION.md](./docs/PLAYTEST_PROGRESSION.md)). Goal: rewards are EARNED (trust tiers + quests), the village reacts and talks, and the SDG win is reachable for good play.
+- [ ] **Step 6A: Quest landmarks (`Environment/`)**: `PF_Env_TanggaCuci` at Bu Siti's spot (`npc_washer_west_mid`, map 442,865) sized for the Q2 needle cluster; jetty-2 snag area (`npc_fisher_jetty2`, map 492,561) with posts the Kail Kusut prop can wrap around; `PF_Env_WarungStall` (bench + counter + awning) for both warungs (`npc_chatter_west_warung` 472,563, `npc_chatter_east_warung` 598,1058); Pak RT's pos ronda / notice board near spawn (310,1210) for the tutorial.
+- [ ] **Step 6B: Readability & clean-water payoff**: wooden wayfinding signs to Pos Medis / Karantina / Bank Sampah (cuts the 60 s reward gaps), and a "clean" variant hook for washing steps/jetties (wet-stone darkening vs. trash-stained) that Ivan can toggle by `waterClarity`.
+- [ ] **Step 6C (Optional): Shortcut drop-offs**: small medical/biohazard drop-box meshes near Dermaga Tengah if the team approves the P2 playtest fix.
+
 ## 4. Sidang Q&A Preparation (30% Understanding of the Process)
 Be ready to open Blender + Shader Graph live and explain:
 1. Why **`Scene Depth - Screen Position (W)`** + **`_WaterClarity`** models the Beer-Lambert light absorption switch from turbid brown sewage to crystal river water.
